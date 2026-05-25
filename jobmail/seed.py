@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from pathlib import Path
 
-from jobmail.config import Settings, get_settings
-from jobmail.models import RawEmail
-from jobmail.pipeline import run as run_pipeline
+from .config import Settings, get_settings
+from .models import RawEmail
+from .pipeline import run as run_pipeline
 
 MOCK_EMAILS: list[dict] = [
     {
@@ -107,8 +106,3 @@ def seed(settings: Settings | None = None) -> int:
     ]
     stats = run_pipeline(source=iter(emails), settings=settings)
     return stats.extracted
-
-
-if __name__ == "__main__":  # pragma: no cover
-    n = seed()
-    print(f"Seeded {n} offers.")

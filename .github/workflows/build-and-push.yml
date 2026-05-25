@@ -1,0 +1,63 @@
+name: Build & push to GHCR
+
+# Build de l'image jobmail-assistant et push sur ghcr.io/sylad.
+# Tagging :
+#   - latest                  (toujours)
+#   - sha-<short>             (commit short SHA, à utiliser dans le chart Helm)
+#
+# Prérequis : un PAT GHCR_TOKEN avec scope write:packages (Settings →
+# Secrets and variables → Actions → New).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'jobmail/**'
+      - 'scripts/**'
+      - 'pyproject.toml'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '.github/workflows/build-and-push.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: Sylad
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/sylad/jobmail-assistant:latest
+            ghcr.io/sylad/jobmail-assistant:sha-${{ steps.sha.outputs.short }}
+
+      - name: Print bump hint
+        run: |
+          echo "::notice::Bump le tag dans developpeur-gitops/charts/jobmail/values.yaml :"
+          echo "::notice::  image.tag: sha-${{ steps.sha.outputs.short }}"

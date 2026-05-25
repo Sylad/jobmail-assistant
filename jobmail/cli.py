@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "seed":
-        from scripts.seed_mock import seed
+        from .seed import seed
         n = seed(settings)
         print(f"Seeded {n} mock offers. Open http://{settings.web_host}:{settings.web_port}/")
         return 0
