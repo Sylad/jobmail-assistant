@@ -11,21 +11,24 @@ from ..models import RawEmail
 from .parser import html_to_text, normalize_body
 
 
-def read_mbox(path: Path) -> Iterator[RawEmail]:
-    """Read a Thunderbird MBOX file (e.g. exported via ImportExportTools NG).
-
-    Thunderbird's profile stores INBOX as an MBOX file at:
-      %APPDATA%/Thunderbird/Profiles/<id>/ImapMail/<server>/INBOX
-    Pass that path here.
-    """
+def read_mbox(path: Path, since: datetime | None = None) -> Iterator[RawEmail]:
+    """Read a Thunderbird MBOX file. If `since` is provided, mails older than
+    that timestamp are skipped BEFORE the (costly) body extraction."""
     mbox = mailbox.mbox(str(path))
     for i, msg in enumerate(mbox):
-        body_text, body_html = _extract_bodies(msg)
+        # 1. Cheap header-only check first so we don't pay body parse on old mails.
         received_raw = msg.get("Date", "")
         try:
             received_at = parsedate_to_datetime(received_raw)
         except (TypeError, ValueError):
             received_at = datetime.now()
+        if since is not None:
+            ref = received_at if received_at.tzinfo else received_at.replace(tzinfo=since.tzinfo)
+            if ref < since:
+                continue
+
+        # 2. Now the heavier work — body extraction + decoding.
+        body_text, body_html = _extract_bodies(msg)
         yield RawEmail(
             uid=f"mbox-{i}",
             message_id=_decode_hdr(msg.get("Message-Id", f"mbox-{i}@local")),

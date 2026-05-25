@@ -9,13 +9,21 @@ _NL_RUN = re.compile(r"\n{3,}")
 _QUOTED_LINE = re.compile(r"^>.*$", re.MULTILINE)
 
 
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
 def html_to_text(html: str) -> str:
     if not html:
         return ""
-    soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "head", "meta", "title"]):
-        tag.decompose()
-    text = soup.get_text(separator="\n")
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in soup(["script", "style", "head", "meta", "title"]):
+            tag.decompose()
+        text = soup.get_text(separator="\n")
+    except Exception:
+        # Malformed HTML (bad CDATA, unclosed tags, weird encoding) — fall back
+        # to a brutal tag-strip regex so one rotten mail can't abort the pipeline.
+        text = _TAG_RE.sub(" ", html)
     return _normalize(text)
 
 

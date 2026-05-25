@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}JobMail Assistant{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
+  {% if stats is defined and stats.is_running %}
+  <meta http-equiv="refresh" content="8">
+  {% endif %}
 </head>
 <body>
   <header class="topbar">
@@ -21,6 +24,22 @@
       </form>
     </nav>
   </header>
+  {% if stats is defined %}
+  <div class="live-strip {% if stats.is_running %}live-strip-running{% endif %}">
+    {% if stats.is_running %}
+      <span class="live-dot"></span>
+      <strong>{{ stats.phase or 'Pipeline en cours' }}</strong>
+      {% if stats.uptime %}· {{ stats.uptime }}{% endif %}
+      · auto-refresh 8s
+    {% else %}
+      <span class="live-dot live-dot-idle"></span> Idle
+    {% endif %}
+    · <strong>{{ stats.emails }}</strong> mails ingérés
+    · <strong>{{ stats.jobs }}</strong> job-related (filtre local)
+    · <strong>{{ stats.offers }}</strong> offres extraites
+    {% if stats.last_activity %}· dernière activité {{ stats.last_activity }}{% endif %}
+  </div>
+  {% endif %}
   <main class="container">
     {% block content %}{% endblock %}
   </main>

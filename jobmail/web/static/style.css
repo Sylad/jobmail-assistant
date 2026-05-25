@@ -33,6 +33,27 @@ code { background: var(--bg-elev-2); padding: 2px 6px; border-radius: 4px; }
 .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
 .footer { text-align: center; padding: 24px; color: var(--fg-mute); border-top: 1px solid var(--border); margin-top: 48px; }
 
+.live-strip {
+  background: var(--bg-elev-2);
+  padding: 10px 24px;
+  font-size: 0.85rem;
+  color: var(--fg-mute);
+  border-bottom: 1px solid var(--border);
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.live-strip strong { color: var(--fg); }
+.live-strip-running { background: rgba(74, 222, 128, 0.10); color: var(--fg); }
+.live-dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--ok); margin-right: 4px;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.live-dot-idle { background: var(--fg-mute); animation: none; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 .btn {
   display: inline-block; padding: 8px 14px; background: var(--bg-elev-2);
   color: var(--fg); border: 1px solid var(--border); border-radius: var(--radius);
