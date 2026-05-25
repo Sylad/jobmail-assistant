@@ -3,6 +3,7 @@ from __future__ import annotations
 import mailbox
 from collections.abc import Iterator
 from datetime import datetime
+from email.header import decode_header, make_header
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
@@ -27,9 +28,9 @@ def read_mbox(path: Path) -> Iterator[RawEmail]:
             received_at = datetime.now()
         yield RawEmail(
             uid=f"mbox-{i}",
-            message_id=msg.get("Message-Id", f"mbox-{i}@local"),
-            subject=msg.get("Subject", ""),
-            sender=msg.get("From", ""),
+            message_id=_decode_hdr(msg.get("Message-Id", f"mbox-{i}@local")),
+            subject=_decode_hdr(msg.get("Subject", "")),
+            sender=_decode_hdr(msg.get("From", "")),
             received_at=received_at,
             body_text=normalize_body(body_text),
             body_html=body_html,
@@ -53,6 +54,17 @@ def _extract_bodies(msg) -> tuple[str, str]:
     if not text and html:
         text = html_to_text(html)
     return text, html
+
+
+def _decode_hdr(value) -> str:
+    """RFC 2047 decode + force to str. Mail headers can be Header objects
+    with =?UTF-8?Q?...?= encoded chunks; sqlite refuses non-str bindings."""
+    if value is None:
+        return ""
+    try:
+        return str(make_header(decode_header(str(value))))
+    except (LookupError, UnicodeDecodeError, ValueError):
+        return str(value)
 
 
 def _decode(part) -> str:
