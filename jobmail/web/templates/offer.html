@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ offer.extraction.title or offer.subject }} — JobMail{% endblock %}
+{% block content %}
+<a href="/" class="back">&larr; Retour au dashboard</a>
+<article class="offer-detail">
+  <header>
+    <h1>{{ offer.extraction.title or offer.subject }}</h1>
+    <p class="meta">
+      <strong>{{ offer.extraction.company }}</strong>
+      {% if offer.extraction.location %}· {{ offer.extraction.location }}{% endif %}
+      · score <strong>{{ offer.extraction.relevance_score }}/10</strong>
+    </p>
+  </header>
+
+  <dl class="grid">
+    <dt>Recruteur</dt><dd>{{ offer.extraction.recruiter or offer.sender }}</dd>
+    <dt>Mode</dt><dd>{{ offer.extraction.work_mode.value }}</dd>
+    <dt>Contrat</dt><dd>{{ offer.extraction.contract_type.value }}</dd>
+    <dt>Anglais requis</dt><dd>{{ 'oui' if offer.extraction.english_required else 'non' }}</dd>
+    <dt>Reçu le</dt><dd>{{ offer.received_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+    <dt>Sujet</dt><dd>{{ offer.subject }}</dd>
+  </dl>
+
+  <section>
+    <h2>Technos détectées</h2>
+    {% for t in offer.extraction.technos %}<span class="chip">{{ t }}</span>{% endfor %}
+    {% if not offer.extraction.technos %}<p class="muted">Aucune.</p>{% endif %}
+  </section>
+
+  <section>
+    <h2>Résumé</h2>
+    <p>{{ offer.extraction.summary }}</p>
+  </section>
+
+  <section class="actions">
+    <h2>Statut</h2>
+    <form method="post" action="/offers/{{ offer.id }}/status" class="status-form">
+      {% for s in all_statuses %}
+      <button type="submit" name="status" value="{{ s }}"
+              class="btn status-btn status-{{ s }} {% if s == offer.status.value %}active{% endif %}">
+        {{ s }}
+      </button>
+      {% endfor %}
+    </form>
+  </section>
+</article>
+{% endblock %}

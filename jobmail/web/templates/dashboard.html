@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — JobMail{% endblock %}
+{% block content %}
+<section class="filters">
+  <form method="get" class="filter-form">
+    <label>
+      Statut
+      <select name="status">
+        <option value="">— tous —</option>
+        {% for s in all_statuses %}
+          <option value="{{ s }}" {% if s == current_status %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Techno
+      <select name="techno">
+        <option value="">— toutes —</option>
+        {% for t in technos %}
+          <option value="{{ t }}" {% if t == current_techno %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Score min
+      <input type="number" name="min_score" min="0" max="10" value="{{ current_min_score }}">
+    </label>
+    <button type="submit" class="btn">Filtrer</button>
+    <a href="/" class="btn btn-ghost">Reset</a>
+  </form>
+</section>
+
+<section>
+  <h1>Offres détectées <span class="muted">({{ offers | length }})</span></h1>
+  {% if not offers %}
+    <p class="empty">Aucune offre en base. Clique <strong>Refresh</strong> en haut à droite,
+       ou peuple en mock avec <code>python -m jobmail seed</code>.</p>
+  {% else %}
+    <table class="offers">
+      <thead>
+        <tr>
+          <th>Score</th>
+          <th>Titre</th>
+          <th>Société</th>
+          <th>Lieu</th>
+          <th>Mode</th>
+          <th>Contrat</th>
+          <th>Technos</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in offers %}
+        <tr class="score-{{ o.extraction.relevance_score }}">
+          <td><strong>{{ o.extraction.relevance_score }}/10</strong></td>
+          <td>{{ o.extraction.title or o.subject }}</td>
+          <td>{{ o.extraction.company }}</td>
+          <td>{{ o.extraction.location }}</td>
+          <td>{{ o.extraction.work_mode.value }}</td>
+          <td>{{ o.extraction.contract_type.value }}</td>
+          <td class="technos">
+            {% for t in o.extraction.technos[:5] %}<span class="chip">{{ t }}</span>{% endfor %}
+            {% if o.extraction.technos | length > 5 %}<span class="chip">+{{ o.extraction.technos|length - 5 }}</span>{% endif %}
+          </td>
+          <td><span class="status status-{{ o.status.value }}">{{ o.status.value }}</span></td>
+          <td><a class="btn btn-sm" href="/offers/{{ o.id }}">Voir</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</section>
+{% endblock %}

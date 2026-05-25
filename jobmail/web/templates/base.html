@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}JobMail Assistant{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand">📨 JobMail Assistant</a>
+    <nav>
+      <span class="badge">Provider: <strong>{{ provider | default('mock') }}</strong></span>
+      {% if imap_enabled is defined %}
+        <span class="badge {% if imap_enabled %}badge-ok{% else %}badge-warn{% endif %}">
+          IMAP: {{ 'on' if imap_enabled else 'off' }}
+        </span>
+      {% endif %}
+      <form method="post" action="/refresh" style="display:inline">
+        <button type="submit" class="btn">↻ Refresh</button>
+      </form>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    <small>Privacy-first · all filtering runs locally · only job-related mails reach the LLM.</small>
+  </footer>
+</body>
+</html>
