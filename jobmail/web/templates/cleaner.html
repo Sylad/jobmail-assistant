@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Mailbox cleaner — JobMail{% endblock %}
 {% block content %}
+{% set current_scan_offset = scan_offset | default(0) | int %}
 <section class="tool-head">
   <h1>Mailbox cleaner</h1>
   <p class="muted">
@@ -37,7 +38,7 @@
     </label>
     <label>
       Ignorer les N premiers
-      <input type="number" name="scan_offset" min="0" value="{{ scan_offset }}">
+      <input type="number" name="scan_offset" min="0" value="{{ current_scan_offset }}">
     </label>
     <button type="submit" class="btn">
       {% if source == 'parsed_jobs' %}Scanner jobs nettoyables{% else %}Scanner pubs anciennes{% endif %}
@@ -64,10 +65,10 @@
       <span class="muted">Mails scannes</span>
       <strong>{{ report.scanned_count }}</strong>
     </div>
-    {% if source == 'thunderbird' and scan_offset %}
+    {% if source == 'thunderbird' and current_scan_offset %}
     <div class="stat-box">
       <span class="muted">Mails ignores avant scan</span>
-      <strong>{{ scan_offset }}</strong>
+      <strong>{{ current_scan_offset }}</strong>
     </div>
     {% endif %}
     <div class="stat-box">
@@ -81,12 +82,12 @@
     <input type="hidden" name="source" value="thunderbird">
     <input type="hidden" name="min_age_days" value="{{ min_age_days }}">
     <input type="hidden" name="max_mails" value="{{ max_mails }}">
-    <input type="hidden" name="scan_offset" value="{{ scan_offset + report.scanned_count }}">
+    <input type="hidden" name="scan_offset" value="{{ current_scan_offset + report.scanned_count }}">
     <button type="submit" class="btn btn-primary">Scanner les {{ max_mails }} suivants</button>
-    {% if scan_offset %}
+    {% if current_scan_offset %}
       <a href="/cleaner" class="btn btn-ghost">Repartir du debut</a>
     {% endif %}
-    <span class="muted small">Tranche actuelle : {{ scan_offset + 1 }} - {{ scan_offset + report.scanned_count }}</span>
+    <span class="muted small">Tranche actuelle : {{ current_scan_offset + 1 }} - {{ current_scan_offset + report.scanned_count }}</span>
   </form>
   {% endif %}
 
