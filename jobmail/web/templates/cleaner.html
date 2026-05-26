@@ -59,6 +59,49 @@
 </section>
 
 <section class="filters">
+  <h2>Backups Thunderbird</h2>
+  {% if backup_deleted_count %}
+    <div class="alert alert-ok">{{ backup_deleted_count }} backup(s) supprime(s), {{ backup_deleted_size }} liberes.</div>
+  {% endif %}
+  <div class="stats-grid">
+    <div class="stat-box">
+      <span class="muted">Backups JobMail</span>
+      <strong>{{ backup_summary.file_count }}</strong>
+    </div>
+    <div class="stat-box">
+      <span class="muted">Espace utilise</span>
+      <strong>{{ backup_total_size }}</strong>
+    </div>
+    <div class="stat-box">
+      <span class="muted">Nettoyables</span>
+      <strong>{{ backup_summary.eligible_count }}</strong>
+      <span class="muted small">{{ backup_eligible_size }}</span>
+    </div>
+  </div>
+  <form method="post" action="/cleaner/backups/cleanup" class="filter-form">
+    <label>
+      Garder les backups des N derniers jours
+      <input type="number" name="retention_days" min="1" max="3650" value="{{ backup_summary.retention_days }}">
+    </label>
+    <label class="confirm-line">
+      <input type="checkbox" name="confirm_cleanup" value="yes">
+      Je confirme vouloir supprimer uniquement les anciens backups JobMail dans <code>jobmail-backups</code>.
+    </label>
+    <button type="submit" class="btn btn-danger" {% if backup_summary.eligible_count == 0 %}disabled{% endif %}>
+      Nettoyer les anciens backups
+    </button>
+  </form>
+  {% if backup_summary.backup_roots %}
+  <p class="muted small">
+    Dossiers surveilles :
+    {% for root in backup_summary.backup_roots %}<code>{{ root }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+  </p>
+  {% else %}
+  <p class="muted small">Aucun dossier de backup JobMail trouve pour les MBOX configurees.</p>
+  {% endif %}
+</section>
+
+<section class="filters">
   <form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>
     <input type="hidden" name="source" value="regex">
     <div class="regex-rule-list">

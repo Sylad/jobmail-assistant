@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
+from jobmail.cleaner import CleanerBackupCleanup, CleanerBackupSummary
 from jobmail.cleaner.models import CleanerCandidate, CleanerReport
 from jobmail.web import app as web_app
 
@@ -17,6 +18,7 @@ def _client(monkeypatch, tmp_path):
     settings.imap_password = "pass"
     settings.cleaner_min_age_days = 7
     settings.cleaner_max_mails = 25
+    settings.cleaner_backup_retention_days = 7
     return TestClient(web_app.create_app())
 
 
@@ -48,6 +50,46 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     regex_form = '<form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>'
     assert resp.text.count(regex_form) == 1
     assert '<button type="button" class="btn btn-primary" data-start-regex-scan>Scanner toute la boite par regex</button>' in resp.text
+    assert "Backups Thunderbird" in resp.text
+    assert "Nettoyer les anciens backups" in resp.text
+
+
+def test_cleaner_backup_cleanup_requires_confirmation(monkeypatch, tmp_path):
+    def fail_cleanup(*args, **kwargs):
+        raise AssertionError("cleanup must not run without confirmation")
+
+    monkeypatch.setattr(web_app, "delete_old_cleaner_backups", fail_cleanup)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post("/cleaner/backups/cleanup", data={"retention_days": "7"})
+
+    assert resp.status_code == 400
+    assert "Confirmation obligatoire" in resp.text
+
+
+def test_cleaner_backup_cleanup_runs_after_confirmation(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_cleanup(settings, *, retention_days):
+        calls["retention_days"] = retention_days
+        return CleanerBackupCleanup(
+            deleted_count=2,
+            deleted_bytes=2048,
+            summary=CleanerBackupSummary(retention_days=retention_days),
+        )
+
+    monkeypatch.setattr(web_app, "delete_old_cleaner_backups", fake_cleanup)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post(
+        "/cleaner/backups/cleanup",
+        data={"retention_days": "14", "confirm_cleanup": "yes"},
+    )
+
+    assert resp.status_code == 200
+    assert calls == {"retention_days": 14}
+    assert "2 backup(s) supprime(s)" in resp.text
+    assert "2.0 KB liberes" in resp.text
 
 
 def test_cleaner_page_loads_saved_regex_rules(monkeypatch, tmp_path):

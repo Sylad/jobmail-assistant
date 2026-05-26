@@ -1,6 +1,11 @@
 from .models import CleanerCandidate, CleanerReport
 from .service import (
+    CleanerBackupCleanup,
+    CleanerBackupFile,
+    CleanerBackupSummary,
     CleanerError,
+    delete_old_cleaner_backups,
+    list_cleaner_backups,
     move_scanned_regex_uids_to_trash,
     move_thunderbird_to_trash,
     move_thunderbird_regex_to_trash,
@@ -14,8 +19,13 @@ from .service import (
 
 __all__ = [
     "CleanerCandidate",
+    "CleanerBackupCleanup",
+    "CleanerBackupFile",
+    "CleanerBackupSummary",
     "CleanerError",
     "CleanerReport",
+    "delete_old_cleaner_backups",
+    "list_cleaner_backups",
     "move_parsed_jobs_to_trash",
     "move_scanned_regex_uids_to_trash",
     "move_thunderbird_regex_to_trash",

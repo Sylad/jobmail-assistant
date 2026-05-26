@@ -23,6 +23,7 @@ class Settings(BaseSettings):
         "*.default*/Mail/pop.*/Inbox"
     )
     cleaner_regex_rules_path: Path = Path("./data/cleaner-regex-rules.json")
+    cleaner_backup_retention_days: int = 7
 
     db_path: Path = Path("./data/jobmail.db")
 

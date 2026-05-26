@@ -18,6 +18,8 @@ from fastapi.templating import Jinja2Templates
 from ..cleaner import (
     CleanerError,
     CleanerReport,
+    delete_old_cleaner_backups,
+    list_cleaner_backups,
     move_parsed_jobs_to_trash,
     move_scanned_regex_uids_to_trash,
     move_thunderbird_to_trash,
@@ -197,6 +199,15 @@ def _save_regex_rules(settings, rules: list[tuple[str, str]]) -> None:
     path.write_text(json.dumps({"rules": clean_rules}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def _format_bytes(size: int) -> str:
+    value = float(size)
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1024 or unit == "GB":
+            return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
+        value /= 1024
+    return f"{value:.1f} GB"
+
+
 def _cleaner_context(
     *,
     request: Request,
@@ -213,10 +224,14 @@ def _cleaner_context(
     error: str = "",
     moved_count: int = 0,
     moved_destination: str = "",
+    backup_deleted_count: int = 0,
+    backup_deleted_bytes: int = 0,
+    backup_retention_days: int | None = None,
 ) -> dict:
     if regex_rules is None and not sender_regex and not subject_regex:
         regex_rules = _load_saved_regex_rules(settings)
     display_rules = _display_regex_rules(regex_rules, sender_regex, subject_regex)
+    backup_summary = list_cleaner_backups(settings, retention_days=backup_retention_days)
     return {
         "request": request,
         "report": report,
@@ -233,6 +248,11 @@ def _cleaner_context(
         "error": error,
         "moved_count": moved_count,
         "moved_destination": moved_destination,
+        "backup_summary": backup_summary,
+        "backup_total_size": _format_bytes(backup_summary.total_bytes),
+        "backup_eligible_size": _format_bytes(backup_summary.eligible_bytes),
+        "backup_deleted_count": backup_deleted_count,
+        "backup_deleted_size": _format_bytes(backup_deleted_bytes),
         "provider": settings.llm_provider,
         "imap_enabled": settings.imap_enabled,
     }
@@ -379,6 +399,37 @@ def create_app() -> FastAPI:
             request,
             "cleaner.html",
             _cleaner_context(request=request, settings=settings),
+        )
+
+    @app.post("/cleaner/backups/cleanup", response_class=HTMLResponse)
+    def cleaner_backup_cleanup(
+        request: Request,
+        retention_days: int = Form(settings.cleaner_backup_retention_days),
+        confirm_cleanup: str = Form(""),
+    ):
+        if confirm_cleanup != "yes":
+            return templates.TemplateResponse(
+                request,
+                "cleaner.html",
+                _cleaner_context(
+                    request=request,
+                settings=settings,
+                backup_retention_days=retention_days,
+                error="Confirmation obligatoire avant de nettoyer les backups.",
+                ),
+                status_code=400,
+            )
+        cleanup = delete_old_cleaner_backups(settings, retention_days=retention_days)
+        return templates.TemplateResponse(
+            request,
+            "cleaner.html",
+            _cleaner_context(
+                request=request,
+                settings=settings,
+                backup_deleted_count=cleanup.deleted_count,
+                backup_deleted_bytes=cleanup.deleted_bytes,
+                backup_retention_days=retention_days,
+            ),
         )
 
     @app.get("/cleaner/jobs", response_class=HTMLResponse)

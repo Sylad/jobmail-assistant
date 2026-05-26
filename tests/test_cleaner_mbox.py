@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from pathlib import Path
 
 from jobmail.cleaner.service import (
+    delete_old_cleaner_backups,
+    list_cleaner_backups,
     move_parsed_jobs_to_trash,
     move_thunderbird_regex_to_trash,
     move_thunderbird_to_trash,
@@ -136,6 +139,39 @@ def test_move_thunderbird_to_trash_keeps_profile_backup_outside_mail_folder(tmp_
     )
     assert mail_folder_backups == []
     assert profile_backups
+
+
+def test_cleaner_backup_cleanup_deletes_only_old_jobmail_backups(tmp_path: Path):
+    profile_root = tmp_path / "profile.default"
+    account_dir = profile_root / "Mail" / "pop.example.com"
+    backup_dir = profile_root / "jobmail-backups" / "Mail" / "pop.example.com"
+    account_dir.mkdir(parents=True)
+    backup_dir.mkdir(parents=True)
+    mbox = account_dir / "Inbox"
+    mbox.write_text(_make_msg(1, "Inbox", "Body"), encoding="utf-8")
+    old_backup = backup_dir / "Inbox.jobmail-backup-20260501-120000.mbox"
+    fresh_backup = backup_dir / "Inbox.jobmail-backup-20260526-120000.mbox"
+    unrelated = backup_dir / "manual-copy.mbox"
+    old_backup.write_text("old", encoding="utf-8")
+    fresh_backup.write_text("fresh", encoding="utf-8")
+    unrelated.write_text("manual", encoding="utf-8")
+    old_time = datetime(2020, 1, 1).timestamp()
+    os.utime(old_backup, (old_time, old_time))
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+        cleaner_backup_retention_days=7,
+    )
+
+    summary = list_cleaner_backups(settings)
+    cleanup = delete_old_cleaner_backups(settings)
+
+    assert summary.file_count == 2
+    assert summary.eligible_count == 1
+    assert cleanup.deleted_count == 1
+    assert not old_backup.exists()
+    assert fresh_backup.exists()
+    assert unrelated.exists()
 
 
 def test_scan_thunderbird_regex_matches_sender_or_subject_and_keeps_safety(tmp_path: Path):

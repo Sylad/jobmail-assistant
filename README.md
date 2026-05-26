@@ -199,6 +199,10 @@ Operational notes:
   stores cleaner backups under `<profile>/jobmail-backups/` instead.
 - MBOX files can be several GB. Prefer same-volume hardlinks/moves for backups
   and avoid cross-filesystem copies unless explicitly needed.
+- Backups are not deleted automatically in the background. The cleaner page
+  shows how many JobMail backups exist under `<profile>/jobmail-backups/`, how
+  much space they use, and exposes an explicit confirmed cleanup action for
+  backups older than `CLEANER_BACKUP_RETENTION_DAYS` days (`7` by default).
 
 ## Tests
 

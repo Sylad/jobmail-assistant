@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from glob import glob
 from pathlib import Path
@@ -25,6 +26,45 @@ logger = logging.getLogger(__name__)
 
 class CleanerError(RuntimeError):
     pass
+
+
+@dataclass
+class CleanerBackupFile:
+    path: Path
+    size_bytes: int
+    modified_at: datetime
+    age_days: int
+    eligible: bool
+
+
+@dataclass
+class CleanerBackupSummary:
+    retention_days: int
+    backup_roots: list[Path] = field(default_factory=list)
+    files: list[CleanerBackupFile] = field(default_factory=list)
+
+    @property
+    def file_count(self) -> int:
+        return len(self.files)
+
+    @property
+    def total_bytes(self) -> int:
+        return sum(file.size_bytes for file in self.files)
+
+    @property
+    def eligible_count(self) -> int:
+        return sum(1 for file in self.files if file.eligible)
+
+    @property
+    def eligible_bytes(self) -> int:
+        return sum(file.size_bytes for file in self.files if file.eligible)
+
+
+@dataclass
+class CleanerBackupCleanup:
+    deleted_count: int
+    deleted_bytes: int
+    summary: CleanerBackupSummary
 
 
 def scan_old_promotions(
@@ -438,6 +478,56 @@ def move_parsed_jobs_to_trash(
     )
 
 
+def list_cleaner_backups(settings: Settings, *, retention_days: int | None = None) -> CleanerBackupSummary:
+    retention = _clean_backup_retention(retention_days, settings.cleaner_backup_retention_days)
+    roots = _cleaner_backup_roots(settings)
+    now = datetime.now(timezone.utc)
+    files: list[CleanerBackupFile] = []
+
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*.jobmail-backup-*.mbox"), key=lambda item: str(item).lower()):
+            if path.is_symlink() or not path.is_file():
+                continue
+            stat = path.stat()
+            modified_at = datetime.fromtimestamp(stat.st_mtime, timezone.utc)
+            age_days = max(0, int((now - modified_at).total_seconds() // 86400))
+            files.append(
+                CleanerBackupFile(
+                    path=path,
+                    size_bytes=stat.st_size,
+                    modified_at=modified_at,
+                    age_days=age_days,
+                    eligible=modified_at < now - timedelta(days=retention),
+                )
+            )
+
+    return CleanerBackupSummary(retention_days=retention, backup_roots=roots, files=files)
+
+
+def delete_old_cleaner_backups(settings: Settings, *, retention_days: int | None = None) -> CleanerBackupCleanup:
+    summary = list_cleaner_backups(settings, retention_days=retention_days)
+    deleted_count = 0
+    deleted_bytes = 0
+    for backup in summary.files:
+        if not backup.eligible:
+            continue
+        try:
+            backup.path.unlink()
+        except FileNotFoundError:
+            continue
+        deleted_count += 1
+        deleted_bytes += backup.size_bytes
+        logger.info("Cleaner deleted old backup=%s size=%d", backup.path, backup.size_bytes)
+    refreshed = list_cleaner_backups(settings, retention_days=summary.retention_days)
+    return CleanerBackupCleanup(
+        deleted_count=deleted_count,
+        deleted_bytes=deleted_bytes,
+        summary=refreshed,
+    )
+
+
 def _message_text(msg) -> str:
     body_text = (getattr(msg, "text", "") or "").strip()
     body_html = getattr(msg, "html", "") or ""
@@ -465,6 +555,10 @@ def _clean_unbounded_limit(value: int | None) -> int:
     if value is None:
         return 0
     return max(0, int(value))
+
+
+def _clean_backup_retention(value: int | None, default: int) -> int:
+    return max(1, min(3650, int(value if value is not None else default)))
 
 
 CompiledRegexRule = tuple[int, re.Pattern | None, re.Pattern | None]
@@ -709,6 +803,11 @@ def _backup_dir_for_inbox(inbox_path: Path) -> Path:
         account_name = inbox_path.parent.name
         return profile_root / "jobmail-backups" / "Mail" / account_name
     return inbox_path.parent / "jobmail-backups"
+
+
+def _cleaner_backup_roots(settings: Settings) -> list[Path]:
+    roots = {_backup_dir_for_inbox(path) for path in _resolve_mbox_paths(settings.cleaner_mbox_patterns)}
+    return sorted(roots, key=lambda path: str(path).lower())
 
 
 def _iter_mbox_chunks(path: Path):
