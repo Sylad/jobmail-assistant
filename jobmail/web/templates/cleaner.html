@@ -89,7 +89,7 @@
       Limite max-mails
       <input type="number" name="max_mails" min="0" value="{% if source == 'regex' %}{{ max_mails }}{% else %}0{% endif %}">
     </label>
-    <button type="submit" class="btn btn-primary">Scanner toute la boite par regex</button>
+    <button type="button" class="btn btn-primary" data-start-regex-scan>Scanner toute la boite par regex</button>
     <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
   </form>
   <div class="scan-progress" data-scan-progress hidden>
@@ -391,7 +391,7 @@
   const mailbox = progress.querySelector("[data-scan-progress-mailbox]");
   const elapsed = progress.querySelector("[data-scan-progress-time]");
   const title = progress.querySelector("[data-scan-progress-title]");
-  const submitButton = form.querySelector("button[type='submit']:not([name='export_csv'])");
+  const submitButton = form.querySelector("[data-start-regex-scan]");
 
   const setProgress = (payload) => {
     if (scanned) scanned.textContent = String(payload.scanned_count || 0);
@@ -421,9 +421,7 @@
     }), 700);
   };
 
-  form.addEventListener("submit", async (event) => {
-    const submitter = event.submitter;
-    if (submitter && submitter.name === "export_csv") return;
+  const startScan = async (event) => {
     event.preventDefault();
     progress.hidden = false;
     if (title) title.textContent = "Scan en cours";
@@ -441,6 +439,13 @@
       if (title) title.textContent = error.message || "Scan en erreur";
       if (submitButton) submitButton.disabled = false;
     }
+  };
+
+  submitButton?.addEventListener("click", startScan);
+  form.addEventListener("submit", async (event) => {
+    const submitter = event.submitter;
+    if (submitter && submitter.name === "export_csv") return;
+    await startScan(event);
   });
 })();
 </script>

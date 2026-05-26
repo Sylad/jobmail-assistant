@@ -46,6 +46,7 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     assert '<input type="hidden" name="source" value="regex">' in resp.text
     regex_form = '<form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>'
     assert resp.text.count(regex_form) == 1
+    assert '<button type="button" class="btn btn-primary" data-start-regex-scan>Scanner toute la boite par regex</button>' in resp.text
 
 
 def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
