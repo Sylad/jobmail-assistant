@@ -228,6 +228,14 @@ def create_app() -> FastAPI:
             _cleaner_context(request=request, settings=settings),
         )
 
+    @app.get("/cleaner/jobs", response_class=HTMLResponse)
+    def cleaner_jobs(request: Request):
+        return templates.TemplateResponse(
+            request,
+            "cleaner.html",
+            _cleaner_context(request=request, settings=settings, source="parsed_jobs"),
+        )
+
     @app.post("/cleaner/scan", response_class=HTMLResponse)
     def cleaner_scan(
         request: Request,

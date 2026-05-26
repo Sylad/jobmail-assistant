@@ -29,6 +29,7 @@ def _report() -> CleanerReport:
                 sender="newsletter@example.com",
                 subject="Promos anciennes",
                 reason="mot-cle promotionnel: newsletter",
+                offer_id=42,
             )
         ],
     )
@@ -99,7 +100,19 @@ def test_cleaner_parsed_jobs_scan_uses_dedicated_source(monkeypatch, tmp_path):
 
     assert resp.status_code == 200
     assert calls == {"min_age_days": 15, "max_mails": 20}
-    assert "offres <code>interesting</code> sont protegees" in resp.text
+    assert "offre <code>ignored</code>" in resp.text
+    assert "offres <code>interesting</code> et <code>replied</code> sont protegees" in resp.text
+    assert "/offers/42" in resp.text
+
+
+def test_cleaner_jobs_page_selects_parsed_jobs_source(monkeypatch, tmp_path):
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.get("/cleaner/jobs")
+
+    assert resp.status_code == 200
+    assert 'value="parsed_jobs" selected' in resp.text
+    assert "Scanner jobs nettoyables" in resp.text
 
 
 def test_cleaner_move_requires_confirmation(monkeypatch, tmp_path):

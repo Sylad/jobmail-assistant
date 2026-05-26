@@ -82,7 +82,7 @@ def test_move_thunderbird_to_trash_moves_selected_candidate(tmp_path: Path):
     assert list(tmp_path.glob("Inbox.jobmail-backup-*"))
 
 
-def test_scan_parsed_job_mails_excludes_interesting(tmp_path: Path):
+def test_scan_parsed_job_mails_only_keeps_ignored_or_low_score(tmp_path: Path):
     mbox = tmp_path / "Inbox"
     mbox.write_text(_make_msg(1, "Mission Java", "Votre candidature emploi Java."), encoding="utf-8")
     settings = Settings(
@@ -117,13 +117,38 @@ def test_scan_parsed_job_mails_excludes_interesting(tmp_path: Path):
             OfferExtraction(title="Mission GeoServer", relevance_score=9),
         )
         update_status(conn, interesting_id, OfferStatus.INTERESTING)
+        replied = RawEmail(
+            uid=f"{tmp_path.name}:mbox-500",
+            message_id="<job-3@local>",
+            subject="Mission PostGIS",
+            sender="recruiter@example.com",
+            received_at=datetime(2020, 1, 5, 12, 0, 0),
+            body_text="Mission PostGIS",
+        )
+        insert_email(conn, replied, job_related=True, matched_keywords=["postgis"])
+        replied_id = upsert_offer(conn, replied.uid, OfferExtraction(title="Mission PostGIS", relevance_score=8))
+        update_status(conn, replied_id, OfferStatus.REPLIED)
+        low_score = RawEmail(
+            uid=f"{tmp_path.name}:mbox-700",
+            message_id="<job-4@local>",
+            subject="Alerte job board",
+            sender="jobs@example.com",
+            received_at=datetime(2020, 1, 5, 12, 0, 0),
+            body_text="Alerte job board",
+        )
+        insert_email(conn, low_score, job_related=True, matched_keywords=["java"])
+        upsert_offer(conn, low_score.uid, OfferExtraction(title="Alerte job board", relevance_score=3))
 
     report = scan_parsed_job_mails(settings, min_age_days=7, max_mails=20)
 
-    assert report.candidate_count == 1
+    assert report.candidate_count == 2
     assert report.candidates[0].source == "job"
     assert report.candidates[0].uid.startswith("mbox:")
     assert "status=ignored" in report.candidates[0].reason
+    assert report.candidates[0].offer_id > 0
+    assert report.candidates[0].status == "ignored"
+    assert report.candidates[0].score == 8
+    assert {candidate.subject for candidate in report.candidates} == {"Mission Java", "Alerte job board"}
 
 
 def test_move_parsed_jobs_to_trash_uses_db_allowlist(tmp_path: Path):
@@ -145,7 +170,7 @@ def test_move_parsed_jobs_to_trash_uses_db_allowlist(tmp_path: Path):
         )
         insert_email(conn, email, job_related=True, matched_keywords=["java"])
         offer_id = upsert_offer(conn, email.uid, OfferExtraction(title="Mission Java", relevance_score=8))
-        update_status(conn, offer_id, OfferStatus.REPLIED)
+        update_status(conn, offer_id, OfferStatus.IGNORED)
     report = scan_parsed_job_mails(settings, min_age_days=7, max_mails=20)
 
     moved_count, _moved_report = move_parsed_jobs_to_trash(

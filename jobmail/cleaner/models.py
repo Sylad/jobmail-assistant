@@ -14,6 +14,10 @@ class CleanerCandidate:
     source: str = "imap"
     mailbox: str = ""
     source_path: str = ""
+    offer_id: int = 0
+    status: str = ""
+    score: int = -1
+    company: str = ""
 
     @property
     def can_move(self) -> bool:

@@ -157,7 +157,8 @@ def scan_parsed_job_mails(
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=min_age)
     sql = """
-        SELECT e.uid, e.subject, e.sender, e.received_at, o.title, o.company, o.status, o.relevance_score
+        SELECT e.uid, e.subject, e.sender, e.received_at, o.id AS offer_id,
+               o.title, o.company, o.status, o.relevance_score
         FROM emails e
         JOIN offers o ON o.email_uid = e.uid
         WHERE e.job_related = 1
@@ -180,11 +181,17 @@ def scan_parsed_job_mails(
             received_at = received_at.replace(tzinfo=timezone.utc)
         if received_at >= cutoff:
             continue
-        if row["status"] == "interesting" and not include_interesting:
+        status = row["status"] or ""
+        score = int(row["relevance_score"] or 0)
+        if status == "interesting" and not include_interesting:
+            continue
+        if status == "replied":
+            continue
+        if status != "ignored" and score > 3:
             continue
 
         title = row["title"] or row["subject"]
-        reason = f"job deja parse; status={row['status']}; score={row['relevance_score']}/10"
+        reason = f"job deja parse; status={status}; score={score}/10"
         if row["company"]:
             reason += f"; company={row['company']}"
         report.candidates.append(
@@ -197,6 +204,10 @@ def scan_parsed_job_mails(
                 source="job",
                 mailbox=mailbox,
                 source_path=str(paths_by_mailbox.get(mailbox, "")),
+                offer_id=int(row["offer_id"] or 0),
+                status=status,
+                score=score,
+                company=row["company"] or "",
             )
         )
 

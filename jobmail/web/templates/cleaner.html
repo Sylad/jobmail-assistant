@@ -35,7 +35,9 @@
       Limite max-mails
       <input type="number" name="max_mails" min="1" max="1000" value="{{ max_mails }}">
     </label>
-    <button type="submit" class="btn">Scanner pubs anciennes</button>
+    <button type="submit" class="btn">
+      {% if source == 'parsed_jobs' %}Scanner jobs nettoyables{% else %}Scanner pubs anciennes{% endif %}
+    </button>
     <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
   </form>
   {% if source == 'thunderbird' %}
@@ -45,7 +47,8 @@
   </p>
   {% elif source == 'parsed_jobs' %}
   <p class="muted small">
-    Source SQLite : mails de jobs deja extraits. Les offres <code>interesting</code> sont protegees et exclues.
+    Source SQLite : mails de jobs deja extraits. Seuls les mails associes a une offre <code>ignored</code>
+    ou score <= 3 sont proposes. Les offres <code>interesting</code> et <code>replied</code> sont protegees.
   </p>
   {% endif %}
 </section>
@@ -116,6 +119,9 @@
           <th>Date</th>
           <th>Expediteur</th>
           <th>Sujet</th>
+          {% if source == 'parsed_jobs' %}
+          <th>Offre</th>
+          {% endif %}
           <th>Raison</th>
         </tr>
       </thead>
@@ -136,6 +142,15 @@
           <td class="muted small">{{ candidate.received_at.strftime('%Y-%m-%d') }}</td>
           <td>{{ candidate.sender }}</td>
           <td>{{ candidate.subject }}</td>
+          {% if source == 'parsed_jobs' %}
+          <td>
+            {% if candidate.offer_id %}
+              <a class="btn btn-sm btn-ghost" href="/offers/{{ candidate.offer_id }}">Voir</a>
+            {% else %}
+              <span class="muted small">-</span>
+            {% endif %}
+          </td>
+          {% endif %}
           <td><span class="chip">{{ candidate.reason }}</span></td>
         </tr>
       {% endfor %}
@@ -159,7 +174,7 @@
         deplacera les messages selectionnes dans le fichier Trash du meme compte, puis supprimera
         les index .msf pour laisser Thunderbird reconstruire les dossiers.
         {% if source == 'parsed_jobs' %}
-        Les offres marquees interesting sont exclues par securite.
+        Seuls les mails d'offres ignorees ou tres faible score sont selectionnables ; interesting et replied sont exclus.
         {% endif %}
       </p>
       <label class="confirm-line">

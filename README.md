@@ -150,7 +150,9 @@ Move actions:
   selected messages, appends the messages to `Trash`, and removes `.msf` index
   files so Thunderbird rebuilds them. Thunderbird must be closed.
 - Parsed jobs source: already extracted job mails can also be moved to the
-  Thunderbird trash; offers marked `interesting` are protected.
+  Thunderbird trash from `/cleaner/jobs`; only mails linked to ignored offers or
+  offers scored 0-3 are proposed. Offers marked `interesting` or `replied` are
+  protected.
 
 ## Thunderbird
 
