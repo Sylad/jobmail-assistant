@@ -215,7 +215,17 @@ def test_cleaner_regex_scan_renders_report(monkeypatch, tmp_path):
 
 
 def test_cleaner_regex_scan_progress_endpoints(monkeypatch, tmp_path):
-    def fake_scan(settings, *, sender_regex, subject_regex, regex_rules, min_age_days, max_mails, progress_callback):
+    def fake_scan(
+        settings,
+        *,
+        sender_regex,
+        subject_regex,
+        regex_rules,
+        min_age_days,
+        max_mails,
+        progress_callback,
+        should_cancel,
+    ):
         report = CleanerReport(
             scanned_count=250,
             candidates=[
@@ -481,7 +491,8 @@ def test_cleaner_regex_move_reuses_finished_scan_job(monkeypatch, tmp_path):
 
 
 def test_cleaner_regex_move_progress_endpoints(monkeypatch, tmp_path):
-    def fake_move(settings, *, uids, min_age_days):
+    def fake_move(settings, *, uids, min_age_days, progress_callback):
+        progress_callback(1)
         return 1, CleanerReport(
             scanned_count=12,
             candidates=[

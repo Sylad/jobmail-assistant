@@ -472,6 +472,13 @@
   const elapsed = progress.querySelector("[data-scan-progress-time]");
   const title = progress.querySelector("[data-scan-progress-title]");
   const submitButton = form.querySelector("[data-start-regex-scan]");
+  let currentJobId = "";
+  const cancelButton = document.createElement("button");
+  cancelButton.type = "button";
+  cancelButton.className = "btn btn-sm btn-ghost";
+  cancelButton.textContent = "Arreter";
+  cancelButton.hidden = true;
+  progress.querySelector(".scan-progress-head")?.appendChild(cancelButton);
 
   const setProgress = (payload) => {
     if (scanned) scanned.textContent = String(payload.scanned_count || 0);
@@ -490,6 +497,12 @@
       window.location.href = payload.result_url;
       return;
     }
+    if (payload.status === "cancelled") {
+      if (title) title.textContent = "Scan annule";
+      if (submitButton) submitButton.disabled = false;
+      cancelButton.hidden = true;
+      return;
+    }
     if (payload.status === "error") {
       if (title) title.textContent = payload.error || "Scan en erreur";
       if (submitButton) submitButton.disabled = false;
@@ -504,6 +517,7 @@
   const startScan = async (event) => {
     event.preventDefault();
     progress.hidden = false;
+    cancelButton.hidden = false;
     if (title) title.textContent = "Scan en cours";
     if (submitButton) submitButton.disabled = true;
     try {
@@ -513,13 +527,22 @@
       });
       if (!response.ok) throw new Error("Impossible de lancer le scan.");
       const payload = await response.json();
+      currentJobId = payload.id;
       setProgress(payload);
       await poll(payload.id);
     } catch (error) {
       if (title) title.textContent = error.message || "Scan en erreur";
       if (submitButton) submitButton.disabled = false;
+      cancelButton.hidden = true;
     }
   };
+
+  cancelButton.addEventListener("click", async () => {
+    if (!currentJobId) return;
+    cancelButton.disabled = true;
+    if (title) title.textContent = "Arret demande";
+    await fetch(`/cleaner/scan/cancel/${currentJobId}`, { method: "POST" }).catch(() => {});
+  });
 
   submitButton?.addEventListener("click", startScan);
   form.addEventListener("submit", async (event) => {
@@ -539,6 +562,13 @@
   const elapsed = progress.querySelector("[data-move-progress-time]");
   const title = progress.querySelector("[data-move-progress-title]");
   const submitButton = form.querySelector("button[type='submit']");
+  let currentMoveJobId = "";
+  const cancelButton = document.createElement("button");
+  cancelButton.type = "button";
+  cancelButton.className = "btn btn-sm btn-ghost";
+  cancelButton.textContent = "Arreter";
+  cancelButton.hidden = true;
+  progress.querySelector(".scan-progress-head")?.appendChild(cancelButton);
 
   const setProgress = (payload) => {
     if (moved) moved.textContent = String(payload.moved_count || 0);
@@ -556,6 +586,12 @@
       window.location.href = payload.result_url;
       return;
     }
+    if (payload.status === "cancelled") {
+      if (title) title.textContent = "Deplacement annule";
+      if (submitButton) submitButton.disabled = false;
+      cancelButton.hidden = true;
+      return;
+    }
     if (payload.status === "error") {
       if (title) title.textContent = payload.error || "Deplacement en erreur";
       if (submitButton) submitButton.disabled = false;
@@ -570,6 +606,7 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     progress.hidden = false;
+    cancelButton.hidden = false;
     if (title) title.textContent = "Deplacement en cours";
     if (submitButton) submitButton.disabled = true;
     try {
@@ -582,12 +619,21 @@
         throw new Error(payload.detail || "Impossible de lancer le deplacement.");
       }
       const payload = await response.json();
+      currentMoveJobId = payload.id;
       setProgress(payload);
       await poll(payload.id);
     } catch (error) {
       if (title) title.textContent = error.message || "Deplacement en erreur";
       if (submitButton) submitButton.disabled = false;
+      cancelButton.hidden = true;
     }
+  });
+
+  cancelButton.addEventListener("click", async () => {
+    if (!currentMoveJobId) return;
+    cancelButton.disabled = true;
+    if (title) title.textContent = "Arret demande";
+    await fetch(`/cleaner/move/cancel/${currentMoveJobId}`, { method: "POST" }).catch(() => {});
   });
 })();
 </script>

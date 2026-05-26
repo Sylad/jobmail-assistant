@@ -232,6 +232,7 @@ def scan_thunderbird_regex(
     min_age_days: int | None = None,
     max_mails: int | None = None,
     progress_callback: Callable[[CleanerReport, str], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> CleanerReport:
     rules = _compile_cleaner_regex_rules(sender_regex, subject_regex, regex_rules)
     min_age = _clean_min_age(min_age_days, settings.cleaner_min_age_days)
@@ -247,6 +248,9 @@ def scan_thunderbird_regex(
         if progress_callback:
             progress_callback(report, mailbox_name)
         for mail in read_mbox(path):
+            if should_cancel and should_cancel():
+                logger.info("Cleaner regex scan cancelled scanned=%d candidates=%d", report.scanned_count, report.candidate_count)
+                return report
             if limit and report.scanned_count >= limit:
                 logger.info("Cleaner regex MBOX scan stopped at max_mails=%d candidates=%d", limit, report.candidate_count)
                 if progress_callback:
@@ -468,6 +472,7 @@ def move_scanned_regex_uids_to_trash(
     uids: list[str],
     min_age_days: int | None = None,
     require_thunderbird_closed: bool = True,
+    progress_callback: Callable[[int], None] | None = None,
 ) -> tuple[int, CleanerReport]:
     return _move_mbox_uids_to_trash(
         settings,
@@ -475,6 +480,7 @@ def move_scanned_regex_uids_to_trash(
         min_age_days=min_age_days,
         require_thunderbird_closed=require_thunderbird_closed,
         validator="regex",
+        progress_callback=progress_callback,
     )
 
 
@@ -850,6 +856,7 @@ def _move_mbox_uids_to_trash(
     min_age_days: int | None,
     require_thunderbird_closed: bool,
     validator: str,
+    progress_callback: Callable[[int], None] | None = None,
 ) -> tuple[int, CleanerReport]:
     if not uids:
         raise CleanerError("Aucun mail selectionne.")
@@ -866,9 +873,20 @@ def _move_mbox_uids_to_trash(
         path = paths_by_mailbox.get(mailbox)
         if path is None:
             raise CleanerError(f"MBOX introuvable pour le compte Thunderbird {mailbox!r}.")
-        moved, candidates = _move_offsets_to_trash(path, mailbox, offsets, min_age, validator=validator)
+        moved, candidates = _move_offsets_to_trash(
+            path,
+            mailbox,
+            offsets,
+            min_age,
+            validator=validator,
+            progress_callback=(lambda count, base=moved_count: progress_callback(base + count))
+            if progress_callback
+            else None,
+        )
         moved_count += moved
         moved_candidates.extend(candidates)
+        if progress_callback:
+            progress_callback(moved_count)
 
     if moved_count == 0:
         raise CleanerError("Aucun mail selectionne ne passe les regles de securite.")
@@ -885,6 +903,7 @@ def _move_offsets_to_trash(
     min_age_days: int,
     *,
     validator: str = "promotion",
+    progress_callback: Callable[[int], None] | None = None,
 ) -> tuple[int, list[CleanerCandidate]]:
     candidate_by_offset: dict[int, CleanerCandidate] = {}
 
@@ -944,6 +963,8 @@ def _move_offsets_to_trash(
                     if not chunk.endswith(b"\n"):
                         trash.write(b"\n")
                     moved_offsets.add(offset)
+                    if progress_callback:
+                        progress_callback(len(moved_offsets))
                 else:
                     inbox.write(chunk)
         shutil.copystat(inbox_path, temp_path)

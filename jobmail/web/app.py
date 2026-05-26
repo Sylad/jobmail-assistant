@@ -149,6 +149,7 @@ class CleanerScanJob:
     min_age_days: int = 7
     max_mails: int = 0
     regex_rules: list[tuple[str, str]] = field(default_factory=list)
+    cancel_requested: bool = False
 
 
 @dataclass
@@ -164,6 +165,7 @@ class CleanerMoveJob:
     min_age_days: int = 7
     max_mails: int = 0
     regex_rules: list[tuple[str, str]] = field(default_factory=list)
+    cancel_requested: bool = False
 
 
 _cleaner_jobs: dict[str, CleanerScanJob] = {}
@@ -325,6 +327,7 @@ def _job_payload(job: CleanerScanJob) -> dict:
         "elapsed_seconds": elapsed,
         "error": job.error,
         "result_url": f"/cleaner/scan/result/{job.id}" if job.status == "done" else "",
+        "cancel_url": f"/cleaner/scan/cancel/{job.id}" if job.status == "running" else "",
     }
 
 
@@ -338,6 +341,7 @@ def _move_job_payload(job: CleanerMoveJob) -> dict:
         "elapsed_seconds": elapsed,
         "error": job.error,
         "result_url": f"/cleaner/move/status/{job.id}/result" if job.status == "done" else "",
+        "cancel_url": f"/cleaner/move/cancel/{job.id}" if job.status == "running" else "",
     }
 
 
@@ -608,6 +612,10 @@ def create_app() -> FastAPI:
                     job.candidate_count = report.candidate_count
                     job.current_mailbox = mailbox
 
+            def should_cancel() -> bool:
+                with _cleaner_jobs_lock:
+                    return job.cancel_requested
+
             try:
                 report = scan_thunderbird_regex(
                     settings,
@@ -617,6 +625,7 @@ def create_app() -> FastAPI:
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                     progress_callback=progress,
+                    should_cancel=should_cancel,
                 )
             except CleanerError as e:
                 with _cleaner_jobs_lock:
@@ -631,11 +640,11 @@ def create_app() -> FastAPI:
                     job.finished_at = time.time()
                 return
             with _cleaner_jobs_lock:
-                job.status = "done"
                 job.report = report
                 job.scanned_count = report.scanned_count
                 job.candidate_count = report.candidate_count
                 job.current_mailbox = ""
+                job.status = "cancelled" if job.cancel_requested else "done"
                 job.finished_at = time.time()
 
         threading.Thread(target=run_job, daemon=True).start()
@@ -647,6 +656,17 @@ def create_app() -> FastAPI:
             job = _cleaner_jobs.get(job_id)
             if job is None:
                 raise HTTPException(status_code=404, detail="Scan introuvable.")
+            return _job_payload(job)
+
+    @app.post("/cleaner/scan/cancel/{job_id}")
+    def cleaner_scan_cancel(job_id: str):
+        with _cleaner_jobs_lock:
+            job = _cleaner_jobs.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail="Scan introuvable.")
+            if job.status != "running":
+                return _job_payload(job)
+            job.cancel_requested = True
             return _job_payload(job)
 
     @app.get("/cleaner/scan/result/{job_id}", response_class=HTMLResponse)
@@ -667,6 +687,21 @@ def create_app() -> FastAPI:
                         source="regex",
                         regex_rules=job.regex_rules,
                         error=job.error,
+                    ),
+                    status_code=400,
+                )
+            if job.status == "cancelled":
+                return templates.TemplateResponse(
+                    request,
+                    "cleaner.html",
+                    _cleaner_context(
+                        request=request,
+                        settings=settings,
+                        min_age_days=job.min_age_days,
+                        max_mails=job.max_mails,
+                        source="regex",
+                        regex_rules=job.regex_rules,
+                        error="Scan annule. Aucun deplacement n'a ete lance.",
                     ),
                     status_code=400,
                 )
@@ -788,11 +823,23 @@ def create_app() -> FastAPI:
             _cleaner_move_jobs[move_job.id] = move_job
 
         def run_move() -> None:
+            def progress(moved: int) -> None:
+                with _cleaner_move_jobs_lock:
+                    move_job.moved_count = moved
+
             try:
+                with _cleaner_move_jobs_lock:
+                    cancelled = move_job.cancel_requested
+                if cancelled:
+                    with _cleaner_move_jobs_lock:
+                        move_job.status = "cancelled"
+                        move_job.finished_at = time.time()
+                    return
                 moved_count, report = move_scanned_regex_uids_to_trash(
                     settings,
                     uids=safe_uids,
                     min_age_days=min_age_days,
+                    progress_callback=progress,
                 )
                 report.scanned_count = scan_report.scanned_count
             except CleanerError as e:
@@ -824,6 +871,17 @@ def create_app() -> FastAPI:
                 raise HTTPException(status_code=404, detail="Deplacement introuvable.")
             return _move_job_payload(job)
 
+    @app.post("/cleaner/move/cancel/{job_id}")
+    def cleaner_move_cancel(job_id: str):
+        with _cleaner_move_jobs_lock:
+            job = _cleaner_move_jobs.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail="Deplacement introuvable.")
+            if job.status != "running":
+                return _move_job_payload(job)
+            job.cancel_requested = True
+            return _move_job_payload(job)
+
     @app.get("/cleaner/move/status/{job_id}/result", response_class=HTMLResponse)
     def cleaner_move_result(request: Request, job_id: str):
         with _cleaner_move_jobs_lock:
@@ -842,6 +900,21 @@ def create_app() -> FastAPI:
                         source="regex",
                         regex_rules=job.regex_rules,
                         error=job.error,
+                    ),
+                    status_code=400,
+                )
+            if job.status == "cancelled":
+                return templates.TemplateResponse(
+                    request,
+                    "cleaner.html",
+                    _cleaner_context(
+                        request=request,
+                        settings=settings,
+                        min_age_days=job.min_age_days,
+                        max_mails=job.max_mails,
+                        source="regex",
+                        regex_rules=job.regex_rules,
+                        error="Deplacement annule avant modification Thunderbird.",
                     ),
                     status_code=400,
                 )

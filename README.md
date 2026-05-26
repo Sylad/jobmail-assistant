@@ -131,9 +131,8 @@ and the candidate list with reasons.
 Safety rules:
 
 - No permanent deletion.
-- Promotional scans exclude mails containing safety terms such as emploi,
-  recrutement, candidature, RH, contrat, facture, banque, impots, securite,
-  mot de passe, compte, assurance.
+- Promotional scans exclude mails containing `facture`. Other account/security/job
+  notifications can be handled by explicit sender/subject regex rules.
 - Candidates are selected by default, but can be included/excluded in bulk by
   sender from the "Top expediteurs" table. Excluded senders are visibly marked.
 - Thunderbird scans support a "skip first N mails" offset plus a "scan next

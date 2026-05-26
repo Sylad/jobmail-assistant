@@ -5,20 +5,7 @@ import unicodedata
 from dataclasses import dataclass
 
 SAFETY_KEYWORDS = [
-    "emploi",
-    "recrutement",
-    "candidature",
-    "rh",
-    "contrat",
     "facture",
-    "banque",
-    "impots",
-    "impôt",
-    "securite",
-    "sécurité",
-    "mot de passe",
-    "compte",
-    "assurance",
 ]
 
 PROMOTIONAL_SENDER_PATTERNS = [
