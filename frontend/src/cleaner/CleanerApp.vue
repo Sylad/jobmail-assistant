@@ -105,7 +105,7 @@ function defaultScanStats() {
     { label: "Mails scannes", value: 0 },
     { label: "Candidats", value: 0 },
     { label: "Factures", value: 0 },
-    { label: "Hors regex", value: 0 },
+    { label: form.source === "regex" ? "Hors regex" : "Hors filtre", value: 0 },
     { label: "Trop recents", value: 0 },
   ];
 }
@@ -141,10 +141,14 @@ function moveHelpText(): string {
 }
 
 function addRegexRule(): void {
+  form.source = "regex";
   regexRules.value.push({ sender_regex: "", subject_regex: "" });
 }
 
 function scheduleRegexRulesSave(): void {
+  if (!regexHydrating) {
+    form.source = "regex";
+  }
   regexSaveState.value = "dirty";
   window.clearTimeout(regexSaveTimer);
   regexSaveTimer = window.setTimeout(() => {
@@ -221,6 +225,12 @@ async function startScan(offset = form.scanOffset): Promise<void> {
     scanPanel.title = error instanceof Error ? error.message : "Scan en erreur";
     scanPanel.active = false;
   }
+}
+
+async function startRegexScan(): Promise<void> {
+  form.source = "regex";
+  await saveRegexRules();
+  await startScan(0);
 }
 
 async function pollScan(jobId: string): Promise<void> {
@@ -300,7 +310,7 @@ function setScanProgress(payload: CleanerScanJobPayload): void {
     { label: "Mails scannes", value: payload.scanned_count || 0 },
     { label: "Candidats", value: payload.candidate_count || 0 },
     { label: "Factures", value: payload.skipped_safety || 0 },
-    { label: "Hors regex", value: payload.skipped_no_match || 0 },
+    { label: form.source === "regex" ? "Hors regex" : "Hors filtre", value: payload.skipped_no_match || 0 },
     { label: "Trop recents", value: payload.skipped_too_recent || 0 },
     ...(payload.current_mailbox ? [{ label: "Boite", value: payload.current_mailbox }] : []),
   ];
@@ -592,6 +602,10 @@ function moveButtonLabel(): string {
           Ajouter une regle
         </Button>
         <div class="regex-save-row">
+          <Button type="button" size="sm" @click="startRegexScan">
+            <Search :size="14" />
+            Scanner avec ces regles
+          </Button>
           <Button type="button" variant="ghost" size="sm" @click="saveRegexRules">
             <Save :size="14" />
             Sauvegarder les regles
@@ -601,6 +615,7 @@ function moveButtonLabel(): string {
       </div>
       <p class="muted small">
         Dans une ligne, les champs remplis doivent tous correspondre. Les lignes sont combinees en OU global.
+        Ces regles sont utilisees uniquement par la source Regex Thunderbird.
       </p>
     </section>
 
