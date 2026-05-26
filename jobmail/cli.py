@@ -39,6 +39,18 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("serve", help="Run the local web dashboard.")
     sub.add_parser("seed", help="Seed the DB with mock offers for demo.")
     sub.add_parser("classify", help="Re-classify cached emails (no LLM call unless new).")
+    extract_parser = sub.add_parser(
+        "extract",
+        help="Run LLM extraction on cached job-related mails that have no offer yet.",
+    )
+    extract_parser.add_argument(
+        "--limit", type=int, default=None, metavar="N",
+        help="Process at most N mails (useful for sampling before a big run).",
+    )
+    extract_parser.add_argument(
+        "--re-extract", action="store_true",
+        help="Also re-extract offers that already exist (useful after a prompt tweak).",
+    )
 
     args = parser.parse_args(argv)
     logging.basicConfig(
@@ -73,6 +85,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Seeded {n} mock offers. Open http://{settings.web_host}:{settings.web_port}/")
         return 0
 
+    if args.cmd == "extract":
+        return _run_extract(settings, limit=args.limit, re_extract=args.re_extract)
+
     if args.cmd == "classify":
         # Lightweight re-classify on cached body — useful when rules.py changes.
         from .db import connect
@@ -89,6 +104,73 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     return 1
+
+
+def _run_extract(settings, *, limit: int | None, re_extract: bool) -> int:
+    """Run LLM extraction on emails already in the DB. Bypasses fetch+classify
+    and is intended for two flows:
+      - first-time extraction of mails that were ingested earlier (e.g. left
+        over from a partial run);
+      - re-extraction of all offers after a prompt tweak (--re-extract).
+    """
+    import json
+    from datetime import datetime
+
+    from .db import connect, upsert_offer
+    from .extraction import get_extractor
+    from .extraction.base import PrivacyError
+    from .models import OfferExtraction, RawEmail
+
+    extractor = get_extractor(settings)
+    sql = """
+        SELECT e.uid, e.message_id, e.subject, e.sender, e.received_at, e.body_text, e.body_html
+        FROM emails e
+        WHERE e.job_related = 1
+        {join}
+        ORDER BY e.received_at DESC
+        {limit}
+    """.format(
+        join="" if re_extract else "AND e.uid NOT IN (SELECT email_uid FROM offers)",
+        limit=f"LIMIT {int(limit)}" if limit else "",
+    )
+
+    with connect(settings.db_path) as conn:
+        rows = conn.execute(sql).fetchall()
+
+    if not rows:
+        print("Nothing to extract — no job_related mails without offers in DB.")
+        return 0
+
+    print(f"Extracting {len(rows)} mail(s) via {settings.llm_provider}…")
+    done = 0
+    failed = 0
+    for row in rows:
+        email = RawEmail(
+            uid=row["uid"],
+            message_id=row["message_id"],
+            subject=row["subject"],
+            sender=row["sender"],
+            received_at=datetime.fromisoformat(row["received_at"]),
+            body_text=row["body_text"],
+            body_html=row["body_html"] or "",
+        )
+        try:
+            extraction = extractor.extract(email, settings.target_profile)
+        except PrivacyError:
+            logging.warning("Privacy guard refused email uid=%s — skipping.", email.uid)
+            failed += 1
+            continue
+        except Exception:
+            logging.exception("Extraction failed uid=%s", email.uid)
+            extraction = OfferExtraction()
+            failed += 1
+        with connect(settings.db_path) as conn:
+            upsert_offer(conn, email.uid, extraction)
+        done += 1
+        if done % 5 == 0:
+            print(f"  {done}/{len(rows)}")
+    print(f"Done. extracted={done} failed={failed}")
+    return 0
 
 
 def _build_mbox_source(
