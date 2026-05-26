@@ -6,8 +6,11 @@
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white)](https://vuejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vite.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![shadcn-vue style](https://img.shields.io/badge/UI-shadcn--vue%20style-111827?logo=shadcnui&logoColor=white)](https://www.shadcn-vue.com)
+[![Reka UI](https://img.shields.io/badge/Reka%20UI-accessible%20primitives-7C3AED)](https://reka-ui.com)
 [![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org)
 [![Ollama](https://img.shields.io/badge/Ollama-llama3.1%3A8b-000000?logo=ollama&logoColor=white)](https://ollama.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -18,7 +21,7 @@ Reads your mailbox (IMAP or Thunderbird MBOX), filters **locally**, and only sen
 
 **Prompts and feature framing generated with [ChatGPT](https://chat.openai.com);
 implementation pair-programmed with [Claude Code](https://claude.com/claude-code)
-and [Codex](https://openai.com/codex).**
+and [OpenAI Codex](https://openai.com/codex).**
 
 > **Privacy invariant** — the full mailbox is **never** sent to a cloud API. A 100% local
 > keyword filter runs first; only mails that pass it ever reach an LLM. Verified by
@@ -239,6 +242,7 @@ pytest -q tests/test_pipeline_privacy.py  # privacy invariants only
 
 ```
 jobmail/
+├── frontend/        # Vue 3 + TypeScript + Vite cleaner island
 ├── config.py        # pydantic-settings → .env
 ├── models.py        # dataclasses Offer/Email/Status
 ├── db.py            # SQLite schema + helpers
@@ -249,6 +253,16 @@ jobmail/
 ├── web/             # FastAPI + Jinja2 dashboard
 └── cli.py           # entry-point
 ```
+
+## Contributors
+
+- [Sylad](https://github.com/Sylad) — project owner, product direction, real-world mailbox workflows.
+- [Claude Code](https://claude.com/claude-code) — implementation assistance and iterative coding sessions.
+- [OpenAI Codex](https://openai.com/codex) — implementation assistance, frontend hardening, tests, and repository maintenance.
+
+GitHub's automatic Contributors panel is commit-account based; this README keeps
+the human/AI collaboration credits explicit even when automated commit attribution
+does not expose every assistant as a separate GitHub account.
 
 ## Roadmap
 
@@ -264,4 +278,4 @@ MIT.
 
 ---
 
-*Prompts by ChatGPT; built collaboratively with Claude Code and Codex.*
+*Prompts by ChatGPT; built collaboratively with Claude Code and OpenAI Codex.*
