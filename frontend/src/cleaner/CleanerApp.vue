@@ -78,6 +78,11 @@ const phaseSelections = reactive<Record<CleanerPhaseSource, string[]>>({
 const activePhase = ref<CleanerPhaseSource>("thunderbird");
 const fullScanRunning = ref(false);
 const moveAllRunning = ref(false);
+const moveAllBaseMoved = ref(0);
+const moveAllTotalPlanned = ref(0);
+const moveAllCurrentPhaseIndex = ref(0);
+const moveAllPhaseCount = ref(0);
+const moveAllCurrentPhase = ref<CleanerPhaseSource | null>(null);
 const selectedUids = ref<Set<string>>(new Set());
 const confirmMove = ref(false);
 const confirmThunderbirdClosed = ref(false);
@@ -502,27 +507,41 @@ async function moveAllSelections(): Promise<void> {
   if (totalSelectedCandidates.value <= 0) return;
 
   moveAllRunning.value = true;
+  moveAllBaseMoved.value = 0;
+  moveAllCurrentPhase.value = null;
   const alreadyQueued = new Set<string>();
+  const phaseMoves = scanPhases.flatMap((phase) => {
+    const result = phaseResults[phase.source];
+    if (!result) return [];
+    const uids = selectedUidsForMove(phase.source, result).filter((uid) => {
+      if (alreadyQueued.has(uid)) return false;
+      alreadyQueued.add(uid);
+      return true;
+    });
+    return uids.length ? [{ phase, result, uids }] : [];
+  });
+  moveAllTotalPlanned.value = phaseMoves.reduce((sum, move) => sum + move.uids.length, 0);
+  moveAllPhaseCount.value = phaseMoves.length;
   let movedTotal = 0;
   try {
-    for (const phase of scanPhases) {
-      const result = phaseResults[phase.source];
-      if (!result) continue;
-      const selectedForPhase = selectedUidsForMove(phase.source, result).filter((uid) => {
-        if (alreadyQueued.has(uid)) return false;
-        alreadyQueued.add(uid);
-        return true;
-      });
-      if (!selectedForPhase.length) continue;
+    for (let index = 0; index < phaseMoves.length; index += 1) {
+      if (movePanel.cancelling) break;
+      const { phase, result, uids } = phaseMoves[index];
+      moveAllCurrentPhase.value = phase.source;
+      moveAllCurrentPhaseIndex.value = index + 1;
       selectPhase(phase.source, true);
-      const moved = await moveThunderbirdResults(moveFieldsForPhase(result, selectedForPhase));
+      const moved = await moveThunderbirdResults(moveFieldsForPhase(result, uids));
       movedTotal += moved;
+      moveAllBaseMoved.value = movedTotal;
     }
-    actionMessage.value = `${movedTotal} mail(s) deplace(s) vers la corbeille Thunderbird depuis toutes les phases.`;
+    actionMessage.value = movePanel.cancelling
+      ? `${movedTotal} mail(s) deplace(s) avant l'arret demande.`
+      : `${movedTotal} mail(s) deplace(s) vers la corbeille Thunderbird depuis toutes les phases.`;
   } catch (error) {
     actionError.value = error instanceof Error ? error.message : "Deplacement en erreur.";
   } finally {
     moveAllRunning.value = false;
+    moveAllCurrentPhase.value = null;
   }
 }
 
@@ -580,7 +599,9 @@ async function moveThunderbirdResults(fields?: Record<string, string | string[]>
 
 function showMovePanel(): void {
   movePanel.visible = true;
-  movePanel.title = "Deplacement en cours";
+  movePanel.title = moveAllRunning.value && moveAllCurrentPhase.value
+    ? `Deplacement en cours : ${phaseLabel(moveAllCurrentPhase.value)}`
+    : "Deplacement en cours";
   movePanel.elapsedSeconds = 0;
   movePanel.active = true;
   movePanel.cancelling = false;
@@ -645,6 +666,22 @@ function setMoveProgress(payload: CleanerMoveJobPayload): void {
   movePanel.elapsedSeconds = payload.elapsed_seconds || 0;
   const total = payload.total_count || 0;
   const moved = payload.moved_count || 0;
+  if (moveAllRunning.value && moveAllCurrentPhase.value) {
+    const globalMoved = moveAllBaseMoved.value + moved;
+    movePanel.title = `Deplacement en cours : ${phaseLabel(moveAllCurrentPhase.value)}`;
+    movePanel.progressValue = moveAllTotalPlanned.value > 0
+      ? Math.round((globalMoved / moveAllTotalPlanned.value) * 100)
+      : null;
+    movePanel.stats = [
+      { label: "Phase", value: `${moveAllCurrentPhaseIndex.value}/${moveAllPhaseCount.value}` },
+      { label: "Etape", value: phaseLabel(moveAllCurrentPhase.value) },
+      { label: "Total prevu", value: moveAllTotalPlanned.value },
+      { label: "Total deplace", value: globalMoved },
+      { label: "Phase prevue", value: total },
+      { label: "Phase deplacee", value: moved },
+    ];
+    return;
+  }
   movePanel.progressValue = total > 0 ? Math.round((moved / total) * 100) : null;
   movePanel.stats = [
     { label: "Messages prevus", value: total },
