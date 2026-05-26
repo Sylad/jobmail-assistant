@@ -43,6 +43,9 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     assert resp.status_code == 200
     assert "Scanner pubs anciennes" in resp.text
     assert "Mailbox cleaner" in resp.text
+    assert '<input type="hidden" name="source" value="regex">' in resp.text
+    regex_form = '<form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>'
+    assert resp.text.count(regex_form) == 1
 
 
 def test_cleaner_scan_renders_report(monkeypatch, tmp_path):

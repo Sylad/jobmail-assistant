@@ -18,7 +18,7 @@
 {% endif %}
 
 <section class="filters">
-  <form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>
+  <form method="post" action="/cleaner/scan" class="filter-form">
     <label>
       Source
       <select name="source">
@@ -59,7 +59,7 @@
 </section>
 
 <section class="filters">
-  <form method="post" action="/cleaner/scan" class="filter-form">
+  <form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>
     <input type="hidden" name="source" value="regex">
     <div class="regex-rule-list">
       <span class="label-title">Regles regex</span>
