@@ -46,16 +46,26 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
 
 
 def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
-    monkeypatch.setattr(web_app, "scan_thunderbird_promotions", lambda *args, **kwargs: _report())
+    calls = {}
+
+    def fake_scan(settings, *, min_age_days, max_mails, skip_mails):
+        calls["skip_mails"] = skip_mails
+        return _report()
+
+    monkeypatch.setattr(web_app, "scan_thunderbird_promotions", fake_scan)
     client = _client(monkeypatch, tmp_path)
 
     resp = client.post(
         "/cleaner/scan",
-        data={"source": "thunderbird", "min_age_days": "7", "max_mails": "20"},
+        data={"source": "thunderbird", "min_age_days": "7", "max_mails": "20", "scan_offset": "1000"},
     )
 
     assert resp.status_code == 200
+    assert calls == {"skip_mails": 1000}
     assert "Mails scannes" in resp.text
+    assert "Mails ignores avant scan" in resp.text
+    assert "Scanner les 20 suivants" in resp.text
+    assert "Tranche actuelle : 1001 - 1003" in resp.text
     assert "Promos anciennes" in resp.text
     assert "Action Thunderbird locale" in resp.text
     assert "corbeille Thunderbird" in resp.text

@@ -85,6 +85,7 @@ def scan_thunderbird_promotions(
     *,
     min_age_days: int | None = None,
     max_mails: int | None = None,
+    skip_mails: int = 0,
 ) -> CleanerReport:
     min_age = _clean_min_age(min_age_days, settings.cleaner_min_age_days)
     limit = _clean_limit(max_mails, settings.cleaner_max_mails)
@@ -93,15 +94,20 @@ def scan_thunderbird_promotions(
         raise CleanerError("Aucun fichier Thunderbird Inbox trouve pour le cleaner.")
 
     report = CleanerReport()
+    skipped = 0
     for path in paths:
         mailbox_name = path.parent.name
         logger.info("Cleaner scanning mbox mailbox=%s path=%s", mailbox_name, path)
         for mail in read_mbox(path):
+            if skipped < skip_mails:
+                skipped += 1
+                continue
             if report.scanned_count >= limit:
                 logger.info(
-                    "Cleaner MBOX scan stopped at max_mails=%d candidates=%d",
+                    "Cleaner MBOX scan stopped at max_mails=%d candidates=%d skip_mails=%d",
                     limit,
                     report.candidate_count,
+                    skip_mails,
                 )
                 return report
 

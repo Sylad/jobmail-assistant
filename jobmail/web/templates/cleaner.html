@@ -35,6 +35,10 @@
       Limite max-mails
       <input type="number" name="max_mails" min="1" max="1000" value="{{ max_mails }}">
     </label>
+    <label>
+      Ignorer les N premiers
+      <input type="number" name="scan_offset" min="0" value="{{ scan_offset }}">
+    </label>
     <button type="submit" class="btn">
       {% if source == 'parsed_jobs' %}Scanner jobs nettoyables{% else %}Scanner pubs anciennes{% endif %}
     </button>
@@ -60,11 +64,31 @@
       <span class="muted">Mails scannes</span>
       <strong>{{ report.scanned_count }}</strong>
     </div>
+    {% if source == 'thunderbird' and scan_offset %}
+    <div class="stat-box">
+      <span class="muted">Mails ignores avant scan</span>
+      <strong>{{ scan_offset }}</strong>
+    </div>
+    {% endif %}
     <div class="stat-box">
       <span class="muted">Candidats trouves</span>
       <strong>{{ report.candidate_count }}</strong>
     </div>
   </div>
+
+  {% if source == 'thunderbird' %}
+  <form method="post" action="/cleaner/scan" class="bulk-actions">
+    <input type="hidden" name="source" value="thunderbird">
+    <input type="hidden" name="min_age_days" value="{{ min_age_days }}">
+    <input type="hidden" name="max_mails" value="{{ max_mails }}">
+    <input type="hidden" name="scan_offset" value="{{ scan_offset + report.scanned_count }}">
+    <button type="submit" class="btn btn-primary">Scanner les {{ max_mails }} suivants</button>
+    {% if scan_offset %}
+      <a href="/cleaner" class="btn btn-ghost">Repartir du debut</a>
+    {% endif %}
+    <span class="muted small">Tranche actuelle : {{ scan_offset + 1 }} - {{ scan_offset + report.scanned_count }}</span>
+  </form>
+  {% endif %}
 
   <h2>Top expediteurs</h2>
   {% if report.top_senders %}

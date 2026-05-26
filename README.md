@@ -136,6 +136,9 @@ Safety rules:
   mot de passe, compte, assurance.
 - Candidates are selected by default, but can be included/excluded in bulk by
   sender from the "Top expediteurs" table. Excluded senders are visibly marked.
+- Thunderbird scans support a "skip first N mails" offset plus a "scan next
+  batch" button, so large MBOX files can be processed in windows instead of
+  rescanning the same first messages every time.
 - A report is shown before any move, and confirmation checkboxes are required.
 - Logs never include the full mail content.
 

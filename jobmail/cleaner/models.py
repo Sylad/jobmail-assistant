@@ -21,7 +21,7 @@ class CleanerCandidate:
 
     @property
     def can_move(self) -> bool:
-        return self.source in {"imap", "mbox"}
+        return self.source in {"imap", "mbox", "job"}
 
 
 @dataclass(slots=True)

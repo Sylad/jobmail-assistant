@@ -52,6 +52,26 @@ def test_scan_thunderbird_promotions_reads_mbox_without_imap(tmp_path: Path):
     assert "Newsletter promo" == report.candidates[0].subject
 
 
+def test_scan_thunderbird_promotions_can_skip_already_seen_window(tmp_path: Path):
+    mbox = tmp_path / "Inbox"
+    mbox.write_text(
+        _make_msg(1, "Newsletter first", "Soldes et unsubscribe.")
+        + _make_msg(2, "Newsletter second", "Soldes et unsubscribe."),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+        cleaner_max_mails=20,
+    )
+
+    report = scan_thunderbird_promotions(settings, min_age_days=7, max_mails=20, skip_mails=1)
+
+    assert report.scanned_count == 1
+    assert report.candidate_count == 1
+    assert report.candidates[0].subject == "Newsletter second"
+
+
 def test_move_thunderbird_to_trash_moves_selected_candidate(tmp_path: Path):
     mbox = tmp_path / "Inbox"
     mbox.write_text(
@@ -143,6 +163,7 @@ def test_scan_parsed_job_mails_only_keeps_ignored_or_low_score(tmp_path: Path):
 
     assert report.candidate_count == 2
     assert report.candidates[0].source == "job"
+    assert report.candidates[0].can_move is True
     assert report.candidates[0].uid.startswith("mbox:")
     assert "status=ignored" in report.candidates[0].reason
     assert report.candidates[0].offer_id > 0

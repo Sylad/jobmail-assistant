@@ -130,6 +130,7 @@ def _cleaner_context(
     report: CleanerReport | None = None,
     min_age_days: int | None = None,
     max_mails: int | None = None,
+    scan_offset: int = 0,
     source: str = "thunderbird",
     error: str = "",
     moved_count: int = 0,
@@ -139,6 +140,7 @@ def _cleaner_context(
         "report": report,
         "min_age_days": min_age_days or settings.cleaner_min_age_days,
         "max_mails": max_mails or settings.cleaner_max_mails,
+        "scan_offset": max(0, scan_offset),
         "source": source,
         "delete_folder": settings.cleaner_delete_folder,
         "mbox_patterns": settings.cleaner_mbox_patterns,
@@ -241,6 +243,7 @@ def create_app() -> FastAPI:
         request: Request,
         min_age_days: int = Form(settings.cleaner_min_age_days),
         max_mails: int = Form(settings.cleaner_max_mails),
+        scan_offset: int = Form(0),
         source: str = Form("thunderbird"),
         export_csv: str = Form(""),
     ):
@@ -263,6 +266,7 @@ def create_app() -> FastAPI:
                     settings,
                     min_age_days=min_age_days,
                     max_mails=max_mails,
+                    skip_mails=max(0, scan_offset),
                 )
         except CleanerError as e:
             return templates.TemplateResponse(
@@ -273,6 +277,7 @@ def create_app() -> FastAPI:
                     settings=settings,
                     min_age_days=min_age_days,
                     max_mails=max_mails,
+                    scan_offset=scan_offset,
                     source=source,
                     error=str(e),
                 ),
@@ -295,6 +300,7 @@ def create_app() -> FastAPI:
                 report=report,
                 min_age_days=min_age_days,
                 max_mails=max_mails,
+                scan_offset=scan_offset,
                 source=source,
             ),
         )
