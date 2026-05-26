@@ -119,3 +119,27 @@ dl.grid dd { margin: 0; }
 
 .status-form { display: flex; gap: 8px; flex-wrap: wrap; }
 .status-btn.active { border-color: var(--accent); color: var(--accent); }
+
+.quick-filters { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.chip-link {
+  display: inline-block; padding: 4px 12px; background: var(--bg-elev-2);
+  border: 1px solid var(--border); border-radius: 999px;
+  font-size: 0.8rem; color: var(--fg-mute);
+}
+.chip-link:hover { color: var(--accent); border-color: var(--accent); text-decoration: none; }
+
+.small { font-size: 0.85rem; }
+
+.row-actions { white-space: nowrap; }
+.inline-actions { display: inline-flex; gap: 2px; margin-right: 6px; }
+.inline-actions form, .row-actions form { display: inline; }
+.btn-icon {
+  padding: 4px 8px; font-size: 0.95rem; line-height: 1; min-width: 30px;
+}
+.btn-icon.active-interesting { color: var(--ok); border-color: var(--ok); }
+.btn-icon.active-replied     { color: var(--warn); border-color: var(--warn); }
+.btn-icon.active-ignored     { color: var(--fg-mute); border-color: var(--fg-mute); opacity: 0.5; }
+
+tr.row-status-ignored { opacity: 0.45; }
+tr.row-status-replied { background: rgba(251, 191, 36, 0.04); }
+tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }

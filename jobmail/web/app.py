@@ -10,7 +10,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from ..config import get_settings
-from ..db import all_known_technos, connect, get_offer, init_db, list_offers, update_status
+from ..db import (
+    all_known_technos,
+    all_sender_domains,
+    connect,
+    get_offer,
+    init_db,
+    list_offers,
+    update_status,
+)
 from ..models import OfferStatus
 from ..pipeline import run as run_pipeline
 
@@ -100,12 +108,22 @@ def create_app() -> FastAPI:
         request: Request,
         status: str | None = Query(None),
         techno: str | None = Query(None),
+        sender: str | None = Query(None),
+        since_days: int | None = Query(None, ge=0, le=365),
         min_score: int = Query(0, ge=0, le=10),
     ):
         with connect(settings.db_path) as conn:
             status_filter = OfferStatus(status) if status else None
-            offers = list_offers(conn, status=status_filter, techno=techno, min_score=min_score)
+            offers = list_offers(
+                conn,
+                status=status_filter,
+                techno=techno,
+                min_score=min_score,
+                sender_contains=sender,
+                since_days=since_days,
+            )
             technos = all_known_technos(conn)
+            senders = all_sender_domains(conn)
             stats = _compute_stats(conn)
         return templates.TemplateResponse(
             request,
@@ -113,9 +131,12 @@ def create_app() -> FastAPI:
             {
                 "offers": offers,
                 "technos": technos,
+                "senders": senders,
                 "all_statuses": [s.value for s in OfferStatus],
                 "current_status": status or "",
                 "current_techno": techno or "",
+                "current_sender": sender or "",
+                "current_since_days": since_days or 0,
                 "current_min_score": min_score,
                 "provider": settings.llm_provider,
                 "imap_enabled": settings.imap_enabled,
@@ -146,7 +167,11 @@ def create_app() -> FastAPI:
         )
 
     @app.post("/offers/{offer_id}/status")
-    def set_status(offer_id: int, status: str = Form(...)):
+    def set_status(
+        offer_id: int,
+        status: str = Form(...),
+        return_to: str = Form(""),
+    ):
         try:
             new_status = OfferStatus(status)
         except ValueError as e:
@@ -155,7 +180,10 @@ def create_app() -> FastAPI:
             if get_offer(conn, offer_id) is None:
                 raise HTTPException(status_code=404, detail="Offer not found")
             update_status(conn, offer_id, new_status)
-        return RedirectResponse(url=f"/offers/{offer_id}", status_code=303)
+        # If invoked from the dashboard inline buttons, preserve the active
+        # filter set by sending the user back to the same URL.
+        target = return_to if return_to.startswith("/") else f"/offers/{offer_id}"
+        return RedirectResponse(url=target, status_code=303)
 
     @app.post("/refresh")
     def refresh():

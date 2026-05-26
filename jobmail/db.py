@@ -195,6 +195,8 @@ def list_offers(
     status: OfferStatus | None = None,
     techno: str | None = None,
     min_score: int = 0,
+    sender_contains: str | None = None,
+    since_days: int | None = None,
 ) -> list[StoredOffer]:
     sql = """
     SELECT o.*, e.subject, e.sender, e.received_at
@@ -206,6 +208,12 @@ def list_offers(
     if status is not None:
         sql += " AND o.status = ?"
         params.append(status.value)
+    if sender_contains:
+        sql += " AND LOWER(e.sender) LIKE ?"
+        params.append(f"%{sender_contains.lower()}%")
+    if since_days is not None and since_days > 0:
+        sql += " AND e.received_at >= datetime('now', ?)"
+        params.append(f"-{int(since_days)} days")
     sql += " ORDER BY o.relevance_score DESC, e.received_at DESC"
 
     rows = conn.execute(sql, params).fetchall()
@@ -216,6 +224,27 @@ def list_offers(
             techno_lc in t.lower() for t in o.extraction.technos
         )]
     return offers
+
+
+def all_sender_domains(conn: sqlite3.Connection) -> list[tuple[str, int]]:
+    """Sender domains across all offer-emails, with counts. Used to populate the
+    dashboard's sender filter dropdown."""
+    rows = conn.execute("""
+        SELECT
+          LOWER(SUBSTR(e.sender, INSTR(e.sender, '@') + 1)) AS domain,
+          COUNT(*) AS n
+        FROM offers o JOIN emails e ON e.uid = o.email_uid
+        WHERE INSTR(e.sender, '@') > 0
+        GROUP BY domain
+        ORDER BY n DESC, domain ASC
+    """).fetchall()
+    # Strip trailing '>' (some senders are "Name <addr>" so the slice may keep it).
+    out: list[tuple[str, int]] = []
+    for r in rows:
+        d = (r["domain"] or "").rstrip(">").strip()
+        if d:
+            out.append((d, r["n"]))
+    return out
 
 
 def get_offer(conn: sqlite3.Connection, offer_id: int) -> StoredOffer | None:

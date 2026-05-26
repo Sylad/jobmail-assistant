@@ -22,24 +22,46 @@
       </select>
     </label>
     <label>
+      Source
+      <select name="sender">
+        <option value="">— toutes —</option>
+        {% for d, n in senders %}
+          <option value="{{ d }}" {% if d == current_sender %}selected{% endif %}>{{ d }} ({{ n }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Depuis (jours)
+      <input type="number" name="since_days" min="0" max="365" value="{{ current_since_days or '' }}" placeholder="tous">
+    </label>
+    <label>
       Score min
       <input type="number" name="min_score" min="0" max="10" value="{{ current_min_score }}">
     </label>
     <button type="submit" class="btn">Filtrer</button>
     <a href="/" class="btn btn-ghost">Reset</a>
   </form>
+
+  <div class="quick-filters">
+    <a class="chip-link" href="?min_score=7">★ Score ≥ 7</a>
+    <a class="chip-link" href="?min_score=8">★★ Score ≥ 8</a>
+    <a class="chip-link" href="?since_days=7&amp;min_score=5">7 derniers jours</a>
+    <a class="chip-link" href="?status=new">Nouvelles uniquement</a>
+    <a class="chip-link" href="?status=interesting">Intéressantes</a>
+  </div>
 </section>
 
 <section>
   <h1>Offres détectées <span class="muted">({{ offers | length }})</span></h1>
   {% if not offers %}
-    <p class="empty">Aucune offre en base. Clique <strong>Refresh</strong> en haut à droite,
-       ou peuple en mock avec <code>python -m jobmail seed</code>.</p>
+    <p class="empty">Aucune offre ne matche ce filtre. <a href="/">Tout afficher</a></p>
   {% else %}
+    {% set current_query = request.url.query %}
     <table class="offers">
       <thead>
         <tr>
           <th>Score</th>
+          <th>Reçu</th>
           <th>Titre</th>
           <th>Société</th>
           <th>Lieu</th>
@@ -47,13 +69,14 @@
           <th>Contrat</th>
           <th>Technos</th>
           <th>Statut</th>
-          <th></th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for o in offers %}
-        <tr class="score-{{ o.extraction.relevance_score }}">
+        <tr class="score-{{ o.extraction.relevance_score }} row-status-{{ o.status.value }}">
           <td><strong>{{ o.extraction.relevance_score }}/10</strong></td>
+          <td class="muted small">{{ o.received_at.strftime('%d/%m') }}</td>
           <td>{{ o.extraction.title or o.subject }}</td>
           <td>{{ o.extraction.company }}</td>
           <td>{{ o.extraction.location }}</td>
@@ -64,7 +87,18 @@
             {% if o.extraction.technos | length > 5 %}<span class="chip">+{{ o.extraction.technos|length - 5 }}</span>{% endif %}
           </td>
           <td><span class="status status-{{ o.status.value }}">{{ o.status.value }}</span></td>
-          <td><a class="btn btn-sm" href="/offers/{{ o.id }}">Voir</a></td>
+          <td class="row-actions">
+            <form method="post" action="/offers/{{ o.id }}/status" class="inline-actions">
+              <input type="hidden" name="return_to" value="/?{{ current_query }}">
+              <button type="submit" name="status" value="interesting" title="Marquer intéressant"
+                      class="btn btn-icon {% if o.status.value == 'interesting' %}active-interesting{% endif %}">★</button>
+              <button type="submit" name="status" value="replied" title="Marquer répondu"
+                      class="btn btn-icon {% if o.status.value == 'replied' %}active-replied{% endif %}">↩</button>
+              <button type="submit" name="status" value="ignored" title="Ignorer"
+                      class="btn btn-icon {% if o.status.value == 'ignored' %}active-ignored{% endif %}">⊘</button>
+            </form>
+            <a class="btn btn-sm btn-ghost" href="/offers/{{ o.id }}">Voir</a>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
