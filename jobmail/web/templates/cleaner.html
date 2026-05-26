@@ -19,12 +19,12 @@
   <div class="alert alert-ok">{{ moved_count }} mail(s) deplace(s) vers {{ moved_destination or delete_folder }}.</div>
 {% endif %}
 
-<section class="filters">
+<section class="filters backup-panel">
   <h2>Backups Thunderbird</h2>
   {% if backup_deleted_count %}
     <div class="alert alert-ok">{{ backup_deleted_count }} backup(s) supprime(s), {{ backup_deleted_size }} liberes.</div>
   {% endif %}
-  <div class="stats-grid">
+  <div class="stats-grid backup-stats">
     <div class="stat-box">
       <span class="muted">Backups JobMail</span>
       <strong>{{ backup_summary.file_count }}</strong>
@@ -39,24 +39,28 @@
       <span class="muted small">{{ backup_eligible_size }}</span>
     </div>
   </div>
-  <form method="post" action="/cleaner/backups/cleanup" class="filter-form">
-    <label>
-      Garder les backups des N derniers jours
-      <input type="number" name="retention_days" min="1" max="3650" value="{{ backup_summary.retention_days }}">
-    </label>
-    <label class="confirm-line">
+  <form method="post" action="/cleaner/backups/cleanup" class="backup-cleanup-form">
+    <div class="backup-retention-field">
+      <label for="backup-retention-days">Garder les backups des N derniers jours</label>
+      <input id="backup-retention-days" type="number" name="retention_days" min="1" max="3650" value="{{ backup_summary.retention_days }}">
+    </div>
+    <label class="confirm-line backup-confirm-line">
       <input type="checkbox" name="confirm_cleanup" value="yes">
-      Je confirme vouloir supprimer uniquement les anciens backups JobMail dans <code>jobmail-backups</code>.
+      <span>Je confirme vouloir supprimer uniquement les anciens backups JobMail dans <code>jobmail-backups</code>.</span>
     </label>
-    <button type="submit" class="btn btn-danger" {% if backup_summary.eligible_count == 0 %}disabled{% endif %}>
-      Nettoyer les anciens backups
-    </button>
+    <div class="backup-action-slot">
+      <button type="submit" class="btn btn-danger" {% if backup_summary.eligible_count == 0 %}disabled{% endif %}>
+        Nettoyer les anciens backups
+      </button>
+    </div>
   </form>
   {% if backup_summary.backup_roots %}
-  <p class="muted small">
-    Dossiers surveilles :
-    {% for root in backup_summary.backup_roots %}<code>{{ root }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
-  </p>
+  <div class="backup-roots">
+    <span class="muted small">Dossiers surveilles</span>
+    <div class="backup-root-list">
+      {% for root in backup_summary.backup_roots %}<code>{{ root }}</code>{% endfor %}
+    </div>
+  </div>
   {% else %}
   <p class="muted small">Aucun dossier de backup JobMail trouve pour les MBOX configurees.</p>
   {% endif %}
@@ -72,12 +76,14 @@
     {{ temp_summary.file_count }} fichier(s) temporaire(s) JobMail orphelin(s) dans les dossiers Mail Thunderbird
     ({{ temp_total_size }}). Ferme Thunderbird avant de les sortir du profil.
   </div>
-  <form method="post" action="/cleaner/temp/cleanup" class="filter-form">
-    <label class="confirm-line">
+  <form method="post" action="/cleaner/temp/cleanup" class="backup-cleanup-form backup-temp-form">
+    <label class="confirm-line backup-confirm-line">
       <input type="checkbox" name="confirm_temp_cleanup" value="yes">
-      Je confirme que Thunderbird est ferme et veux deplacer les temporaires hors des dossiers Mail.
+      <span>Je confirme que Thunderbird est ferme et veux deplacer les temporaires hors des dossiers Mail.</span>
     </label>
-    <button type="submit" class="btn btn-danger">Sortir les temporaires orphelins</button>
+    <div class="backup-action-slot">
+      <button type="submit" class="btn btn-danger">Sortir les temporaires orphelins</button>
+    </div>
   </form>
   {% endif %}
 </section>
