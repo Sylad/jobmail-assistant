@@ -27,24 +27,82 @@ and [OpenAI Codex](https://openai.com/codex).**
 > keyword filter runs first; only mails that pass it ever reach an LLM. Verified by
 > [`tests/test_pipeline_privacy.py`](tests/test_pipeline_privacy.py).
 
-## Features (V1)
+## What it does
 
-- IMAP fetcher (`.env` driven) + Thunderbird MBOX reader with incremental offsets
-- Local rule-based filter (FR + EN keywords + your stack: Java/GeoServer/OpenLayers/K8s/PostGIS/Spring/Docker…)
-- Pluggable providers: `mock` (default, offline), `ollama` (local), `claude`, `openai`
-- Dry-run mode: reads and classifies locally, with no LLM provider instantiation
-- Mailbox cleaner: dry-run scan for old Thunderbird/IMAP newsletters, bulk selection by sender, CSV export, then optional move
-- SQLite storage (single file, no server)
-- HTML dashboard (FastAPI + Jinja2 + Vue 3 islands) — list, filter by techno/score/status, mark new/interesting/ignored/replied, open extracted offer links
-- CLI: `jobmail fetch | dry-run | watch | extract | serve | seed | classify`
+JobMail Assistant has two complementary workflows:
 
-## Architecture
+1. **Job-offer triage** — reads mails from IMAP or Thunderbird MBOX, classifies
+   them locally, sends only job-related mails to the selected LLM provider, then
+   stores structured offers in SQLite.
+2. **Mailbox cleaner** — scans old newsletters/promotional mails in dry-run,
+   displays a reviewable report, then moves explicitly confirmed selections to a
+   quarantine/trash folder without permanent deletion.
+
+Main capabilities:
+
+- IMAP fetcher (`.env` driven) and Thunderbird MBOX reader with incremental offsets.
+- Local rule-based job filter (FR + EN keywords + target stack:
+  Java/GeoServer/OpenLayers/K8s/PostGIS/Spring/Docker…).
+- Pluggable LLM providers: `mock` (default, offline), `ollama` (local), `claude`, `openai`.
+- Dry-run mode: reads and classifies locally, with no LLM provider instantiation.
+- SQLite storage: a single local DB file, no external server.
+- FastAPI/Jinja dashboard with Vue 3 islands for interactive cleaner workflows.
+- CLI: `jobmail fetch | dry-run | watch | extract | serve | seed | classify`.
+
+## How it works
 
 ```
-IMAP/Thunderbird ──► parser ──► local rules ──► [job_related?] ──► LLM extract ──► SQLite ──► HTML dashboard
-                                       │                ▲
-                                       └─ "no" ─────────┘ (extractor NEVER called)
+IMAP / Thunderbird MBOX
+          │
+          ▼
+mail parser + body normalizer
+          │
+          ▼
+local privacy filter ──────► not job-related ──────► stored locally, no LLM call
+          │
+          ▼
+job-related only
+          │
+          ▼
+LLM extractor (mock / Ollama / Claude / OpenAI)
+          │
+          ▼
+SQLite offers + FastAPI dashboard
 ```
+
+Cleaner actions follow a separate path:
+
+```
+Thunderbird MBOX / IMAP / parsed jobs
+          │
+          ▼
+dry-run scan with age, regex and safety checks
+          │
+          ▼
+review report + selected candidates
+          │
+          ▼
+explicit confirmation
+          │
+          ▼
+move to Thunderbird Trash or IMAP ToDelete, never permanent delete
+```
+
+## Web UI
+
+- `/` shows extracted job offers, filters by status/technology/sender/score, and
+  lets offers be marked `new`, `interesting`, `ignored`, or `replied`.
+- `/offers/{id}` opens the extracted offer details and links back to the original
+  job URL when one was found in the mail.
+- `/cleaner` scans old promotional mails from Thunderbird MBOX or IMAP.
+- `/cleaner/jobs` lists already parsed low-value job mails that can be moved out
+  after review.
+- `/cleaner/duplicates` detects Orange-to-Gmail forwarded duplicates by
+  `Message-Id` and proposes only the redundant Orange copies.
+
+The dashboard is server-rendered with FastAPI/Jinja for simple pages. The cleaner
+uses Vue 3 + TypeScript islands for the interactive parts: progressive scan
+feedback, cancellation, regex rule rows, move progress, and candidate selection.
 
 ## Install — Windows
 
@@ -113,7 +171,7 @@ python -m jobmail serve
 # → http://127.0.0.1:8765/
 ```
 
-### Frontend assets
+## Frontend assets
 
 The dashboard is server-rendered with Jinja, and the Mailbox cleaner uses a
 small Vue 3/Vite/TypeScript island for client-side scan progress, cancellation,
@@ -153,6 +211,15 @@ Thunderbird POP3 MBOX files, IMAP, or already parsed job mails. The primary
 action is always a dry-run: it reports scanned mails, candidates, top senders,
 and the candidate list with reasons.
 
+Scan modes:
+
+- **Thunderbird MBOX**: broad promotional/newsletter detection on local MBOX files.
+- **Regex Thunderbird**: explicit sender/subject regex rules for large cleanup passes.
+- **Jobs deja parses**: already extracted job mails linked to ignored or low-score offers.
+- **Doublons Orange/Gmail**: duplicate detection by `Message-Id` where Orange copies
+  also exist in Gmail.
+- **IMAP**: old promotional mails through the configured IMAP account.
+
 Safety rules:
 
 - No permanent deletion.
@@ -180,6 +247,15 @@ Safety rules:
 - A report is shown before any move, and confirmation checkboxes are required.
 - Logs never include the full mail content.
 
+Progress and cancellation:
+
+- All web scans run through background jobs and return live Vue progress.
+- Scan jobs can be cancelled from the UI.
+- Regex move actions also run with live progress and can be cancelled between
+  mailbox rewrite steps.
+- Long Thunderbird scans can use `max-mails = 0` for an unbounded pass, or a
+  finite max plus `skip first N mails` to process the mailbox in windows.
+
 Move actions:
 
 - IMAP source: checked mails are moved to the IMAP folder configured by
@@ -198,6 +274,13 @@ Move actions:
   Thunderbird trash from `/cleaner/jobs`; only mails linked to ignored offers or
   offers scored 0-3 are proposed. Offers marked `interesting` or `replied` are
   protected.
+
+Known operational trade-offs:
+
+- Local Thunderbird moves rewrite MBOX files, so Thunderbird must be closed.
+- Backups are created before rewriting and are cleaned only by explicit action.
+- The cleaner is intentionally conservative around permanent deletion: it moves
+  messages to Trash/ToDelete so the user keeps a recovery path.
 
 ## Thunderbird
 
@@ -236,6 +319,8 @@ Operational notes:
 ```powershell
 pytest
 pytest -q tests/test_pipeline_privacy.py  # privacy invariants only
+cd frontend
+npm run build                            # includes vue-tsc typecheck
 ```
 
 ## Layout
