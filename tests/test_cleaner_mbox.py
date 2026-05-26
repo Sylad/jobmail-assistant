@@ -99,7 +99,9 @@ def test_move_thunderbird_to_trash_moves_selected_candidate(tmp_path: Path):
     assert "Newsletter promo" not in mbox.read_text(encoding="utf-8")
     assert "Mission Java" in mbox.read_text(encoding="utf-8")
     assert "Newsletter promo" in (tmp_path / "Trash").read_text(encoding="utf-8")
-    assert list(tmp_path.glob("Inbox.jobmail-backup-*"))
+    backups = list(tmp_path.glob("Inbox.jobmail-backup-*"))
+    assert backups
+    assert "Newsletter promo" in backups[0].read_text(encoding="utf-8")
 
 
 def test_scan_parsed_job_mails_only_keeps_ignored_or_low_score(tmp_path: Path):

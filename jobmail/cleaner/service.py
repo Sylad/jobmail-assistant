@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
-from glob import glob
 from datetime import datetime, timedelta, timezone
+from glob import glob
 from pathlib import Path
 
 from imap_tools import AND, MailBox
 
 from ..config import Settings
 from ..db import connect
-from ..mail.thunderbird import read_mbox
+from ..mail.mbox_reader import _FROM_LINE, _is_envelope
 from ..mail.parser import html_to_text, normalize_body
+from ..mail.thunderbird import read_mbox
 from .models import CleanerCandidate, CleanerReport
 from .rules import classify_cleaner_candidate
 
@@ -424,13 +426,9 @@ def _move_offsets_to_trash(
     *,
     validator: str = "promotion",
 ) -> tuple[int, list[CleanerCandidate]]:
-    chunks = _read_mbox_chunks(inbox_path)
-    selected_chunks: dict[int, bytes] = {}
-    moved_candidates: list[CleanerCandidate] = []
+    candidate_by_offset: dict[int, CleanerCandidate] = {}
 
-    for offset, chunk in chunks:
-        if offset not in selected_offsets:
-            continue
+    for offset in sorted(selected_offsets):
         mail = next(read_mbox(inbox_path, start_offset=offset), None)
         if mail is None or mail.mbox_offset != offset:
             continue
@@ -447,8 +445,7 @@ def _move_offsets_to_trash(
         else:
             reason = "job deja parse dans SQLite"
             source = "job"
-        selected_chunks[offset] = chunk
-        moved_candidates.append(
+        candidate_by_offset[offset] = (
             CleanerCandidate(
                 uid=f"mbox:{mailbox}:{offset}",
                 received_at=mail.received_at,
@@ -461,50 +458,80 @@ def _move_offsets_to_trash(
             )
         )
 
-    if not selected_chunks:
+    if not candidate_by_offset:
         return 0, []
 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup_path = inbox_path.with_name(f"{inbox_path.name}.jobmail-backup-{timestamp}")
-    shutil.copy2(inbox_path, backup_path)
-
+    backup_path = _create_mbox_backup(inbox_path, timestamp)
+    temp_path = inbox_path.with_name(f".{inbox_path.name}.jobmail-tmp-{timestamp}")
     trash_path = inbox_path.with_name("Trash")
-    with trash_path.open("ab") as trash:
-        for offset in sorted(selected_chunks):
-            chunk = selected_chunks[offset]
-            if trash.tell() > 0 and not chunk.startswith(b"\n"):
-                trash.write(b"\n")
-            trash.write(chunk)
-            if not chunk.endswith(b"\n"):
-                trash.write(b"\n")
+    moved_offsets: set[int] = set()
 
-    with inbox_path.open("wb") as inbox:
-        for offset, chunk in chunks:
-            if offset not in selected_chunks:
-                inbox.write(chunk)
+    try:
+        with temp_path.open("wb") as inbox, trash_path.open("ab") as trash:
+            for offset, chunk in _iter_mbox_chunks(inbox_path):
+                if offset in candidate_by_offset:
+                    if trash.tell() > 0 and not chunk.startswith(b"\n"):
+                        trash.write(b"\n")
+                    trash.write(chunk)
+                    if not chunk.endswith(b"\n"):
+                        trash.write(b"\n")
+                    moved_offsets.add(offset)
+                else:
+                    inbox.write(chunk)
+        shutil.copystat(inbox_path, temp_path)
+        os.replace(temp_path, inbox_path)
+    except Exception:
+        if temp_path.exists():
+            temp_path.unlink()
+        raise
+
+    moved_candidates = [candidate_by_offset[offset] for offset in sorted(moved_offsets)]
 
     _remove_thunderbird_index(inbox_path)
     _remove_thunderbird_index(trash_path)
     logger.info(
         "Cleaner moved mbox mailbox=%s count=%d backup=%s trash=%s",
         mailbox,
-        len(selected_chunks),
+        len(moved_offsets),
         backup_path,
         trash_path,
     )
-    return len(selected_chunks), moved_candidates
+    return len(moved_offsets), moved_candidates
 
 
-def _read_mbox_chunks(path: Path) -> list[tuple[int, bytes]]:
-    from ..mail.mbox_reader import iter_with_offsets
+def _create_mbox_backup(inbox_path: Path, timestamp: str) -> Path:
+    backup_path = inbox_path.with_name(f"{inbox_path.name}.jobmail-backup-{timestamp}")
+    try:
+        os.link(inbox_path, backup_path)
+        logger.info("Cleaner created mbox hardlink backup=%s", backup_path)
+    except OSError:
+        shutil.copy2(inbox_path, backup_path)
+        logger.info("Cleaner created mbox copied backup=%s", backup_path)
+    return backup_path
 
-    raw = path.read_bytes()
-    offsets = [offset for offset, _message in iter_with_offsets(path)]
-    chunks: list[tuple[int, bytes]] = []
-    for index, offset in enumerate(offsets):
-        next_offset = offsets[index + 1] if index + 1 < len(offsets) else len(raw)
-        chunks.append((offset, raw[offset:next_offset]))
-    return chunks
+
+def _iter_mbox_chunks(path: Path):
+    with path.open("rb") as fh:
+        msg_offset = fh.tell()
+        msg_buf: list[bytes] = []
+        first = True
+
+        while True:
+            pos_before = fh.tell()
+            line = fh.readline()
+            if not line:
+                break
+            if not first and _FROM_LINE.match(line) and _is_envelope(fh, line):
+                yield msg_offset, b"".join(msg_buf)
+                msg_offset = pos_before
+                msg_buf = [line]
+            else:
+                msg_buf.append(line)
+                first = False
+
+        if msg_buf:
+            yield msg_offset, b"".join(msg_buf)
 
 
 def _remove_thunderbird_index(mbox_path: Path) -> None:
