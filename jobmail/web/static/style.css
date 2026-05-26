@@ -356,6 +356,12 @@ tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }
   background: rgba(122, 162, 247, 0.08);
 }
 .info-action p { margin-bottom: 0; }
+.rule-summary {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--fg-mute);
+}
+.rule-summary li { margin: 4px 0; }
 .confirm-line {
   display: flex;
   align-items: center;

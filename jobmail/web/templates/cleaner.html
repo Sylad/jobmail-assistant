@@ -93,8 +93,8 @@
     <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
   </form>
   <p class="muted small">
-    Regex appliquees seulement sur expediteur et objet. L'action reste protegee par age minimum,
-    mots sensibles exclus, backup Thunderbird et confirmation explicite.
+    Dans une ligne, les champs remplis doivent tous correspondre. Les lignes sont combinees en OU global.
+    L'action reste protegee par age minimum, mots sensibles exclus, backup Thunderbird et confirmation explicite.
   </p>
 </section>
 
@@ -116,6 +116,23 @@
       <strong>{{ report.candidate_count }}</strong>
     </div>
   </div>
+
+  {% if source == 'regex' %}
+  <div class="info-action">
+    <strong>Regles appliquees</strong>
+    <ul class="rule-summary">
+      {% for rule_sender, rule_subject in regex_rules %}
+        {% if rule_sender or rule_subject %}
+        <li>
+          {% if rule_sender %}<code>expediteur={{ rule_sender }}</code>{% endif %}
+          {% if rule_sender and rule_subject %}<span class="muted small"> ET </span>{% endif %}
+          {% if rule_subject %}<code>objet={{ rule_subject }}</code>{% endif %}
+        </li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
   {% if source == 'thunderbird' %}
   <form method="post" action="/cleaner/scan" class="bulk-actions">

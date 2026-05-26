@@ -482,9 +482,13 @@ def _single_regex_match_reason(
     subject_pattern: re.Pattern | None,
 ) -> str:
     hits: list[str] = []
-    if sender_pattern and sender_pattern.search(sender):
+    if sender_pattern:
+        if not sender_pattern.search(sender):
+            return ""
         hits.append(f"regex expediteur: {sender_pattern.pattern}")
-    if subject_pattern and subject_pattern.search(subject):
+    if subject_pattern:
+        if not subject_pattern.search(subject):
+            return ""
         hits.append(f"regex objet: {subject_pattern.pattern}")
     return ", ".join(hits)
 

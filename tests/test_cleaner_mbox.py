@@ -128,6 +128,30 @@ def test_scan_thunderbird_regex_matches_sender_or_subject_and_keeps_safety(tmp_p
     assert "regex objet" in report.candidates[0].reason
 
 
+def test_scan_thunderbird_regex_requires_all_filled_fields_in_rule(tmp_path: Path):
+    mbox = tmp_path / "Inbox"
+    mbox.write_text(
+        _make_msg(1, "Amazon recommande un casque", "Soldes et unsubscribe.")
+        + _make_msg(2, "Google Play recommande un jeu", "Newsletter sans sujet sensible."),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+    )
+
+    report = scan_thunderbird_regex(
+        settings,
+        regex_rules=[
+            ("newsletter1", "Google Play"),
+        ],
+        min_age_days=7,
+    )
+
+    assert report.scanned_count == 2
+    assert report.candidate_count == 0
+
+
 def test_scan_thunderbird_regex_combines_multiple_rules(tmp_path: Path):
     mbox = tmp_path / "Inbox"
     mbox.write_text(

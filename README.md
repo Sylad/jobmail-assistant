@@ -140,9 +140,10 @@ Safety rules:
   batch" button, so large MBOX files can be processed in windows instead of
   rescanning the same first messages every time.
 - Regex scans can match the full Thunderbird mailbox with several readable
-  sender/subject rules. Rules are combined as a global OR. Use `0` as max-mails
-  for an unbounded pass. Regex moves replay the same rules after the dry-run
-  and move every matching result in one Thunderbird rewrite.
+  sender/subject rules. Inside a rule, every filled field must match; rules are
+  combined as a global OR. Use `0` as max-mails for an unbounded pass. Regex
+  moves replay the same rules after the dry-run and move every matching result
+  in one Thunderbird rewrite.
 - A report is shown before any move, and confirmation checkboxes are required.
 - Logs never include the full mail content.
 
