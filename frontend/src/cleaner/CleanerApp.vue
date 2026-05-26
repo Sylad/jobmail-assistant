@@ -104,7 +104,7 @@ function defaultScanStats() {
   return [
     { label: "Mails scannes", value: 0 },
     { label: "Candidats", value: 0 },
-    { label: "Factures", value: 0 },
+    { label: "Factures avec PJ", value: 0 },
     { label: form.source === "regex" ? "Hors regex" : "Hors filtre", value: 0 },
     { label: "Trop recents", value: 0 },
   ];
@@ -309,7 +309,7 @@ function setScanProgress(payload: CleanerScanJobPayload): void {
   scanPanel.stats = [
     { label: "Mails scannes", value: payload.scanned_count || 0 },
     { label: "Candidats", value: payload.candidate_count || 0 },
-    { label: "Factures", value: payload.skipped_safety || 0 },
+    { label: "Factures avec PJ", value: payload.skipped_safety || 0 },
     { label: form.source === "regex" ? "Hors regex" : "Hors filtre", value: payload.skipped_no_match || 0 },
     { label: "Trop recents", value: payload.skipped_too_recent || 0 },
     ...(payload.current_mailbox ? [{ label: "Boite", value: payload.current_mailbox }] : []),
@@ -645,7 +645,7 @@ function moveButtonLabel(): string {
           <strong>{{ currentReport.candidate_count }}</strong>
         </div>
         <div class="stat-box">
-          <span class="muted">Exclus facture</span>
+          <span class="muted">Factures avec PJ</span>
           <strong>{{ currentReport.skipped_safety }}</strong>
         </div>
         <div class="stat-box">

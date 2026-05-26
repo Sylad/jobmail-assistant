@@ -39,6 +39,31 @@ def _make_msg(idx: int, subject: str, body: str) -> str:
     )
 
 
+def _make_msg_with_attachment(idx: int, subject: str, body: str) -> str:
+    return (
+        f"From sender{idx}@example.com Mon Jan 05 12:00:00 2020\n"
+        f"Date: Mon, 05 Jan 2020 12:00:00 +0000\n"
+        f"From: newsletter{idx}@shop.example\n"
+        f"To: me@example.com\n"
+        f"Subject: {subject}\n"
+        f"Message-Id: <clean-{idx}@local>\n"
+        f"Content-Type: multipart/mixed; boundary=\"jobmail-test-{idx}\"\n"
+        f"\n"
+        f"--jobmail-test-{idx}\n"
+        f"Content-Type: text/plain; charset=utf-8\n"
+        f"\n"
+        f"{body}\n"
+        f"--jobmail-test-{idx}\n"
+        f"Content-Type: application/pdf; name=\"facture.pdf\"\n"
+        f"Content-Disposition: attachment; filename=\"facture.pdf\"\n"
+        f"Content-Transfer-Encoding: base64\n"
+        f"\n"
+        f"JVBERi0xLjQK\n"
+        f"--jobmail-test-{idx}--\n"
+        f"\n"
+    )
+
+
 def _make_msg_with_id(idx: int, subject: str, body: str, message_id: str) -> str:
     return _make_msg(idx, subject, body).replace(f"<clean-{idx}@local>", message_id)
 
@@ -60,10 +85,36 @@ def test_scan_thunderbird_promotions_reads_mbox_without_imap(tmp_path: Path):
     report = scan_thunderbird_promotions(settings, min_age_days=7, max_mails=20)
 
     assert report.scanned_count == 2
-    assert report.candidate_count == 1
+    assert report.candidate_count == 2
     assert report.candidates[0].source == "mbox"
     assert report.candidates[0].can_move is True
     assert "Newsletter promo" == report.candidates[0].subject
+    assert "Newsletter facture" == report.candidates[1].subject
+
+
+def test_scan_thunderbird_promotions_keeps_invoice_with_attachment(tmp_path: Path):
+    mbox = tmp_path / "Inbox"
+    mbox.write_text(
+        _make_msg(1, "Newsletter promo", "Soldes et unsubscribe.")
+        + _make_msg_with_attachment(2, "Newsletter facture", "Promotion avec facture importante."),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        imap_host="",
+        cleaner_mbox_globs=str(mbox),
+        cleaner_max_mails=20,
+    )
+
+    report = scan_thunderbird_promotions(settings, min_age_days=7, max_mails=20)
+    mails = list(read_mbox(mbox))
+
+    assert mails[0].has_attachment is False
+    assert mails[1].has_attachment is True
+    assert report.scanned_count == 2
+    assert report.candidate_count == 1
+    assert report.skipped_safety == 1
+    assert report.candidates[0].subject == "Newsletter promo"
 
 
 def test_scan_thunderbird_promotions_can_skip_already_seen_window(tmp_path: Path):

@@ -136,7 +136,12 @@ def scan_old_promotions(
                 continue
 
             body_text = _message_text(msg)
-            decision = classify_cleaner_candidate(msg.subject or "", body_text, msg.from_ or "")
+            decision = classify_cleaner_candidate(
+                msg.subject or "",
+                body_text,
+                msg.from_ or "",
+                has_attachment=bool(getattr(msg, "attachments", [])),
+            )
             if decision.safety_hit:
                 report.skipped_safety += 1
                 logger.info("Cleaner skipped uid=%s reason=safety_keyword:%s", msg.uid, decision.safety_hit)
@@ -213,7 +218,12 @@ def scan_thunderbird_promotions(
                 logger.info("Cleaner skipped mbox_offset=%s reason=too_recent", mail.mbox_offset)
                 continue
 
-            decision = classify_cleaner_candidate(mail.subject, mail.body_text, mail.sender)
+            decision = classify_cleaner_candidate(
+                mail.subject,
+                mail.body_text,
+                mail.sender,
+                has_attachment=mail.has_attachment,
+            )
             if decision.safety_hit:
                 report.skipped_safety += 1
                 logger.info(
@@ -294,7 +304,12 @@ def scan_thunderbird_regex(
             if not regex_reason:
                 report.skipped_no_match += 1
                 continue
-            decision = classify_cleaner_candidate(mail.subject, mail.body_text, mail.sender)
+            decision = classify_cleaner_candidate(
+                mail.subject,
+                mail.body_text,
+                mail.sender,
+                has_attachment=mail.has_attachment,
+            )
             if decision.safety_hit:
                 report.skipped_safety += 1
                 logger.info("Cleaner regex skipped mbox_offset=%s reason=safety_keyword:%s", mail.mbox_offset, decision.safety_hit)
@@ -1081,14 +1096,24 @@ def _move_offsets_to_trash(
             logger.info("Cleaner refused mbox_offset=%s reason=too_recent", offset)
             continue
         if validator == "promotion":
-            decision = classify_cleaner_candidate(mail.subject, mail.body_text, mail.sender)
+            decision = classify_cleaner_candidate(
+                mail.subject,
+                mail.body_text,
+                mail.sender,
+                has_attachment=mail.has_attachment,
+            )
             if decision.safety_hit or not decision.is_candidate:
                 logger.info("Cleaner refused mbox_offset=%s reason=safety_or_not_candidate", offset)
                 continue
             reason = decision.reason
             source = "mbox"
         elif validator == "regex":
-            decision = classify_cleaner_candidate(mail.subject, mail.body_text, mail.sender)
+            decision = classify_cleaner_candidate(
+                mail.subject,
+                mail.body_text,
+                mail.sender,
+                has_attachment=mail.has_attachment,
+            )
             if decision.safety_hit:
                 logger.info("Cleaner refused mbox_offset=%s reason=safety_keyword:%s", offset, decision.safety_hit)
                 continue

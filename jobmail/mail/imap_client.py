@@ -40,4 +40,5 @@ def fetch_recent(settings: Settings) -> Iterator[RawEmail]:
                 received_at=msg.date,
                 body_text=normalize_body(body_text),
                 body_html=body_html,
+                has_attachment=bool(getattr(msg, "attachments", [])),
             )

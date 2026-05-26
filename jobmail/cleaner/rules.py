@@ -47,10 +47,10 @@ class CleanerDecision:
     safety_hit: str = ""
 
 
-def classify_cleaner_candidate(subject: str, body: str, sender: str) -> CleanerDecision:
+def classify_cleaner_candidate(subject: str, body: str, sender: str, *, has_attachment: bool = False) -> CleanerDecision:
     haystack = _normalize(f"{sender}\n{subject}\n{body}")
     safety_hit = _first_keyword(haystack, SAFETY_KEYWORDS)
-    if safety_hit:
+    if safety_hit and has_attachment:
         return CleanerDecision(False, safety_hit=safety_hit)
 
     sender_norm = _normalize(sender)

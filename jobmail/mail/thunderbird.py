@@ -44,6 +44,7 @@ def read_mbox(
             received_at=received_at,
             body_text=normalize_body(body_text),
             body_html=body_html,
+            has_attachment=_has_attachment(msg),
             mbox_path=abs_path,
             mbox_offset=offset,
         )
@@ -76,6 +77,17 @@ def _extract_bodies(msg) -> tuple[str, str]:
     if not text and html:
         text = html_to_text(html)
     return text, html
+
+
+def _has_attachment(msg) -> bool:
+    for part in msg.walk() if msg.is_multipart() else [msg]:
+        if part.is_multipart():
+            continue
+        disposition = (part.get_content_disposition() or "").lower()
+        filename = part.get_filename()
+        if disposition == "attachment" or filename:
+            return True
+    return False
 
 
 def _decode_hdr(value) -> str:

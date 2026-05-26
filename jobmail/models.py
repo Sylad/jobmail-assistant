@@ -38,6 +38,7 @@ class RawEmail:
     received_at: datetime
     body_text: str
     body_html: str = ""
+    has_attachment: bool = False
     # Set when the source is an MBOX file — byte offset of the `From ` envelope
     # line in the file. Persisted in mbox_state so the next run can resume.
     mbox_path: str = ""
