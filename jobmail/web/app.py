@@ -37,7 +37,9 @@ def _pipeline_process_active() -> tuple[bool, int | None]:
             cmdline = (entry / "cmdline").read_bytes().replace(b"\x00", b" ").decode("utf-8", "replace")
         except (OSError, PermissionError):
             continue
-        if "jobmail" in cmdline and (" fetch" in cmdline or " dry-run" in cmdline):
+        if "jobmail" in cmdline and any(
+            cmd in cmdline for cmd in (" fetch", " dry-run", " extract", " watch")
+        ):
             return True, int(entry.name)
     return False, None
 
@@ -78,18 +80,20 @@ def _compute_stats(conn: sqlite3.Connection) -> dict:
     is_running, pid = _pipeline_process_active()
     uptime = _process_uptime(pid) if pid else None
 
-    # Phase heuristic when running:
-    #   - parsing : process alive but no emails yet
-    #   - filtering : emails but no offers yet
-    #   - extracting : offers being created
+    # Phase heuristic + progress when running.
     phase = None
+    progress = None  # 0..100 or None
     if is_running:
         if n_emails == 0:
             phase = "Parsing MBOX (lecture initiale du fichier)"
         elif n_offers == 0:
             phase = "Classification locale en cours"
+            if n_emails:
+                progress = min(100, n_jobs * 100 // max(n_emails, 1))
         else:
             phase = "Extraction LLM en cours"
+            if n_jobs:
+                progress = min(100, n_offers * 100 // n_jobs)
 
     return {
         "emails": n_emails,
@@ -99,6 +103,7 @@ def _compute_stats(conn: sqlite3.Connection) -> dict:
         "pid": pid,
         "uptime": uptime,
         "phase": phase,
+        "progress": progress,
         "last_activity": last_extract or last,
     }
 

@@ -26,18 +26,26 @@
   </header>
   {% if stats is defined %}
   <div class="live-strip {% if stats.is_running %}live-strip-running{% endif %}">
-    {% if stats.is_running %}
-      <span class="live-dot"></span>
-      <strong>{{ stats.phase or 'Pipeline en cours' }}</strong>
-      {% if stats.uptime %}· {{ stats.uptime }}{% endif %}
-      · auto-refresh 8s
-    {% else %}
-      <span class="live-dot live-dot-idle"></span> Idle
+    <div class="live-strip-row">
+      {% if stats.is_running %}
+        <span class="live-dot"></span>
+        <strong>{{ stats.phase or 'Pipeline en cours' }}</strong>
+        {% if stats.uptime %}<span class="muted">· {{ stats.uptime }}</span>{% endif %}
+        {% if stats.progress is not none %}
+          <strong>· {{ stats.offers }}/{{ stats.jobs }} ({{ stats.progress }}%)</strong>
+        {% endif %}
+        <span class="muted">· auto-refresh 8s</span>
+      {% else %}
+        <span class="live-dot live-dot-idle"></span> Idle
+        · <strong>{{ stats.emails }}</strong> mails
+        · <strong>{{ stats.jobs }}</strong> job-related
+        · <strong>{{ stats.offers }}</strong> offres
+        {% if stats.last_activity %}<span class="muted">· dernière activité {{ stats.last_activity }}</span>{% endif %}
+      {% endif %}
+    </div>
+    {% if stats.is_running and stats.progress is not none %}
+    <div class="progress-bar"><div class="progress-fill" style="width: {{ stats.progress }}%"></div></div>
     {% endif %}
-    · <strong>{{ stats.emails }}</strong> mails ingérés
-    · <strong>{{ stats.jobs }}</strong> job-related (filtre local)
-    · <strong>{{ stats.offers }}</strong> offres extraites
-    {% if stats.last_activity %}· dernière activité {{ stats.last_activity }}{% endif %}
   </div>
   {% endif %}
   <main class="container">
