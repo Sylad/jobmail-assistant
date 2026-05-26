@@ -126,6 +126,28 @@ select:focus-visible {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
+.backup-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  font-weight: 800;
+}
+.backup-details summary::-webkit-details-marker {
+  display: none;
+}
+.backup-details summary::before {
+  content: "▸";
+  color: var(--accent);
+  transition: transform 0.15s ease;
+}
+.backup-details[open] summary {
+  margin-bottom: 16px;
+}
+.backup-details[open] summary::before {
+  transform: rotate(90deg);
+}
 .filter-form { display: flex; gap: var(--gap); flex-wrap: wrap; align-items: end; }
 .filter-form label { display: flex; flex-direction: column; gap: 6px; font-size: 0.78rem; color: var(--fg-mute); font-weight: 700; }
 .filter-form select, .filter-form input {
@@ -143,19 +165,37 @@ select:focus-visible {
 .regex-rule-list {
   flex: 1 1 640px;
 }
+.regex-rule-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.regex-rule-head .label-title {
+  margin: 0 auto 0 0;
+}
+.regex-rule-scroll {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
 .regex-rule-table {
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.regex-rule-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 .regex-rule-table input {
   width: 100%;
   min-width: 220px;
-}
-.regex-save-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
 }
 .regex-save-saved { color: var(--ok); }
 .regex-save-dirty { color: var(--warn); }

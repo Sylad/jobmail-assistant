@@ -19,8 +19,14 @@
   <div class="alert alert-ok">{{ moved_count }} mail(s) deplace(s) vers {{ moved_destination or delete_folder }}.</div>
 {% endif %}
 
-<section class="filters backup-panel">
-  <h2>Backups Thunderbird</h2>
+<details class="filters backup-panel backup-details">
+  <summary>
+    <span>Backups Thunderbird</span>
+    <span class="muted small">
+      {{ backup_summary.file_count }} backup(s), {{ backup_total_size }}
+      {% if backup_summary.eligible_count %} · {{ backup_summary.eligible_count }} nettoyable(s){% endif %}
+    </span>
+  </summary>
   {% if backup_deleted_count %}
     <div class="alert alert-ok">{{ backup_deleted_count }} backup(s) supprime(s), {{ backup_deleted_size }} liberes.</div>
   {% endif %}
@@ -88,7 +94,7 @@
     <p class="form-pending-message" role="status" aria-live="polite"></p>
   </form>
   {% endif %}
-</section>
+</details>
 
 <section class="filters cleaner-app-shell">
   <div

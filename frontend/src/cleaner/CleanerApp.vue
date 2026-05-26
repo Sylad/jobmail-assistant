@@ -582,26 +582,8 @@ function moveButtonLabel(): string {
 
     <section class="vue-panel">
       <div class="regex-rule-list">
-        <span class="label-title">Regles regex</span>
-        <table class="compact-table regex-rule-table">
-          <thead>
-            <tr>
-              <th>Expediteur</th>
-              <th>Objet</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(rule, index) in regexRules" :key="index">
-              <td><input v-model="rule.sender_regex" type="text" placeholder="amazon|googleplay"></td>
-              <td><input v-model="rule.subject_regex" type="text" placeholder="promo|soldes|recommande"></td>
-            </tr>
-          </tbody>
-        </table>
-        <Button type="button" variant="ghost" size="sm" @click="addRegexRule">
-          <Plus :size="14" />
-          Ajouter une regle
-        </Button>
-        <div class="regex-save-row">
+        <div class="regex-rule-head">
+          <span class="label-title">Regles regex</span>
           <Button type="button" size="sm" @click="startRegexScan">
             <Search :size="14" />
             Scanner avec ces regles
@@ -610,7 +592,27 @@ function moveButtonLabel(): string {
             <Save :size="14" />
             Sauvegarder les regles
           </Button>
+          <Button type="button" variant="ghost" size="sm" @click="addRegexRule">
+            <Plus :size="14" />
+            Ajouter une regle
+          </Button>
           <span class="muted small" :class="`regex-save-${regexSaveState}`">{{ regexSaveLabel }}</span>
+        </div>
+        <div class="regex-rule-scroll">
+          <table class="compact-table regex-rule-table">
+            <thead>
+              <tr>
+                <th>Expediteur</th>
+                <th>Objet</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(rule, index) in regexRules" :key="index">
+                <td><input v-model="rule.sender_regex" type="text" placeholder="amazon|googleplay"></td>
+                <td><input v-model="rule.subject_regex" type="text" placeholder="promo|soldes|recommande"></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
       <p class="muted small">
