@@ -128,6 +128,36 @@ def test_scan_thunderbird_regex_matches_sender_or_subject_and_keeps_safety(tmp_p
     assert "regex objet" in report.candidates[0].reason
 
 
+def test_scan_thunderbird_regex_combines_multiple_rules(tmp_path: Path):
+    mbox = tmp_path / "Inbox"
+    mbox.write_text(
+        _make_msg(1, "Amazon recommande un casque", "Soldes et unsubscribe.")
+        + _make_msg(2, "Google Play promo", "Newsletter sans sujet sensible.")
+        + _make_msg(3, "Mission Java", "Votre candidature emploi Java."),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+    )
+
+    report = scan_thunderbird_regex(
+        settings,
+        regex_rules=[
+            ("newsletter1", ""),
+            ("", "Google Play"),
+        ],
+        min_age_days=7,
+    )
+
+    assert report.candidate_count == 2
+    assert {candidate.subject for candidate in report.candidates} == {
+        "Amazon recommande un casque",
+        "Google Play promo",
+    }
+    assert {candidate.reason.split(":", 1)[0] for candidate in report.candidates} == {"regle 1", "regle 2"}
+
+
 def test_move_thunderbird_regex_to_trash_moves_all_matches_in_one_action(tmp_path: Path):
     mbox = tmp_path / "Inbox"
     mbox.write_text(
@@ -143,8 +173,10 @@ def test_move_thunderbird_regex_to_trash_moves_all_matches_in_one_action(tmp_pat
 
     moved_count, report = move_thunderbird_regex_to_trash(
         settings,
-        sender_regex="newsletter[12]",
-        subject_regex="recommande|promo",
+        regex_rules=[
+            ("newsletter1", "recommande"),
+            ("newsletter2", "promo"),
+        ],
         min_age_days=7,
         require_thunderbird_closed=False,
     )

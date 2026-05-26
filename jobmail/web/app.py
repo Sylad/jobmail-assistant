@@ -136,9 +136,11 @@ def _cleaner_context(
     source: str = "thunderbird",
     sender_regex: str = "",
     subject_regex: str = "",
+    regex_rules: list[tuple[str, str]] | None = None,
     error: str = "",
     moved_count: int = 0,
 ) -> dict:
+    display_rules = _display_regex_rules(regex_rules, sender_regex, subject_regex)
     return {
         "request": request,
         "report": report,
@@ -148,6 +150,7 @@ def _cleaner_context(
         "source": source,
         "sender_regex": sender_regex,
         "subject_regex": subject_regex,
+        "regex_rules": display_rules,
         "delete_folder": settings.cleaner_delete_folder,
         "mbox_patterns": settings.cleaner_mbox_patterns,
         "error": error,
@@ -155,6 +158,33 @@ def _cleaner_context(
         "provider": settings.llm_provider,
         "imap_enabled": settings.imap_enabled,
     }
+
+
+def _display_regex_rules(
+    regex_rules: list[tuple[str, str]] | None,
+    sender_regex: str = "",
+    subject_regex: str = "",
+) -> list[tuple[str, str]]:
+    rules = regex_rules if regex_rules is not None else []
+    if not rules and (sender_regex or subject_regex):
+        rules = [(sender_regex, subject_regex)]
+    visible = [(sender, subject) for sender, subject in rules if sender or subject]
+    while len(visible) < 5:
+        visible.append(("", ""))
+    return visible
+
+
+def _form_regex_rules(sender_values: list[str], subject_values: list[str], sender_regex: str, subject_regex: str) -> list[tuple[str, str]]:
+    max_len = max(len(sender_values), len(subject_values))
+    rules: list[tuple[str, str]] = []
+    for index in range(max_len):
+        sender = sender_values[index].strip() if index < len(sender_values) else ""
+        subject = subject_values[index].strip() if index < len(subject_values) else ""
+        if sender or subject:
+            rules.append((sender, subject))
+    if not rules and (sender_regex.strip() or subject_regex.strip()):
+        rules.append((sender_regex.strip(), subject_regex.strip()))
+    return rules
 
 
 def _report_to_csv(report: CleanerReport) -> str:
@@ -253,8 +283,11 @@ def create_app() -> FastAPI:
         source: str = Form("thunderbird"),
         sender_regex: str = Form(""),
         subject_regex: str = Form(""),
+        sender_regex_rule: list[str] = Form(default=[]),
+        subject_regex_rule: list[str] = Form(default=[]),
         export_csv: str = Form(""),
     ):
+        regex_rules = _form_regex_rules(sender_regex_rule, subject_regex_rule, sender_regex, subject_regex)
         try:
             if source == "imap":
                 report = scan_old_promotions(
@@ -273,6 +306,7 @@ def create_app() -> FastAPI:
                     settings,
                     sender_regex=sender_regex,
                     subject_regex=subject_regex,
+                    regex_rules=regex_rules,
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                 )
@@ -297,6 +331,7 @@ def create_app() -> FastAPI:
                     source=source,
                     sender_regex=sender_regex,
                     subject_regex=subject_regex,
+                    regex_rules=regex_rules,
                     error=str(e),
                 ),
                 status_code=400,
@@ -322,6 +357,7 @@ def create_app() -> FastAPI:
                 source=source,
                 sender_regex=sender_regex,
                 subject_regex=subject_regex,
+                regex_rules=regex_rules,
             ),
         )
 
@@ -404,7 +440,10 @@ def create_app() -> FastAPI:
         source: str = Form("thunderbird"),
         sender_regex: str = Form(""),
         subject_regex: str = Form(""),
+        sender_regex_rule: list[str] = Form(default=[]),
+        subject_regex_rule: list[str] = Form(default=[]),
     ):
+        regex_rules = _form_regex_rules(sender_regex_rule, subject_regex_rule, sender_regex, subject_regex)
         if confirm_move != "yes" or confirm_thunderbird_closed != "yes":
             return templates.TemplateResponse(
                 request,
@@ -417,6 +456,7 @@ def create_app() -> FastAPI:
                     source=source,
                     sender_regex=sender_regex,
                     subject_regex=subject_regex,
+                    regex_rules=regex_rules,
                     error="Confirmation obligatoire et Thunderbird doit etre ferme avant l'action.",
                 ),
                 status_code=400,
@@ -434,6 +474,7 @@ def create_app() -> FastAPI:
                     settings,
                     sender_regex=sender_regex,
                     subject_regex=subject_regex,
+                    regex_rules=regex_rules,
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                 )
@@ -456,6 +497,7 @@ def create_app() -> FastAPI:
                     source=source,
                     sender_regex=sender_regex,
                     subject_regex=subject_regex,
+                    regex_rules=regex_rules,
                     error=str(e),
                 ),
                 status_code=400,
@@ -473,6 +515,7 @@ def create_app() -> FastAPI:
                 source=source,
                 sender_regex=sender_regex,
                 subject_regex=subject_regex,
+                regex_rules=regex_rules,
                 moved_count=moved_count,
             ),
         )

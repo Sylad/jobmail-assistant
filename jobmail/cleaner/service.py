@@ -158,10 +158,11 @@ def scan_thunderbird_regex(
     *,
     sender_regex: str = "",
     subject_regex: str = "",
+    regex_rules: list[tuple[str, str]] | None = None,
     min_age_days: int | None = None,
     max_mails: int | None = None,
 ) -> CleanerReport:
-    sender_pattern, subject_pattern = _compile_cleaner_regexes(sender_regex, subject_regex)
+    rules = _compile_cleaner_regex_rules(sender_regex, subject_regex, regex_rules)
     min_age = _clean_min_age(min_age_days, settings.cleaner_min_age_days)
     limit = _clean_unbounded_limit(max_mails)
     paths = _resolve_mbox_paths(settings.cleaner_mbox_patterns)
@@ -179,7 +180,7 @@ def scan_thunderbird_regex(
             report.scanned_count += 1
             if not _is_older_than(mail.received_at, min_age):
                 continue
-            regex_reason = _regex_match_reason(mail.sender, mail.subject, sender_pattern, subject_pattern)
+            regex_reason = _regex_match_reason(mail.sender, mail.subject, rules)
             if not regex_reason:
                 continue
             decision = classify_cleaner_candidate(mail.subject, mail.body_text, mail.sender)
@@ -356,6 +357,7 @@ def move_thunderbird_regex_to_trash(
     *,
     sender_regex: str = "",
     subject_regex: str = "",
+    regex_rules: list[tuple[str, str]] | None = None,
     min_age_days: int | None = None,
     max_mails: int | None = None,
     require_thunderbird_closed: bool = True,
@@ -364,6 +366,7 @@ def move_thunderbird_regex_to_trash(
         settings,
         sender_regex=sender_regex,
         subject_regex=subject_regex,
+        regex_rules=regex_rules,
         min_age_days=min_age_days,
         max_mails=max_mails,
     )
@@ -438,20 +441,41 @@ def _clean_unbounded_limit(value: int | None) -> int:
     return max(0, int(value))
 
 
-def _compile_cleaner_regexes(sender_regex: str, subject_regex: str) -> tuple[re.Pattern | None, re.Pattern | None]:
-    sender_regex = sender_regex.strip()
-    subject_regex = subject_regex.strip()
-    if not sender_regex and not subject_regex:
-        raise CleanerError("Indique au moins une regex expediteur ou objet.")
-    try:
-        sender_pattern = re.compile(sender_regex, re.IGNORECASE) if sender_regex else None
-        subject_pattern = re.compile(subject_regex, re.IGNORECASE) if subject_regex else None
-    except re.error as e:
-        raise CleanerError(f"Regex invalide: {e}") from e
-    return sender_pattern, subject_pattern
+CompiledRegexRule = tuple[int, re.Pattern | None, re.Pattern | None]
 
 
-def _regex_match_reason(
+def _compile_cleaner_regex_rules(
+    sender_regex: str,
+    subject_regex: str,
+    regex_rules: list[tuple[str, str]] | None,
+) -> list[CompiledRegexRule]:
+    raw_rules = [(sender_regex, subject_regex)]
+    if regex_rules is not None:
+        raw_rules = regex_rules
+
+    compiled: list[CompiledRegexRule] = []
+    errors: list[str] = []
+    for index, (sender_raw, subject_raw) in enumerate(raw_rules, start=1):
+        sender_raw = sender_raw.strip()
+        subject_raw = subject_raw.strip()
+        if not sender_raw and not subject_raw:
+            continue
+        try:
+            sender_pattern = re.compile(sender_raw, re.IGNORECASE) if sender_raw else None
+            subject_pattern = re.compile(subject_raw, re.IGNORECASE) if subject_raw else None
+        except re.error as e:
+            errors.append(f"regle {index}: {e}")
+            continue
+        compiled.append((index, sender_pattern, subject_pattern))
+
+    if errors:
+        raise CleanerError("Regex invalide: " + "; ".join(errors))
+    if not compiled:
+        raise CleanerError("Indique au moins une regle avec une regex expediteur ou objet.")
+    return compiled
+
+
+def _single_regex_match_reason(
     sender: str,
     subject: str,
     sender_pattern: re.Pattern | None,
@@ -463,6 +487,22 @@ def _regex_match_reason(
     if subject_pattern and subject_pattern.search(subject):
         hits.append(f"regex objet: {subject_pattern.pattern}")
     return ", ".join(hits)
+
+
+def _regex_match_reason(
+    sender: str,
+    subject: str,
+    rules: list[CompiledRegexRule] | re.Pattern | None,
+    subject_pattern: re.Pattern | None = None,
+) -> str:
+    if not isinstance(rules, list):
+        return _single_regex_match_reason(sender, subject, rules, subject_pattern)
+
+    for index, sender_pattern, rule_subject_pattern in rules:
+        reason = _single_regex_match_reason(sender, subject, sender_pattern, rule_subject_pattern)
+        if reason:
+            return f"regle {index}: {reason}"
+    return ""
 
 
 def _dedupe_uids(uids: list[str]) -> list[str]:

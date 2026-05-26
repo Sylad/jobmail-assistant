@@ -80,9 +80,10 @@ def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
 def test_cleaner_regex_scan_renders_report(monkeypatch, tmp_path):
     calls = {}
 
-    def fake_scan(settings, *, sender_regex, subject_regex, min_age_days, max_mails):
+    def fake_scan(settings, *, sender_regex, subject_regex, regex_rules, min_age_days, max_mails):
         calls["sender_regex"] = sender_regex
         calls["subject_regex"] = subject_regex
+        calls["regex_rules"] = regex_rules
         calls["min_age_days"] = min_age_days
         calls["max_mails"] = max_mails
         return _report()
@@ -94,8 +95,8 @@ def test_cleaner_regex_scan_renders_report(monkeypatch, tmp_path):
         "/cleaner/scan",
         data={
             "source": "regex",
-            "sender_regex": "amazon|googleplay",
-            "subject_regex": "promo|recommande",
+            "sender_regex_rule": ["amazon", "googleplay"],
+            "subject_regex_rule": ["recommande", "promo"],
             "min_age_days": "30",
             "max_mails": "0",
         },
@@ -103,14 +104,15 @@ def test_cleaner_regex_scan_renders_report(monkeypatch, tmp_path):
 
     assert resp.status_code == 200
     assert calls == {
-        "sender_regex": "amazon|googleplay",
-        "subject_regex": "promo|recommande",
+        "sender_regex": "",
+        "subject_regex": "",
+        "regex_rules": [("amazon", "recommande"), ("googleplay", "promo")],
         "min_age_days": 30,
         "max_mails": 0,
     }
     assert "Scanner toute la boite par regex" in resp.text
-    assert 'name="sender_regex" value="amazon|googleplay"' in resp.text
-    assert 'name="subject_regex" value="promo|recommande"' in resp.text
+    assert 'name="sender_regex_rule" value="amazon"' in resp.text
+    assert 'name="subject_regex_rule" value="promo"' in resp.text
     assert "Deplacer tous les resultats regex vers la corbeille Thunderbird" in resp.text
 
 
@@ -277,9 +279,10 @@ def test_cleaner_parsed_jobs_move_calls_dedicated_service(monkeypatch, tmp_path)
 def test_cleaner_regex_move_replays_rules_after_confirmations(monkeypatch, tmp_path):
     calls = {}
 
-    def fake_move(settings, *, sender_regex, subject_regex, min_age_days, max_mails):
+    def fake_move(settings, *, sender_regex, subject_regex, regex_rules, min_age_days, max_mails):
         calls["sender_regex"] = sender_regex
         calls["subject_regex"] = subject_regex
+        calls["regex_rules"] = regex_rules
         calls["min_age_days"] = min_age_days
         calls["max_mails"] = max_mails
         return 2, _report()
@@ -291,8 +294,8 @@ def test_cleaner_regex_move_replays_rules_after_confirmations(monkeypatch, tmp_p
         "/cleaner/move-thunderbird-to-trash",
         data={
             "source": "regex",
-            "sender_regex": "amazon",
-            "subject_regex": "promo",
+            "sender_regex_rule": ["amazon", "googleplay"],
+            "subject_regex_rule": ["promo", ""],
             "confirm_move": "yes",
             "confirm_thunderbird_closed": "yes",
             "min_age_days": "9",
@@ -301,5 +304,11 @@ def test_cleaner_regex_move_replays_rules_after_confirmations(monkeypatch, tmp_p
     )
 
     assert resp.status_code == 200
-    assert calls == {"sender_regex": "amazon", "subject_regex": "promo", "min_age_days": 9, "max_mails": 0}
+    assert calls == {
+        "sender_regex": "",
+        "subject_regex": "",
+        "regex_rules": [("amazon", "promo"), ("googleplay", "")],
+        "min_age_days": 9,
+        "max_mails": 0,
+    }
     assert "2 mail(s) deplace(s)" in resp.text

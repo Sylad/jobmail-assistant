@@ -61,14 +61,26 @@
 <section class="filters">
   <form method="post" action="/cleaner/scan" class="filter-form">
     <input type="hidden" name="source" value="regex">
-    <label>
-      Regex expediteur
-      <input type="text" name="sender_regex" value="{{ sender_regex }}" placeholder="amazon|googleplay|newsletter">
-    </label>
-    <label>
-      Regex objet
-      <input type="text" name="subject_regex" value="{{ subject_regex }}" placeholder="promo|soldes|recommande">
-    </label>
+    <div class="regex-rule-list">
+      <span class="label-title">Regles regex</span>
+      <table class="compact-table regex-rule-table">
+        <thead>
+          <tr>
+            <th>Expediteur</th>
+            <th>Objet</th>
+          </tr>
+        </thead>
+        <tbody data-regex-rules>
+        {% for rule_sender, rule_subject in regex_rules %}
+          <tr>
+            <td><input type="text" name="sender_regex_rule" value="{{ rule_sender }}" placeholder="amazon|googleplay"></td>
+            <td><input type="text" name="subject_regex_rule" value="{{ rule_subject }}" placeholder="promo|soldes|recommande"></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <button type="button" class="btn btn-sm btn-ghost" data-add-regex-rule>Ajouter une regle</button>
+    </div>
     <label>
       Plus vieux que (jours)
       <input type="number" name="min_age_days" min="1" max="3650" value="{{ min_age_days }}">
@@ -170,8 +182,12 @@
     <input type="hidden" name="max_mails" value="{{ max_mails }}">
     <input type="hidden" name="source" value="{{ source }}">
     {% if source == 'regex' %}
-    <input type="hidden" name="sender_regex" value="{{ sender_regex }}">
-    <input type="hidden" name="subject_regex" value="{{ subject_regex }}">
+      {% for rule_sender, rule_subject in regex_rules %}
+        {% if rule_sender or rule_subject %}
+        <input type="hidden" name="sender_regex_rule" value="{{ rule_sender }}">
+        <input type="hidden" name="subject_regex_rule" value="{{ rule_subject }}">
+        {% endif %}
+      {% endfor %}
     {% endif %}
   {% endif %}
     <table class="offers cleaner-table">
@@ -316,6 +332,22 @@
   });
   checkboxes.forEach((box) => box.addEventListener("change", updateCount));
   updateCount();
+})();
+
+(() => {
+  const ruleBody = document.querySelector("[data-regex-rules]");
+  const addButton = document.querySelector("[data-add-regex-rule]");
+  if (!ruleBody || !addButton) return;
+
+  addButton.addEventListener("click", () => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><input type="text" name="sender_regex_rule" placeholder="amazon|googleplay"></td>
+      <td><input type="text" name="subject_regex_rule" placeholder="promo|soldes|recommande"></td>
+    `;
+    ruleBody.appendChild(row);
+    row.querySelector("input")?.focus();
+  });
 })();
 </script>
 {% endblock %}

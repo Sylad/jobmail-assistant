@@ -121,6 +121,24 @@ select:focus-visible {
   padding: 8px 10px; border-radius: var(--radius); min-width: 140px;
 }
 .filter-form select:hover, .filter-form input:hover { border-color: #40516a; }
+.label-title {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  color: var(--fg-mute);
+  font-weight: 700;
+}
+.regex-rule-list {
+  flex: 1 1 640px;
+}
+.regex-rule-table {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.regex-rule-table input {
+  width: 100%;
+  min-width: 220px;
+}
 
 h1 { font-size: 1.55rem; margin: 0 0 18px; letter-spacing: 0.01em; }
 h2 { margin-top: 28px; }
