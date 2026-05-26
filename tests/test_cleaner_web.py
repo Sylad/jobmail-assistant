@@ -147,6 +147,28 @@ def test_cleaner_page_loads_saved_regex_rules(monkeypatch, tmp_path):
     assert "promo" in resp.text
 
 
+def test_cleaner_regex_rules_can_be_saved_without_scan(monkeypatch, tmp_path):
+    settings = web_app.get_settings()
+    settings.cleaner_regex_rules_path = tmp_path / "cleaner-regex-rules.json"
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post(
+        "/cleaner/regex-rules",
+        json={
+            "rules": [
+                {"sender_regex": " store-news@amazon.fr ", "subject_regex": " promo "},
+                {"sender_regex": "", "subject_regex": ""},
+            ]
+        },
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["saved"] is True
+    saved = settings.cleaner_regex_rules_path.read_text(encoding="utf-8")
+    assert "store-news@amazon.fr" in saved
+    assert "promo" in saved
+
+
 def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
     calls = {}
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
-import { Download, ExternalLink, Plus, RotateCcw, Search, Trash2 } from "@lucide/vue";
+import { computed, reactive, ref, watch } from "vue";
+import { Download, ExternalLink, Plus, RotateCcw, Save, Search, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import ProgressPanel from "./ProgressPanel.vue";
 import type {
@@ -38,6 +38,9 @@ const confirmMove = ref(false);
 const confirmThunderbirdClosed = ref(false);
 const actionMessage = ref("");
 const actionError = ref("");
+const regexSaveState = ref<"saved" | "dirty" | "saving" | "error">("saved");
+let regexSaveTimer: number | undefined;
+let regexHydrating = false;
 let currentScanJobId = "";
 let currentMoveJobId = "";
 
@@ -72,6 +75,24 @@ const canMoveSelection = computed(() => {
   if (reportResult.value.source === "regex") return currentReport.value.candidate_count > 0;
   return selectedCount.value > 0;
 });
+const regexSaveLabel = computed(() => {
+  if (regexSaveState.value === "saving") return "Sauvegarde...";
+  if (regexSaveState.value === "dirty") return "Modifications non sauvegardees";
+  if (regexSaveState.value === "error") return "Sauvegarde en erreur";
+  return "Regles sauvegardees";
+});
+
+watch(
+  regexRules,
+  () => {
+    if (regexHydrating) {
+      regexHydrating = false;
+      return;
+    }
+    scheduleRegexRulesSave();
+  },
+  { deep: true },
+);
 
 function normalizeRules(rules: RegexRule[]): RegexRule[] {
   const clean = rules.filter((rule) => rule.sender_regex || rule.subject_regex);
@@ -123,6 +144,16 @@ function addRegexRule(): void {
   regexRules.value.push({ sender_regex: "", subject_regex: "" });
 }
 
+function scheduleRegexRulesSave(): void {
+  regexSaveState.value = "dirty";
+  window.clearTimeout(regexSaveTimer);
+  regexSaveTimer = window.setTimeout(() => {
+    saveRegexRules().catch(() => {
+      regexSaveState.value = "error";
+    });
+  }, 700);
+}
+
 function cleanRegexRules(): RegexRule[] {
   return regexRules.value
     .map((rule) => ({
@@ -130,6 +161,21 @@ function cleanRegexRules(): RegexRule[] {
       subject_regex: rule.subject_regex.trim(),
     }))
     .filter((rule) => rule.sender_regex || rule.subject_regex);
+}
+
+async function saveRegexRules(): Promise<void> {
+  window.clearTimeout(regexSaveTimer);
+  regexSaveState.value = "saving";
+  const response = await fetch("/cleaner/regex-rules", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rules: cleanRegexRules() }),
+  });
+  if (!response.ok) {
+    regexSaveState.value = "error";
+    return;
+  }
+  regexSaveState.value = "saved";
 }
 
 function scanFormData(extra?: Record<string, string>): FormData {
@@ -222,7 +268,12 @@ async function loadScanResult(url: string): Promise<void> {
   form.minAgeDays = payload.min_age_days;
   form.maxMails = payload.max_mails;
   form.scanOffset = payload.scan_offset;
+  regexHydrating = true;
   regexRules.value = normalizeRules(payload.regex_rules);
+  window.queueMicrotask(() => {
+    regexHydrating = false;
+  });
+  regexSaveState.value = "saved";
   selectAllCandidates();
 }
 
@@ -540,6 +591,13 @@ function moveButtonLabel(): string {
           <Plus :size="14" />
           Ajouter une regle
         </Button>
+        <div class="regex-save-row">
+          <Button type="button" variant="ghost" size="sm" @click="saveRegexRules">
+            <Save :size="14" />
+            Sauvegarder les regles
+          </Button>
+          <span class="muted small" :class="`regex-save-${regexSaveState}`">{{ regexSaveLabel }}</span>
+        </div>
       </div>
       <p class="muted small">
         Dans une ligne, les champs remplis doivent tous correspondre. Les lignes sont combinees en OU global.

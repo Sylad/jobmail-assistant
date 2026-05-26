@@ -151,6 +151,16 @@ select:focus-visible {
   width: 100%;
   min-width: 220px;
 }
+.regex-save-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.regex-save-saved { color: var(--ok); }
+.regex-save-dirty { color: var(--warn); }
+.regex-save-saving { color: var(--accent); }
+.regex-save-error { color: var(--bad); }
 .scan-progress {
   margin-top: 14px;
   padding: 14px;

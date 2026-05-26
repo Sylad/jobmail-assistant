@@ -492,6 +492,28 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail="Source de cleaner inconnue.")
         return _cleaner_state_payload(settings, source=source)
 
+    @app.post("/cleaner/regex-rules")
+    def cleaner_save_regex_rules(payload: dict):
+        raw_rules = payload.get("rules", [])
+        if not isinstance(raw_rules, list):
+            raise HTTPException(status_code=400, detail="Format de regles invalide.")
+        sender_values: list[str] = []
+        subject_values: list[str] = []
+        for item in raw_rules:
+            if not isinstance(item, dict):
+                continue
+            sender_values.append(str(item.get("sender_regex", "")))
+            subject_values.append(str(item.get("subject_regex", "")))
+        regex_rules = _form_regex_rules(sender_values, subject_values, "", "")
+        _save_regex_rules(settings, regex_rules)
+        return {
+            "saved": True,
+            "regex_rules": [
+                {"sender_regex": sender, "subject_regex": subject}
+                for sender, subject in _display_regex_rules(regex_rules)
+            ],
+        }
+
     @app.post("/cleaner/backups/cleanup", response_class=HTMLResponse)
     def cleaner_backup_cleanup(
         request: Request,
