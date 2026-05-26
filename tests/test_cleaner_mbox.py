@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
-from jobmail.cleaner.service import scan_thunderbird_promotions
+from jobmail.cleaner.service import (
+    move_parsed_jobs_to_trash,
+    move_thunderbird_to_trash,
+    scan_parsed_job_mails,
+    scan_thunderbird_promotions,
+)
 from jobmail.config import Settings
+from jobmail.db import connect, init_db, insert_email, update_status, upsert_offer
+from jobmail.models import OfferExtraction, OfferStatus, RawEmail
 
 
 def _make_msg(idx: int, subject: str, body: str) -> str:
@@ -40,5 +48,114 @@ def test_scan_thunderbird_promotions_reads_mbox_without_imap(tmp_path: Path):
     assert report.scanned_count == 2
     assert report.candidate_count == 1
     assert report.candidates[0].source == "mbox"
-    assert report.candidates[0].can_move is False
+    assert report.candidates[0].can_move is True
     assert "Newsletter promo" == report.candidates[0].subject
+
+
+def test_move_thunderbird_to_trash_moves_selected_candidate(tmp_path: Path):
+    mbox = tmp_path / "Inbox"
+    mbox.write_text(
+        _make_msg(1, "Newsletter promo", "Soldes et unsubscribe.")
+        + _make_msg(2, "Mission Java", "Votre candidature emploi Java."),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+        cleaner_max_mails=20,
+    )
+    report = scan_thunderbird_promotions(settings, min_age_days=7, max_mails=20)
+
+    moved_count, moved_report = move_thunderbird_to_trash(
+        settings,
+        uids=[report.candidates[0].uid],
+        min_age_days=7,
+        max_mails=20,
+        require_thunderbird_closed=False,
+    )
+
+    assert moved_count == 1
+    assert moved_report.candidate_count == 1
+    assert "Newsletter promo" not in mbox.read_text(encoding="utf-8")
+    assert "Mission Java" in mbox.read_text(encoding="utf-8")
+    assert "Newsletter promo" in (tmp_path / "Trash").read_text(encoding="utf-8")
+    assert list(tmp_path.glob("Inbox.jobmail-backup-*"))
+
+
+def test_scan_parsed_job_mails_excludes_interesting(tmp_path: Path):
+    mbox = tmp_path / "Inbox"
+    mbox.write_text(_make_msg(1, "Mission Java", "Votre candidature emploi Java."), encoding="utf-8")
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+    )
+    init_db(settings.db_path)
+    with connect(settings.db_path) as conn:
+        ignored = RawEmail(
+            uid=f"{tmp_path.name}:mbox-0",
+            message_id="<job-1@local>",
+            subject="Mission Java",
+            sender="recruiter@example.com",
+            received_at=datetime(2020, 1, 5, 12, 0, 0),
+            body_text="Mission Java",
+        )
+        insert_email(conn, ignored, job_related=True, matched_keywords=["java"])
+        offer_id = upsert_offer(conn, ignored.uid, OfferExtraction(title="Mission Java", relevance_score=8))
+        update_status(conn, offer_id, OfferStatus.IGNORED)
+        interesting = RawEmail(
+            uid=f"{tmp_path.name}:mbox-999",
+            message_id="<job-2@local>",
+            subject="Mission GeoServer",
+            sender="recruiter@example.com",
+            received_at=datetime(2020, 1, 5, 12, 0, 0),
+            body_text="Mission GeoServer",
+        )
+        insert_email(conn, interesting, job_related=True, matched_keywords=["geoserver"])
+        interesting_id = upsert_offer(
+            conn,
+            interesting.uid,
+            OfferExtraction(title="Mission GeoServer", relevance_score=9),
+        )
+        update_status(conn, interesting_id, OfferStatus.INTERESTING)
+
+    report = scan_parsed_job_mails(settings, min_age_days=7, max_mails=20)
+
+    assert report.candidate_count == 1
+    assert report.candidates[0].source == "job"
+    assert report.candidates[0].uid.startswith("mbox:")
+    assert "status=ignored" in report.candidates[0].reason
+
+
+def test_move_parsed_jobs_to_trash_uses_db_allowlist(tmp_path: Path):
+    mbox = tmp_path / "Inbox"
+    mbox.write_text(_make_msg(1, "Mission Java", "Votre candidature emploi Java."), encoding="utf-8")
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+    )
+    init_db(settings.db_path)
+    with connect(settings.db_path) as conn:
+        email = RawEmail(
+            uid=f"{tmp_path.name}:mbox-0",
+            message_id="<job-1@local>",
+            subject="Mission Java",
+            sender="recruiter@example.com",
+            received_at=datetime(2020, 1, 5, 12, 0, 0),
+            body_text="Mission Java",
+        )
+        insert_email(conn, email, job_related=True, matched_keywords=["java"])
+        offer_id = upsert_offer(conn, email.uid, OfferExtraction(title="Mission Java", relevance_score=8))
+        update_status(conn, offer_id, OfferStatus.REPLIED)
+    report = scan_parsed_job_mails(settings, min_age_days=7, max_mails=20)
+
+    moved_count, _moved_report = move_parsed_jobs_to_trash(
+        settings,
+        uids=[report.candidates[0].uid],
+        min_age_days=7,
+        max_mails=20,
+        require_thunderbird_closed=False,
+    )
+
+    assert moved_count == 1
+    assert "Mission Java" not in mbox.read_text(encoding="utf-8")
+    assert "Mission Java" in (tmp_path / "Trash").read_text(encoding="utf-8")

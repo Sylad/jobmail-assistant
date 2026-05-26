@@ -11,8 +11,14 @@
       · score <strong>{{ offer.extraction.relevance_score }}/10</strong>
       · <span class="status status-{{ offer.status.value }}">{{ offer.status.value }}</span>
     </p>
-    {% if recruiter_email %}
+    {% if recruiter_email or offer_links %}
     <p class="meta">
+      {% if offer_links %}
+      <a class="btn btn-sm btn-primary" href="{{ offer_links[0].url }}" target="_blank" rel="noopener noreferrer">
+        Voir l'offre
+      </a>
+      {% endif %}
+      {% if recruiter_email %}
       <a class="btn btn-sm" href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}">
         ✉ Répondre par mail
       </a>
@@ -23,9 +29,23 @@
       <button type="button" class="btn btn-sm btn-ghost" onclick="navigator.clipboard.writeText('{{ recruiter_email }}'); this.textContent='✓ copié'">
         📋 Copier l'email
       </button>
+      {% endif %}
     </p>
     {% endif %}
   </header>
+
+  {% if offer_links %}
+  <section>
+    <h2>Liens de l'offre</h2>
+    <div class="link-actions">
+      {% for link in offer_links %}
+      <a class="btn btn-sm btn-ghost offer-link" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
+        {{ link.label }}
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 
   <dl class="grid">
     <dt>Recruteur</dt><dd>{{ offer.extraction.recruiter or offer.sender }}</dd>

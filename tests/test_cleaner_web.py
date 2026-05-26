@@ -56,7 +56,12 @@ def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
     assert resp.status_code == 200
     assert "Mails scannes" in resp.text
     assert "Promos anciennes" in resp.text
-    assert "Deplacer la selection" in resp.text
+    assert "Action Thunderbird locale" in resp.text
+    assert "corbeille Thunderbird" in resp.text
+    assert 'name="selected_uid" value="101" checked data-candidate-checkbox' in resp.text
+    assert "Tout selectionner" in resp.text
+    assert "Tout exclure" in resp.text
+    assert 'data-exclude-sender="newsletter@example.com"' in resp.text
 
 
 def test_cleaner_scan_exports_csv(monkeypatch, tmp_path):
@@ -72,6 +77,27 @@ def test_cleaner_scan_exports_csv(monkeypatch, tmp_path):
     assert resp.headers["content-type"].startswith("text/csv")
     assert "newsletter@example.com" in resp.text
     assert "source_path" in resp.text
+
+
+def test_cleaner_parsed_jobs_scan_uses_dedicated_source(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_scan(settings, *, min_age_days, max_mails):
+        calls["min_age_days"] = min_age_days
+        calls["max_mails"] = max_mails
+        return _report()
+
+    monkeypatch.setattr(web_app, "scan_parsed_job_mails", fake_scan)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post(
+        "/cleaner/scan",
+        data={"source": "parsed_jobs", "min_age_days": "15", "max_mails": "20"},
+    )
+
+    assert resp.status_code == 200
+    assert calls == {"min_age_days": 15, "max_mails": 20}
+    assert "offres <code>interesting</code> sont protegees" in resp.text
 
 
 def test_cleaner_move_requires_confirmation(monkeypatch, tmp_path):
@@ -112,3 +138,75 @@ def test_cleaner_move_calls_service_after_confirmation(monkeypatch, tmp_path):
     assert resp.status_code == 200
     assert calls == {"uids": ["101"], "min_age_days": 9, "max_mails": 12}
     assert "1 mail(s) deplace(s)" in resp.text
+
+
+def test_cleaner_mbox_move_requires_both_confirmations(monkeypatch, tmp_path):
+    def fail_move(*args, **kwargs):
+        raise AssertionError("move_thunderbird_to_trash must not run without confirmations")
+
+    monkeypatch.setattr(web_app, "move_thunderbird_to_trash", fail_move)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post(
+        "/cleaner/move-thunderbird-to-trash",
+        data={"selected_uid": "mbox:pop.example:0", "confirm_move": "yes"},
+    )
+
+    assert resp.status_code == 400
+    assert "Thunderbird doit etre ferme" in resp.text
+
+
+def test_cleaner_mbox_move_calls_service_after_confirmations(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_move(settings, *, uids, min_age_days, max_mails):
+        calls["uids"] = uids
+        calls["min_age_days"] = min_age_days
+        calls["max_mails"] = max_mails
+        return 1, _report()
+
+    monkeypatch.setattr(web_app, "move_thunderbird_to_trash", fake_move)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post(
+        "/cleaner/move-thunderbird-to-trash",
+        data={
+            "selected_uid": "mbox:pop.example:0",
+            "confirm_move": "yes",
+            "confirm_thunderbird_closed": "yes",
+            "min_age_days": "9",
+            "max_mails": "12",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert calls == {"uids": ["mbox:pop.example:0"], "min_age_days": 9, "max_mails": 12}
+    assert "1 mail(s) deplace(s)" in resp.text
+
+
+def test_cleaner_parsed_jobs_move_calls_dedicated_service(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_move(settings, *, uids, min_age_days, max_mails):
+        calls["uids"] = uids
+        calls["min_age_days"] = min_age_days
+        calls["max_mails"] = max_mails
+        return 1, _report()
+
+    monkeypatch.setattr(web_app, "move_parsed_jobs_to_trash", fake_move)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post(
+        "/cleaner/move-thunderbird-to-trash",
+        data={
+            "source": "parsed_jobs",
+            "selected_uid": "mbox:pop.example:0",
+            "confirm_move": "yes",
+            "confirm_thunderbird_closed": "yes",
+            "min_age_days": "9",
+            "max_mails": "12",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert calls == {"uids": ["mbox:pop.example:0"], "min_age_days": 9, "max_mails": 12}

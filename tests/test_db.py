@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from jobmail.db import connect, init_db, insert_email, list_offers, upsert_offer
+from jobmail.db import connect, get_offer, init_db, insert_email, list_offers, upsert_offer
 from jobmail.models import ContractType, OfferExtraction, OfferStatus, RawEmail, WorkMode
 
 
@@ -16,6 +16,7 @@ def test_sqlite_saves_email_classification_and_offer(tmp_path):
         sender="recruiter@example.com",
         received_at=datetime(2026, 5, 25, 9, 30),
         body_text="Mission Java GeoServer PostGIS.",
+        body_html='<a href="https://jobs.example.com/42">Voir</a>',
     )
     extraction = OfferExtraction(
         title="Senior Java GIS",
@@ -39,6 +40,7 @@ def test_sqlite_saves_email_classification_and_offer(tmp_path):
 
     with connect(db_path) as conn:
         offers = list_offers(conn, status=OfferStatus.NEW, min_score=8)
+        detail = get_offer(conn, offer_id, with_body=True)
 
     assert offer_id > 0
     assert row["job_related"] == 1
@@ -46,3 +48,5 @@ def test_sqlite_saves_email_classification_and_offer(tmp_path):
     assert len(offers) == 1
     assert offers[0].extraction is not None
     assert offers[0].extraction.technos == ["java", "geoserver", "postgis"]
+    assert detail is not None
+    assert detail.body_html == '<a href="https://jobs.example.com/42">Voir</a>'

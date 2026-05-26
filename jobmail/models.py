@@ -78,3 +78,4 @@ class StoredOffer:
     extraction: OfferExtraction | None
     status: OfferStatus = OfferStatus.NEW
     body_text: str = ""
+    body_html: str = ""

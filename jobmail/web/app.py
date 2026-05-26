@@ -13,7 +13,10 @@ from fastapi.templating import Jinja2Templates
 from ..cleaner import (
     CleanerError,
     CleanerReport,
+    move_parsed_jobs_to_trash,
+    move_thunderbird_to_trash,
     move_to_delete,
+    scan_parsed_job_mails,
     scan_old_promotions,
     scan_thunderbird_promotions,
 )
@@ -29,6 +32,7 @@ from ..db import (
 )
 from ..models import OfferStatus
 from ..pipeline import run as run_pipeline
+from .links import extract_offer_links
 
 
 def _pipeline_process_active() -> tuple[bool, int | None]:
@@ -239,6 +243,12 @@ def create_app() -> FastAPI:
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                 )
+            elif source == "parsed_jobs":
+                report = scan_parsed_job_mails(
+                    settings,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                )
             else:
                 source = "thunderbird"
                 report = scan_thunderbird_promotions(
@@ -341,6 +351,82 @@ def create_app() -> FastAPI:
             ),
         )
 
+    @app.get("/cleaner/move-to-delete")
+    def cleaner_move_to_delete_get():
+        return RedirectResponse(url="/cleaner", status_code=303)
+
+    @app.get("/cleaner/move-thunderbird-to-trash")
+    def cleaner_move_thunderbird_to_trash_get():
+        return RedirectResponse(url="/cleaner", status_code=303)
+
+    @app.post("/cleaner/move-thunderbird-to-trash", response_class=HTMLResponse)
+    def cleaner_move_thunderbird_to_trash(
+        request: Request,
+        min_age_days: int = Form(settings.cleaner_min_age_days),
+        max_mails: int = Form(settings.cleaner_max_mails),
+        selected_uid: list[str] = Form(default=[]),
+        confirm_move: str = Form(""),
+        confirm_thunderbird_closed: str = Form(""),
+        source: str = Form("thunderbird"),
+    ):
+        if confirm_move != "yes" or confirm_thunderbird_closed != "yes":
+            return templates.TemplateResponse(
+                request,
+                "cleaner.html",
+                _cleaner_context(
+                    request=request,
+                    settings=settings,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                    source=source,
+                    error="Confirmation obligatoire et Thunderbird doit etre ferme avant l'action.",
+                ),
+                status_code=400,
+            )
+        try:
+            if source == "parsed_jobs":
+                moved_count, report = move_parsed_jobs_to_trash(
+                    settings,
+                    uids=selected_uid,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                )
+            else:
+                moved_count, report = move_thunderbird_to_trash(
+                    settings,
+                    uids=selected_uid,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                )
+        except CleanerError as e:
+            return templates.TemplateResponse(
+                request,
+                "cleaner.html",
+                _cleaner_context(
+                    request=request,
+                    settings=settings,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                    source=source,
+                    error=str(e),
+                ),
+                status_code=400,
+            )
+
+        return templates.TemplateResponse(
+            request,
+            "cleaner.html",
+            _cleaner_context(
+                request=request,
+                settings=settings,
+                report=report,
+                min_age_days=min_age_days,
+                max_mails=max_mails,
+                source=source,
+                moved_count=moved_count,
+            ),
+        )
+
     @app.get("/offers/{offer_id}", response_class=HTMLResponse)
     def offer_detail(request: Request, offer_id: int):
         with connect(settings.db_path) as conn:
@@ -353,6 +439,7 @@ def create_app() -> FastAPI:
             {
                 "offer": offer,
                 "recruiter_email": _extract_email(offer.extraction.recruiter or offer.sender),
+                "offer_links": extract_offer_links(offer.body_text, offer.body_html),
                 "all_statuses": [s.value for s in OfferStatus],
                 "provider": settings.llm_provider,
                 "imap_enabled": settings.imap_enabled,

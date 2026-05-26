@@ -76,6 +76,7 @@ code { background: var(--bg-elev-2); padding: 2px 6px; border-radius: 4px; }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
 .btn-sm { padding: 4px 10px; font-size: 0.8rem; }
 .btn-ghost { background: transparent; }
+.btn-primary { border-color: var(--accent); color: var(--accent); }
 
 .filters { margin-bottom: 24px; }
 .filter-form { display: flex; gap: var(--gap); flex-wrap: wrap; align-items: end; }
@@ -179,6 +180,8 @@ tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }
 }
 .offer-detail details summary { cursor: pointer; padding: 6px 0; }
 .offer-detail details[open] summary { color: var(--accent); }
+.link-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.offer-link { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .tool-head { margin-bottom: 20px; }
 .tool-head p { max-width: 900px; line-height: 1.5; }
@@ -221,6 +224,31 @@ tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }
   border-bottom: 1px solid var(--border);
 }
 .compact-table tr:last-child td { border-bottom: none; }
+.compact-table th {
+  padding: 8px 12px;
+  text-align: left;
+  background: var(--bg-elev-2);
+  color: var(--fg-mute);
+  font-weight: 600;
+}
+.sender-table td:last-child,
+.sender-table th:last-child {
+  text-align: right;
+  width: 90px;
+}
+.sender-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
 
 .cleaner-table td:first-child,
 .cleaner-table th:first-child {
@@ -234,6 +262,14 @@ tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }
   border-radius: var(--radius);
   background: rgba(248, 113, 113, 0.08);
 }
+.info-action {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(122, 162, 247, 0.35);
+  border-radius: var(--radius);
+  background: rgba(122, 162, 247, 0.08);
+}
+.info-action p { margin-bottom: 0; }
 .confirm-line {
   display: flex;
   align-items: center;

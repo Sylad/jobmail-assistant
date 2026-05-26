@@ -248,7 +248,7 @@ def all_sender_domains(conn: sqlite3.Connection) -> list[tuple[str, int]]:
 
 
 def get_offer(conn: sqlite3.Connection, offer_id: int, with_body: bool = False) -> StoredOffer | None:
-    body_col = ", e.body_text" if with_body else ""
+    body_col = ", e.body_text, e.body_html" if with_body else ""
     row = conn.execute(
         f"""
         SELECT o.*, e.subject, e.sender, e.received_at{body_col}
@@ -262,6 +262,7 @@ def get_offer(conn: sqlite3.Connection, offer_id: int, with_body: bool = False) 
     offer = _row_to_offer(row)
     if with_body:
         offer.body_text = row["body_text"] or ""
+        offer.body_html = row["body_html"] or ""
     return offer
 
 

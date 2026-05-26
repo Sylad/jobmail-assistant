@@ -23,6 +23,7 @@
       Source
       <select name="source">
         <option value="thunderbird" {% if source == 'thunderbird' %}selected{% endif %}>Thunderbird MBOX</option>
+        <option value="parsed_jobs" {% if source == 'parsed_jobs' %}selected{% endif %}>Jobs deja parses</option>
         <option value="imap" {% if source == 'imap' %}selected{% endif %}>IMAP</option>
       </select>
     </label>
@@ -42,6 +43,10 @@
     MBOX scannes :
     {% for pattern in mbox_patterns %}<code>{{ pattern }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
   </p>
+  {% elif source == 'parsed_jobs' %}
+  <p class="muted small">
+    Source SQLite : mails de jobs deja extraits. Les offres <code>interesting</code> sont protegees et exclues.
+  </p>
   {% endif %}
 </section>
 
@@ -60,10 +65,29 @@
 
   <h2>Top expediteurs</h2>
   {% if report.top_senders %}
-    <table class="compact-table">
+    <div class="bulk-actions" data-cleaner-bulk-actions>
+      <button type="button" class="btn btn-sm" data-select-all-candidates>Tout selectionner</button>
+      <button type="button" class="btn btn-sm btn-ghost" data-clear-all-candidates>Tout exclure</button>
+      <span class="muted small"><strong data-selected-count>0</strong> mail(s) selectionne(s)</span>
+    </div>
+    <table class="compact-table sender-table">
+      <thead>
+        <tr>
+          <th>Expediteur</th>
+          <th>Actions</th>
+          <th>Nombre</th>
+        </tr>
+      </thead>
       <tbody>
       {% for sender, count in report.top_senders %}
-        <tr><td>{{ sender }}</td><td><strong>{{ count }}</strong></td></tr>
+        <tr>
+          <td>{{ sender }}</td>
+          <td class="sender-actions">
+            <button type="button" class="btn btn-sm" data-include-sender="{{ sender }}">Inclure</button>
+            <button type="button" class="btn btn-sm btn-ghost" data-exclude-sender="{{ sender }}">Exclure</button>
+          </td>
+          <td><strong>{{ count }}</strong></td>
+        </tr>
       {% endfor %}
       </tbody>
     </table>
@@ -73,9 +97,16 @@
 
   <h2>Mails candidats</h2>
   {% if report.candidates %}
+  {% if source == 'imap' %}
   <form method="post" action="/cleaner/move-to-delete">
     <input type="hidden" name="min_age_days" value="{{ min_age_days }}">
     <input type="hidden" name="max_mails" value="{{ max_mails }}">
+  {% else %}
+  <form method="post" action="/cleaner/move-thunderbird-to-trash">
+    <input type="hidden" name="min_age_days" value="{{ min_age_days }}">
+    <input type="hidden" name="max_mails" value="{{ max_mails }}">
+    <input type="hidden" name="source" value="{{ source }}">
+  {% endif %}
     <table class="offers cleaner-table">
       <thead>
         <tr>
@@ -89,10 +120,10 @@
       </thead>
       <tbody>
       {% for candidate in report.candidates %}
-        <tr>
+        <tr data-sender="{{ candidate.sender }}">
           <td>
             {% if candidate.can_move %}
-              <input type="checkbox" name="selected_uid" value="{{ candidate.uid }}">
+              <input type="checkbox" name="selected_uid" value="{{ candidate.uid }}" checked data-candidate-checkbox>
             {% else %}
               <span class="muted small">scan only</span>
             {% endif %}
@@ -110,25 +141,75 @@
       </tbody>
     </table>
 
+  {% if source == 'imap' %}
     <div class="danger-action">
-      {% if source == 'thunderbird' %}
-      <p class="muted">
-        Les candidats Thunderbird sont detectes pour nettoyage manuel dans Thunderbird.
-        JobMail ne modifie pas les fichiers MBOX directement.
-      </p>
-      {% endif %}
       <label class="confirm-line">
         <input type="checkbox" name="confirm_move" value="yes">
         Je confirme avoir relu le rapport et veux deplacer uniquement la selection vers {{ delete_folder }}.
       </label>
-      <button type="submit" class="btn btn-danger" {% if source == 'thunderbird' %}disabled{% endif %}>
-        Deplacer la selection vers {{ delete_folder }}
-      </button>
+      <button type="submit" class="btn btn-danger">Deplacer la selection vers {{ delete_folder }}</button>
     </div>
   </form>
+  {% else %}
+    <div class="danger-action">
+      <strong>Action Thunderbird locale.</strong>
+      <p class="muted">
+        Ferme Thunderbird avant de lancer l'action. JobMail fera un backup de chaque Inbox touche,
+        deplacera les messages selectionnes dans le fichier Trash du meme compte, puis supprimera
+        les index .msf pour laisser Thunderbird reconstruire les dossiers.
+        {% if source == 'parsed_jobs' %}
+        Les offres marquees interesting sont exclues par securite.
+        {% endif %}
+      </p>
+      <label class="confirm-line">
+        <input type="checkbox" name="confirm_thunderbird_closed" value="yes">
+        Je confirme que Thunderbird est ferme.
+      </label>
+      <label class="confirm-line">
+        <input type="checkbox" name="confirm_move" value="yes">
+        Je confirme avoir relu le rapport et veux deplacer la selection vers la corbeille Thunderbird.
+      </label>
+      <button type="submit" class="btn btn-danger">Deplacer la selection vers la corbeille Thunderbird</button>
+    </div>
+  </form>
+  {% endif %}
   {% else %}
     <p class="empty">Aucun candidat trouve avec ces criteres.</p>
   {% endif %}
 </section>
 {% endif %}
+<script>
+(() => {
+  const checkboxes = Array.from(document.querySelectorAll("[data-candidate-checkbox]"));
+  if (!checkboxes.length) return;
+
+  const selectedCount = document.querySelector("[data-selected-count]");
+  const updateCount = () => {
+    if (!selectedCount) return;
+    selectedCount.textContent = String(checkboxes.filter((box) => box.checked).length);
+  };
+  const setAll = (checked) => {
+    checkboxes.forEach((box) => { box.checked = checked; });
+    updateCount();
+  };
+  const setSender = (sender, checked) => {
+    checkboxes.forEach((box) => {
+      const row = box.closest("[data-sender]");
+      if (row && row.dataset.sender === sender) box.checked = checked;
+    });
+    updateCount();
+  };
+
+  document.querySelector("[data-select-all-candidates]")?.addEventListener("click", () => setAll(true));
+  document.querySelector("[data-clear-all-candidates]")?.addEventListener("click", () => setAll(false));
+  document.querySelectorAll("[data-include-sender]").forEach((button) => {
+    button.addEventListener("click", () => setSender(button.dataset.includeSender, true));
+  });
+  document.querySelectorAll("[data-exclude-sender]").forEach((button) => {
+    button.addEventListener("click", () => setSender(button.dataset.excludeSender, false));
+  });
+  checkboxes.forEach((box) => box.addEventListener("change", updateCount));
+  updateCount();
+})();
+</script>
 {% endblock %}
