@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
-from jobmail.cleaner import CleanerBackupCleanup, CleanerBackupSummary
+from jobmail.cleaner import CleanerBackupCleanup, CleanerBackupSummary, CleanerTempCleanup, CleanerTempSummary
 from jobmail.cleaner.models import CleanerCandidate, CleanerReport
 from jobmail.web import app as web_app
 
@@ -90,6 +90,41 @@ def test_cleaner_backup_cleanup_runs_after_confirmation(monkeypatch, tmp_path):
     assert calls == {"retention_days": 14}
     assert "2 backup(s) supprime(s)" in resp.text
     assert "2.0 KB liberes" in resp.text
+
+
+def test_cleaner_temp_cleanup_requires_confirmation(monkeypatch, tmp_path):
+    def fail_cleanup(*args, **kwargs):
+        raise AssertionError("temp cleanup must not run without confirmation")
+
+    monkeypatch.setattr(web_app, "move_orphan_cleaner_temp_files", fail_cleanup)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post("/cleaner/temp/cleanup")
+
+    assert resp.status_code == 400
+    assert "Confirmation obligatoire" in resp.text
+
+
+def test_cleaner_temp_cleanup_runs_after_confirmation(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_cleanup(settings, *, destination_root):
+        calls["destination_root"] = destination_root
+        return CleanerTempCleanup(
+            moved_count=2,
+            moved_bytes=2048,
+            destination=tmp_path / "moved-temp",
+            summary=CleanerTempSummary(),
+        )
+
+    monkeypatch.setattr(web_app, "move_orphan_cleaner_temp_files", fake_cleanup)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post("/cleaner/temp/cleanup", data={"confirm_temp_cleanup": "yes"})
+
+    assert resp.status_code == 200
+    assert calls["destination_root"].name == "JobMail-Thunderbird-Backups"
+    assert "2 temporaire(s) deplace(s)" in resp.text
 
 
 def test_cleaner_page_loads_saved_regex_rules(monkeypatch, tmp_path):

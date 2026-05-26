@@ -203,6 +203,9 @@ Operational notes:
   shows how many JobMail backups exist under `<profile>/jobmail-backups/`, how
   much space they use, and exposes an explicit confirmed cleanup action for
   backups older than `CLEANER_BACKUP_RETENTION_DAYS` days (`7` by default).
+- If an interrupted local move leaves `.Inbox.jobmail-tmp-*` files inside
+  Thunderbird `Mail/<account>`, the cleaner page shows them and can move them
+  out of the profile after explicit confirmation while Thunderbird is closed.
 
 ## Tests
 

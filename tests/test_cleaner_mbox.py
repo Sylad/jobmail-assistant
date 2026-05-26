@@ -6,7 +6,9 @@ from pathlib import Path
 
 from jobmail.cleaner.service import (
     delete_old_cleaner_backups,
+    list_orphan_cleaner_temp_files,
     list_cleaner_backups,
+    move_orphan_cleaner_temp_files,
     move_parsed_jobs_to_trash,
     move_thunderbird_regex_to_trash,
     move_thunderbird_to_trash,
@@ -172,6 +174,33 @@ def test_cleaner_backup_cleanup_deletes_only_old_jobmail_backups(tmp_path: Path)
     assert not old_backup.exists()
     assert fresh_backup.exists()
     assert unrelated.exists()
+
+
+def test_cleaner_temp_cleanup_moves_only_jobmail_temp_files(tmp_path: Path):
+    account_dir = tmp_path / "profile.default" / "Mail" / "pop.example.com"
+    account_dir.mkdir(parents=True)
+    mbox = account_dir / "Inbox"
+    temp_file = account_dir / ".Inbox.jobmail-tmp-20260526-120000"
+    other_temp = account_dir / ".Drafts.jobmail-tmp-20260526-120000"
+    mbox.write_text(_make_msg(1, "Inbox", "Body"), encoding="utf-8")
+    temp_file.write_text("partial", encoding="utf-8")
+    other_temp.write_text("draft", encoding="utf-8")
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+    )
+
+    summary = list_orphan_cleaner_temp_files(settings)
+    cleanup = move_orphan_cleaner_temp_files(
+        settings,
+        destination_root=tmp_path / "orphan-temp",
+    )
+
+    assert summary.file_count == 1
+    assert cleanup.moved_count == 1
+    assert not temp_file.exists()
+    assert other_temp.exists()
+    assert list((tmp_path / "orphan-temp").rglob("*jobmail-tmp-*"))
 
 
 def test_scan_thunderbird_regex_matches_sender_or_subject_and_keeps_safety(tmp_path: Path):

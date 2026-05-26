@@ -99,6 +99,26 @@
   {% else %}
   <p class="muted small">Aucun dossier de backup JobMail trouve pour les MBOX configurees.</p>
   {% endif %}
+
+  {% if temp_moved_count %}
+    <div class="alert alert-ok">
+      {{ temp_moved_count }} temporaire(s) deplace(s), {{ temp_moved_size }} sortis du profil Thunderbird.
+      {% if temp_destination %}<span class="muted small">{{ temp_destination }}</span>{% endif %}
+    </div>
+  {% endif %}
+  {% if temp_summary.file_count %}
+  <div class="alert alert-error">
+    {{ temp_summary.file_count }} fichier(s) temporaire(s) JobMail orphelin(s) dans les dossiers Mail Thunderbird
+    ({{ temp_total_size }}). Ferme Thunderbird avant de les sortir du profil.
+  </div>
+  <form method="post" action="/cleaner/temp/cleanup" class="filter-form">
+    <label class="confirm-line">
+      <input type="checkbox" name="confirm_temp_cleanup" value="yes">
+      Je confirme que Thunderbird est ferme et veux deplacer les temporaires hors des dossiers Mail.
+    </label>
+    <button type="submit" class="btn btn-danger">Sortir les temporaires orphelins</button>
+  </form>
+  {% endif %}
 </section>
 
 <section class="filters">

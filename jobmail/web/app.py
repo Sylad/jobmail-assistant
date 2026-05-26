@@ -19,8 +19,10 @@ from ..cleaner import (
     CleanerError,
     CleanerReport,
     delete_old_cleaner_backups,
+    list_orphan_cleaner_temp_files,
     list_cleaner_backups,
     move_parsed_jobs_to_trash,
+    move_orphan_cleaner_temp_files,
     move_scanned_regex_uids_to_trash,
     move_thunderbird_to_trash,
     move_to_delete,
@@ -227,11 +229,15 @@ def _cleaner_context(
     backup_deleted_count: int = 0,
     backup_deleted_bytes: int = 0,
     backup_retention_days: int | None = None,
+    temp_moved_count: int = 0,
+    temp_moved_bytes: int = 0,
+    temp_destination: str = "",
 ) -> dict:
     if regex_rules is None and not sender_regex and not subject_regex:
         regex_rules = _load_saved_regex_rules(settings)
     display_rules = _display_regex_rules(regex_rules, sender_regex, subject_regex)
     backup_summary = list_cleaner_backups(settings, retention_days=backup_retention_days)
+    temp_summary = list_orphan_cleaner_temp_files(settings)
     return {
         "request": request,
         "report": report,
@@ -253,6 +259,11 @@ def _cleaner_context(
         "backup_eligible_size": _format_bytes(backup_summary.eligible_bytes),
         "backup_deleted_count": backup_deleted_count,
         "backup_deleted_size": _format_bytes(backup_deleted_bytes),
+        "temp_summary": temp_summary,
+        "temp_total_size": _format_bytes(temp_summary.total_bytes),
+        "temp_moved_count": temp_moved_count,
+        "temp_moved_size": _format_bytes(temp_moved_bytes),
+        "temp_destination": temp_destination,
         "provider": settings.llm_provider,
         "imap_enabled": settings.imap_enabled,
     }
@@ -429,6 +440,44 @@ def create_app() -> FastAPI:
                 backup_deleted_count=cleanup.deleted_count,
                 backup_deleted_bytes=cleanup.deleted_bytes,
                 backup_retention_days=retention_days,
+            ),
+        )
+
+    @app.post("/cleaner/temp/cleanup", response_class=HTMLResponse)
+    def cleaner_temp_cleanup(
+        request: Request,
+        confirm_temp_cleanup: str = Form(""),
+    ):
+        if confirm_temp_cleanup != "yes":
+            return templates.TemplateResponse(
+                request,
+                "cleaner.html",
+                _cleaner_context(
+                    request=request,
+                    settings=settings,
+                    error="Confirmation obligatoire avant de deplacer les temporaires orphelins.",
+                ),
+                status_code=400,
+            )
+        destination = Path("/mnt/c/Users/Sylvain Ladoire/Documents/JobMail-Thunderbird-Backups")
+        try:
+            cleanup = move_orphan_cleaner_temp_files(settings, destination_root=destination)
+        except CleanerError as e:
+            return templates.TemplateResponse(
+                request,
+                "cleaner.html",
+                _cleaner_context(request=request, settings=settings, error=str(e)),
+                status_code=400,
+            )
+        return templates.TemplateResponse(
+            request,
+            "cleaner.html",
+            _cleaner_context(
+                request=request,
+                settings=settings,
+                temp_moved_count=cleanup.moved_count,
+                temp_moved_bytes=cleanup.moved_bytes,
+                temp_destination=str(cleanup.destination),
             ),
         )
 

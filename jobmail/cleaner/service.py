@@ -67,6 +67,34 @@ class CleanerBackupCleanup:
     summary: CleanerBackupSummary
 
 
+@dataclass
+class CleanerTempFile:
+    path: Path
+    size_bytes: int
+    modified_at: datetime
+
+
+@dataclass
+class CleanerTempSummary:
+    files: list[CleanerTempFile] = field(default_factory=list)
+
+    @property
+    def file_count(self) -> int:
+        return len(self.files)
+
+    @property
+    def total_bytes(self) -> int:
+        return sum(file.size_bytes for file in self.files)
+
+
+@dataclass
+class CleanerTempCleanup:
+    moved_count: int
+    moved_bytes: int
+    destination: Path
+    summary: CleanerTempSummary
+
+
 def scan_old_promotions(
     settings: Settings,
     *,
@@ -524,6 +552,50 @@ def delete_old_cleaner_backups(settings: Settings, *, retention_days: int | None
     return CleanerBackupCleanup(
         deleted_count=deleted_count,
         deleted_bytes=deleted_bytes,
+        summary=refreshed,
+    )
+
+
+def list_orphan_cleaner_temp_files(settings: Settings) -> CleanerTempSummary:
+    files: list[CleanerTempFile] = []
+    for inbox_path in _resolve_mbox_paths(settings.cleaner_mbox_patterns):
+        for path in sorted(inbox_path.parent.glob(f".{inbox_path.name}.jobmail-tmp-*")):
+            if path.is_symlink() or not path.is_file():
+                continue
+            stat = path.stat()
+            files.append(
+                CleanerTempFile(
+                    path=path,
+                    size_bytes=stat.st_size,
+                    modified_at=datetime.fromtimestamp(stat.st_mtime, timezone.utc),
+                )
+            )
+    return CleanerTempSummary(files=files)
+
+
+def move_orphan_cleaner_temp_files(settings: Settings, *, destination_root: Path | None = None) -> CleanerTempCleanup:
+    if _thunderbird_is_running():
+        raise CleanerError("Thunderbird doit etre ferme avant de deplacer les temporaires orphelins.")
+    summary = list_orphan_cleaner_temp_files(settings)
+    if destination_root is None:
+        destination_root = Path.home() / "jobmail-orphan-temp"
+    destination = destination_root / datetime.now().strftime("orphan-tmp-%Y%m%d-%H%M%S")
+    destination.mkdir(parents=True, exist_ok=True)
+
+    moved_count = 0
+    moved_bytes = 0
+    for temp_file in summary.files:
+        target = destination / f"{temp_file.path.parent.name}-{temp_file.path.name}"
+        shutil.move(str(temp_file.path), str(target))
+        moved_count += 1
+        moved_bytes += temp_file.size_bytes
+        logger.info("Cleaner moved orphan temp=%s target=%s size=%d", temp_file.path, target, temp_file.size_bytes)
+
+    refreshed = list_orphan_cleaner_temp_files(settings)
+    return CleanerTempCleanup(
+        moved_count=moved_count,
+        moved_bytes=moved_bytes,
+        destination=destination,
         summary=refreshed,
     )
 
