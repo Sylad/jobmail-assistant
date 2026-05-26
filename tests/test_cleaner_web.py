@@ -404,6 +404,74 @@ def test_cleaner_regex_move_reuses_finished_scan_job(monkeypatch, tmp_path):
     assert "2 mail(s) deplace(s)" in resp.text
 
 
+def test_cleaner_regex_move_progress_endpoints(monkeypatch, tmp_path):
+    def fake_move(settings, *, uids, min_age_days, max_mails):
+        return 1, CleanerReport(
+            scanned_count=12,
+            candidates=[
+                CleanerCandidate(
+                    uid=uids[0],
+                    received_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                    sender="amazon@example.com",
+                    subject="Promo",
+                    reason="regle 1",
+                    source="mbox",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(web_app, "move_thunderbird_to_trash", fake_move)
+    client = _client(monkeypatch, tmp_path)
+    scan_job = web_app.CleanerScanJob(
+        id="scan-job-456",
+        status="done",
+        scanned_count=12,
+        candidate_count=1,
+        report=CleanerReport(
+            scanned_count=12,
+            candidates=[
+                CleanerCandidate(
+                    uid="mbox:pop.example:456",
+                    received_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                    sender="amazon@example.com",
+                    subject="Promo",
+                    reason="regle 1",
+                    source="mbox",
+                )
+            ],
+        ),
+        min_age_days=9,
+        max_mails=0,
+        regex_rules=[("amazon", "promo")],
+    )
+    with web_app._cleaner_jobs_lock:
+        web_app._cleaner_jobs[scan_job.id] = scan_job
+
+    start = client.post(
+        "/cleaner/move-thunderbird-to-trash/start",
+        data={
+            "source": "regex",
+            "regex_job_id": "scan-job-456",
+            "confirm_move": "yes",
+            "confirm_thunderbird_closed": "yes",
+        },
+    )
+
+    assert start.status_code == 200
+    move_job_id = start.json()["id"]
+    for _ in range(20):
+        payload = client.get(f"/cleaner/move/status/{move_job_id}").json()
+        if payload["status"] == "done":
+            break
+    assert payload["status"] == "done"
+    assert payload["total_count"] == 1
+    assert payload["moved_count"] == 1
+
+    result = client.get(f"/cleaner/move/status/{move_job_id}/result")
+    assert result.status_code == 200
+    assert "1 mail(s) deplace(s)" in result.text
+
+
 def test_cleaner_regex_move_requires_finished_scan_job(monkeypatch, tmp_path):
     def fail_move(*args, **kwargs):
         raise AssertionError("move must not run without a finished scan job")

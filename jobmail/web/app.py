@@ -146,8 +146,25 @@ class CleanerScanJob:
     regex_rules: list[tuple[str, str]] = field(default_factory=list)
 
 
+@dataclass
+class CleanerMoveJob:
+    id: str
+    status: str = "running"
+    moved_count: int = 0
+    total_count: int = 0
+    started_at: float = field(default_factory=time.time)
+    finished_at: float | None = None
+    error: str = ""
+    report: CleanerReport | None = None
+    min_age_days: int = 7
+    max_mails: int = 0
+    regex_rules: list[tuple[str, str]] = field(default_factory=list)
+
+
 _cleaner_jobs: dict[str, CleanerScanJob] = {}
 _cleaner_jobs_lock = threading.Lock()
+_cleaner_move_jobs: dict[str, CleanerMoveJob] = {}
+_cleaner_move_jobs_lock = threading.Lock()
 
 
 def _load_saved_regex_rules(settings) -> list[tuple[str, str]]:
@@ -274,6 +291,19 @@ def _job_payload(job: CleanerScanJob) -> dict:
         "elapsed_seconds": elapsed,
         "error": job.error,
         "result_url": f"/cleaner/scan/result/{job.id}" if job.status == "done" else "",
+    }
+
+
+def _move_job_payload(job: CleanerMoveJob) -> dict:
+    elapsed = int((job.finished_at or time.time()) - job.started_at)
+    return {
+        "id": job.id,
+        "status": job.status,
+        "moved_count": job.moved_count,
+        "total_count": job.total_count,
+        "elapsed_seconds": elapsed,
+        "error": job.error,
+        "result_url": f"/cleaner/move/status/{job.id}/result" if job.status == "done" else "",
     }
 
 
@@ -624,6 +654,114 @@ def create_app() -> FastAPI:
     @app.get("/cleaner/move-thunderbird-to-trash")
     def cleaner_move_thunderbird_to_trash_get():
         return RedirectResponse(url="/cleaner", status_code=303)
+
+    @app.post("/cleaner/move-thunderbird-to-trash/start")
+    def cleaner_move_thunderbird_to_trash_start(
+        confirm_move: str = Form(""),
+        confirm_thunderbird_closed: str = Form(""),
+        source: str = Form("thunderbird"),
+        regex_job_id: str = Form(""),
+    ):
+        if source != "regex":
+            raise HTTPException(status_code=400, detail="Le deplacement progressif est disponible pour les regex Thunderbird.")
+        if confirm_move != "yes" or confirm_thunderbird_closed != "yes":
+            raise HTTPException(status_code=400, detail="Confirmation obligatoire et Thunderbird doit etre ferme avant l'action.")
+
+        job_context = _regex_job_move_context(regex_job_id) if regex_job_id else None
+        if job_context is None:
+            raise HTTPException(status_code=400, detail="Le resultat du scan n'est plus disponible. Relance un scan regex avant de deplacer.")
+        safe_uids, scan_report, regex_rules, min_age_days, max_mails = job_context
+        if not safe_uids:
+            raise HTTPException(status_code=400, detail="Le scan termine ne contient aucun candidat a deplacer.")
+
+        move_job = CleanerMoveJob(
+            id=uuid.uuid4().hex,
+            total_count=len(safe_uids),
+            min_age_days=min_age_days,
+            max_mails=max_mails,
+            regex_rules=regex_rules,
+        )
+        with _cleaner_move_jobs_lock:
+            _cleaner_move_jobs[move_job.id] = move_job
+
+        def run_move() -> None:
+            try:
+                moved_count, report = move_thunderbird_to_trash(
+                    settings,
+                    uids=safe_uids,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                )
+                report.scanned_count = scan_report.scanned_count
+            except CleanerError as e:
+                with _cleaner_move_jobs_lock:
+                    move_job.status = "error"
+                    move_job.error = str(e)
+                    move_job.finished_at = time.time()
+                return
+            except Exception as e:
+                with _cleaner_move_jobs_lock:
+                    move_job.status = "error"
+                    move_job.error = f"Erreur inattendue pendant le deplacement: {e}"
+                    move_job.finished_at = time.time()
+                return
+            with _cleaner_move_jobs_lock:
+                move_job.status = "done"
+                move_job.moved_count = moved_count
+                move_job.report = report
+                move_job.finished_at = time.time()
+
+        threading.Thread(target=run_move, daemon=True).start()
+        return _move_job_payload(move_job)
+
+    @app.get("/cleaner/move/status/{job_id}")
+    def cleaner_move_status(job_id: str):
+        with _cleaner_move_jobs_lock:
+            job = _cleaner_move_jobs.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail="Deplacement introuvable.")
+            return _move_job_payload(job)
+
+    @app.get("/cleaner/move/status/{job_id}/result", response_class=HTMLResponse)
+    def cleaner_move_result(request: Request, job_id: str):
+        with _cleaner_move_jobs_lock:
+            job = _cleaner_move_jobs.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail="Deplacement introuvable.")
+            if job.status == "error":
+                return templates.TemplateResponse(
+                    request,
+                    "cleaner.html",
+                    _cleaner_context(
+                        request=request,
+                        settings=settings,
+                        min_age_days=job.min_age_days,
+                        max_mails=job.max_mails,
+                        source="regex",
+                        regex_rules=job.regex_rules,
+                        error=job.error,
+                    ),
+                    status_code=400,
+                )
+            if job.status != "done" or job.report is None:
+                raise HTTPException(status_code=409, detail="Deplacement encore en cours.")
+            report = job.report
+            regex_rules = list(job.regex_rules)
+
+        return templates.TemplateResponse(
+            request,
+            "cleaner.html",
+            _cleaner_context(
+                request=request,
+                settings=settings,
+                report=report,
+                min_age_days=job.min_age_days,
+                max_mails=job.max_mails,
+                source="regex",
+                regex_rules=regex_rules,
+                moved_count=job.moved_count,
+            ),
+        )
 
     @app.post("/cleaner/move-thunderbird-to-trash", response_class=HTMLResponse)
     def cleaner_move_thunderbird_to_trash(

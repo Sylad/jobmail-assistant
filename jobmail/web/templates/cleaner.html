@@ -208,7 +208,7 @@
     <input type="hidden" name="min_age_days" value="{{ min_age_days }}">
     <input type="hidden" name="max_mails" value="{{ max_mails }}">
   {% else %}
-  <form method="post" action="/cleaner/move-thunderbird-to-trash">
+  <form method="post" action="/cleaner/move-thunderbird-to-trash" {% if source == 'regex' %}data-regex-move-form{% endif %}>
     <input type="hidden" name="min_age_days" value="{{ min_age_days }}">
     <input type="hidden" name="max_mails" value="{{ max_mails }}">
     <input type="hidden" name="source" value="{{ source }}">
@@ -303,6 +303,21 @@
       <button type="submit" class="btn btn-danger">
         {% if source == 'regex' %}Deplacer tous les resultats regex vers la corbeille Thunderbird{% else %}Deplacer la selection vers la corbeille Thunderbird{% endif %}
       </button>
+      {% if source == 'regex' %}
+      <div class="scan-progress" data-move-progress hidden>
+        <div class="scan-progress-head">
+          <strong data-move-progress-title>Deplacement en cours</strong>
+          <span class="muted small" data-move-progress-time>0s</span>
+        </div>
+        <div class="progress-bar progress-bar-active">
+          <div class="progress-fill progress-fill-active"></div>
+        </div>
+        <div class="scan-progress-grid">
+          <span>Messages prevus <strong data-move-progress-total>0</strong></span>
+          <span>Messages deplaces <strong data-move-progress-moved>0</strong></span>
+        </div>
+      </div>
+      {% endif %}
     </div>
   </form>
   {% endif %}
@@ -447,6 +462,68 @@
     const submitter = event.submitter;
     if (submitter && submitter.name === "export_csv") return;
     await startScan(event);
+  });
+})();
+
+(() => {
+  const form = document.querySelector("[data-regex-move-form]");
+  const progress = document.querySelector("[data-move-progress]");
+  if (!form || !progress) return;
+
+  const moved = progress.querySelector("[data-move-progress-moved]");
+  const total = progress.querySelector("[data-move-progress-total]");
+  const elapsed = progress.querySelector("[data-move-progress-time]");
+  const title = progress.querySelector("[data-move-progress-title]");
+  const submitButton = form.querySelector("button[type='submit']");
+
+  const setProgress = (payload) => {
+    if (moved) moved.textContent = String(payload.moved_count || 0);
+    if (total) total.textContent = String(payload.total_count || 0);
+    if (elapsed) elapsed.textContent = `${payload.elapsed_seconds || 0}s`;
+  };
+
+  const poll = async (jobId) => {
+    const response = await fetch(`/cleaner/move/status/${jobId}`);
+    if (!response.ok) throw new Error("Impossible de lire le statut du deplacement.");
+    const payload = await response.json();
+    setProgress(payload);
+    if (payload.status === "done") {
+      if (title) title.textContent = "Deplacement termine";
+      window.location.href = payload.result_url;
+      return;
+    }
+    if (payload.status === "error") {
+      if (title) title.textContent = payload.error || "Deplacement en erreur";
+      if (submitButton) submitButton.disabled = false;
+      return;
+    }
+    window.setTimeout(() => poll(jobId).catch((error) => {
+      if (title) title.textContent = error.message;
+      if (submitButton) submitButton.disabled = false;
+    }), 700);
+  };
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    progress.hidden = false;
+    if (title) title.textContent = "Deplacement en cours";
+    if (submitButton) submitButton.disabled = true;
+    try {
+      const response = await fetch("/cleaner/move-thunderbird-to-trash/start", {
+        method: "POST",
+        body: new FormData(form),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || "Impossible de lancer le deplacement.");
+      }
+      const payload = await response.json();
+      setProgress(payload);
+      await poll(payload.id);
+    } catch (error) {
+      if (title) title.textContent = error.message || "Deplacement en erreur";
+      if (submitButton) submitButton.disabled = false;
+    }
   });
 })();
 </script>

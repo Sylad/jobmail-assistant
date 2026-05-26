@@ -149,6 +149,8 @@ Safety rules:
   final report is loaded automatically.
 - Regex move actions reuse the completed scan result shown in the UI, so the
   mailbox is not rescanned before moving candidates to Thunderbird trash.
+- Regex move actions also run with live progress while the Thunderbird MBOX is
+  backed up and rewritten.
 - Regex rules are saved locally to `data/cleaner-regex-rules.json` whenever a
   regex scan/export/move is launched, then reloaded on the next `/cleaner` visit.
 - A report is shown before any move, and confirmation checkboxes are required.
