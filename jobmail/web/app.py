@@ -134,6 +134,7 @@ def _compute_stats(conn: sqlite3.Connection) -> dict:
 
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates.env.globals["static_version"] = str(int((BASE_DIR / "static" / "style.css").stat().st_mtime))
 
 
 @dataclass

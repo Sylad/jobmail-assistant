@@ -297,8 +297,8 @@ tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }
 .backup-panel h2 {
   margin-top: 0;
 }
-.backup-stats {
-  grid-template-columns: repeat(3, minmax(160px, 220px));
+.stats-grid.backup-stats {
+  grid-template-columns: repeat(3, minmax(0, 220px));
   align-items: stretch;
 }
 .backup-cleanup-form {
