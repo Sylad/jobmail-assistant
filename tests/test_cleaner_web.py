@@ -11,6 +11,7 @@ from jobmail.web import app as web_app
 def _client(monkeypatch, tmp_path):
     settings = web_app.get_settings()
     settings.db_path = tmp_path / "web.db"
+    settings.cleaner_regex_rules_path = tmp_path / "cleaner-regex-rules.json"
     settings.imap_host = "imap.example.com"
     settings.imap_user = "user"
     settings.imap_password = "pass"
@@ -47,6 +48,22 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     regex_form = '<form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>'
     assert resp.text.count(regex_form) == 1
     assert '<button type="button" class="btn btn-primary" data-start-regex-scan>Scanner toute la boite par regex</button>' in resp.text
+
+
+def test_cleaner_page_loads_saved_regex_rules(monkeypatch, tmp_path):
+    settings = web_app.get_settings()
+    settings.cleaner_regex_rules_path = tmp_path / "cleaner-regex-rules.json"
+    settings.cleaner_regex_rules_path.write_text(
+        '{"rules":[{"sender_regex":"store-news@amazon.fr","subject_regex":"promo"}]}',
+        encoding="utf-8",
+    )
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.get("/cleaner")
+
+    assert resp.status_code == 200
+    assert 'name="sender_regex_rule" value="store-news@amazon.fr"' in resp.text
+    assert 'name="subject_regex_rule" value="promo"' in resp.text
 
 
 def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
@@ -153,6 +170,8 @@ def test_cleaner_regex_scan_progress_endpoints(monkeypatch, tmp_path):
     )
 
     assert start.status_code == 200
+    saved = web_app.get_settings().cleaner_regex_rules_path.read_text(encoding="utf-8")
+    assert "amazon" in saved
     job_id = start.json()["id"]
     status = client.get(f"/cleaner/scan/status/{job_id}")
     assert status.status_code == 200

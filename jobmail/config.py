@@ -22,6 +22,7 @@ class Settings(BaseSettings):
         "/mnt/c/Users/Sylvain Ladoire/AppData/Roaming/Thunderbird/Profiles/"
         "*.default*/Mail/pop.*/Inbox"
     )
+    cleaner_regex_rules_path: Path = Path("./data/cleaner-regex-rules.json")
 
     db_path: Path = Path("./data/jobmail.db")
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import csv
 import io
+import json
 import threading
 import time
 import uuid
@@ -150,6 +151,35 @@ _cleaner_jobs: dict[str, CleanerScanJob] = {}
 _cleaner_jobs_lock = threading.Lock()
 
 
+def _load_saved_regex_rules(settings) -> list[tuple[str, str]]:
+    path = settings.cleaner_regex_rules_path
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
+    except (OSError, json.JSONDecodeError):
+        return []
+    rules = raw.get("rules", raw if isinstance(raw, list) else [])
+    loaded: list[tuple[str, str]] = []
+    if not isinstance(rules, list):
+        return []
+    for item in rules:
+        if not isinstance(item, dict):
+            continue
+        sender = str(item.get("sender_regex", "")).strip()
+        subject = str(item.get("subject_regex", "")).strip()
+        if sender or subject:
+            loaded.append((sender, subject))
+    return loaded
+
+
+def _save_regex_rules(settings, rules: list[tuple[str, str]]) -> None:
+    clean_rules = [{"sender_regex": sender, "subject_regex": subject} for sender, subject in rules if sender or subject]
+    path = settings.cleaner_regex_rules_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"rules": clean_rules}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
 def _cleaner_context(
     *,
     request: Request,
@@ -165,6 +195,8 @@ def _cleaner_context(
     error: str = "",
     moved_count: int = 0,
 ) -> dict:
+    if regex_rules is None and not sender_regex and not subject_regex:
+        regex_rules = _load_saved_regex_rules(settings)
     display_rules = _display_regex_rules(regex_rules, sender_regex, subject_regex)
     return {
         "request": request,
@@ -341,6 +373,7 @@ def create_app() -> FastAPI:
                     max_mails=max_mails,
                 )
             elif source == "regex":
+                _save_regex_rules(settings, regex_rules)
                 report = scan_thunderbird_regex(
                     settings,
                     sender_regex=sender_regex,
@@ -414,6 +447,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail="Le scan progressif est disponible pour les regex Thunderbird.")
 
         regex_rules = _form_regex_rules(sender_regex_rule, subject_regex_rule, sender_regex, subject_regex)
+        _save_regex_rules(settings, regex_rules)
         job = CleanerScanJob(
             id=uuid.uuid4().hex,
             min_age_days=min_age_days,
@@ -620,6 +654,7 @@ def create_app() -> FastAPI:
                     max_mails=max_mails,
                 )
             elif source == "regex":
+                _save_regex_rules(settings, regex_rules)
                 moved_count, report = move_thunderbird_regex_to_trash(
                     settings,
                     sender_regex=sender_regex,
