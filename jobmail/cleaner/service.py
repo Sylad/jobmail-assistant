@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -485,18 +486,12 @@ def move_parsed_jobs_to_trash(
     max_mails: int | None = None,
     require_thunderbird_closed: bool = True,
 ) -> tuple[int, CleanerReport]:
-    allowed = {
-        candidate.uid: candidate
-        for candidate in scan_parsed_job_mails(
-            settings,
-            min_age_days=min_age_days,
-            max_mails=max_mails,
-            include_interesting=False,
-        ).candidates
-    }
-    safe_uids = [uid for uid in _dedupe_uids(uids) if uid in allowed]
+    if not uids:
+        raise CleanerError("Aucun mail de job selectionne.")
+    selected_rows = _selected_parsed_job_rows(settings, uids, min_age_days=min_age_days)
+    safe_uids = _resolve_current_parsed_job_uids(settings, selected_rows)
     if not safe_uids:
-        raise CleanerError("Aucun mail de job selectionne ne passe les regles de securite.")
+        raise CleanerError("Aucun mail de job selectionne n'a ete retrouve dans les MBOX Thunderbird.")
     return _move_mbox_uids_to_trash(
         settings,
         uids=safe_uids,
@@ -573,8 +568,13 @@ def list_orphan_cleaner_temp_files(settings: Settings) -> CleanerTempSummary:
     return CleanerTempSummary(files=files)
 
 
-def move_orphan_cleaner_temp_files(settings: Settings, *, destination_root: Path | None = None) -> CleanerTempCleanup:
-    if _thunderbird_is_running():
+def move_orphan_cleaner_temp_files(
+    settings: Settings,
+    *,
+    destination_root: Path | None = None,
+    require_thunderbird_closed: bool = True,
+) -> CleanerTempCleanup:
+    if require_thunderbird_closed and _thunderbird_is_running():
         raise CleanerError("Thunderbird doit etre ferme avant de deplacer les temporaires orphelins.")
     summary = list_orphan_cleaner_temp_files(settings)
     if destination_root is None:
@@ -703,6 +703,119 @@ def _regex_match_reason(
 
 def _dedupe_uids(uids: list[str]) -> list[str]:
     return list(dict.fromkeys(uid for uid in uids if uid.strip()))
+
+
+def _mbox_uid_to_stored_email_uid(uid: str) -> str | None:
+    try:
+        mailbox, offset = _split_mbox_uid(uid)
+    except CleanerError:
+        return None
+    return f"{mailbox}:mbox-{offset}"
+
+
+def _selected_parsed_job_rows(settings: Settings, uids: list[str], *, min_age_days: int | None) -> list[sqlite3.Row]:
+    stored_uids = [
+        stored_uid
+        for uid in _dedupe_uids(uids)
+        if (stored_uid := _mbox_uid_to_stored_email_uid(uid)) is not None
+    ]
+    if not stored_uids:
+        raise CleanerError("Selection de mails jobs invalide.")
+
+    placeholders = ",".join("?" for _ in stored_uids)
+    sql = f"""
+        SELECT e.uid, e.message_id, e.subject, e.sender, e.received_at,
+               o.status, o.relevance_score
+        FROM emails e
+        JOIN offers o ON o.email_uid = e.uid
+        WHERE e.job_related = 1
+          AND e.uid IN ({placeholders})
+    """
+    min_age = _clean_min_age(min_age_days, settings.cleaner_min_age_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=min_age)
+    selected: list[sqlite3.Row] = []
+    with connect(settings.db_path) as conn:
+        rows = conn.execute(sql, stored_uids).fetchall()
+
+    for row in rows:
+        received_at = datetime.fromisoformat(row["received_at"])
+        if received_at.tzinfo is None:
+            received_at = received_at.replace(tzinfo=timezone.utc)
+        if received_at >= cutoff:
+            continue
+        status = row["status"] or ""
+        score = int(row["relevance_score"] or 0)
+        if status in {"interesting", "replied"}:
+            continue
+        if status != "ignored" and score > 3:
+            continue
+        selected.append(row)
+
+    if not selected:
+        raise CleanerError("Aucun mail de job selectionne ne passe les regles de securite.")
+    return selected
+
+
+def _resolve_current_parsed_job_uids(settings: Settings, rows: list[sqlite3.Row]) -> list[str]:
+    paths_by_mailbox = {path.parent.name: path for path in _resolve_mbox_paths(settings.cleaner_mbox_patterns)}
+    wanted_by_mailbox: dict[str, dict[str, sqlite3.Row]] = {}
+    fallback_by_mailbox: dict[str, list[sqlite3.Row]] = {}
+    resolved: list[str] = []
+    resolved_keys: set[str] = set()
+
+    for row in rows:
+        parsed_uid = _stored_email_uid_to_mbox_uid(row["uid"])
+        if parsed_uid is None:
+            continue
+        mailbox, offset = _split_mbox_uid(parsed_uid)
+        path = paths_by_mailbox.get(mailbox)
+        if path is None:
+            continue
+        mail = next(read_mbox(path, start_offset=offset), None)
+        if mail is not None and mail.mbox_offset == offset and _mail_matches_parsed_row(mail, row):
+            current_uid = f"mbox:{mailbox}:{offset}"
+            resolved.append(current_uid)
+            resolved_keys.add(_parsed_row_match_key(row))
+            continue
+        key = _parsed_row_match_key(row)
+        wanted_by_mailbox.setdefault(mailbox, {})[key] = row
+        fallback_by_mailbox.setdefault(mailbox, []).append(row)
+
+    wanted_count = sum(len(wanted) for wanted in wanted_by_mailbox.values())
+    for mailbox, wanted in wanted_by_mailbox.items():
+        path = paths_by_mailbox.get(mailbox)
+        if path is None:
+            continue
+        for mail in read_mbox(path):
+            key = _mail_match_key(mail)
+            if key in wanted and key not in resolved_keys:
+                resolved.append(f"mbox:{mailbox}:{mail.mbox_offset}")
+                resolved_keys.add(key)
+                if len(resolved_keys) == wanted_count:
+                    break
+        unresolved = [row for row in fallback_by_mailbox.get(mailbox, []) if _parsed_row_match_key(row) not in resolved_keys]
+        for row in unresolved:
+            logger.info("Cleaner parsed job not found in current mbox stored_uid=%s message_id=%s", row["uid"], row["message_id"])
+
+    return _dedupe_uids(resolved)
+
+
+def _parsed_row_match_key(row: sqlite3.Row) -> str:
+    message_id = (row["message_id"] or "").strip()
+    if message_id:
+        return f"mid:{message_id}"
+    return f"fallback:{row['sender']}::{row['subject']}::{row['received_at']}"
+
+
+def _mail_match_key(mail) -> str:
+    message_id = (mail.message_id or "").strip()
+    if message_id:
+        return f"mid:{message_id}"
+    return f"fallback:{mail.sender}::{mail.subject}::{mail.received_at.isoformat()}"
+
+
+def _mail_matches_parsed_row(mail, row: sqlite3.Row) -> bool:
+    return _mail_match_key(mail) == _parsed_row_match_key(row)
 
 
 def _resolve_mbox_paths(patterns: list[str]) -> list[Path]:

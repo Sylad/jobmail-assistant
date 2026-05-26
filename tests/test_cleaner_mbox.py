@@ -18,6 +18,7 @@ from jobmail.cleaner.service import (
 )
 from jobmail.config import Settings
 from jobmail.db import connect, init_db, insert_email, update_status, upsert_offer
+from jobmail.mail.thunderbird import read_mbox
 from jobmail.models import OfferExtraction, OfferStatus, RawEmail
 
 
@@ -194,6 +195,7 @@ def test_cleaner_temp_cleanup_moves_only_jobmail_temp_files(tmp_path: Path):
     cleanup = move_orphan_cleaner_temp_files(
         settings,
         destination_root=tmp_path / "orphan-temp",
+        require_thunderbird_closed=False,
     )
 
     assert summary.file_count == 1
@@ -390,14 +392,15 @@ def test_move_parsed_jobs_to_trash_uses_db_allowlist(tmp_path: Path):
         cleaner_mbox_globs=str(mbox),
     )
     init_db(settings.db_path)
+    parsed_mail = next(read_mbox(mbox))
     with connect(settings.db_path) as conn:
         email = RawEmail(
             uid=f"{tmp_path.name}:mbox-0",
-            message_id="<job-1@local>",
-            subject="Mission Java",
-            sender="recruiter@example.com",
-            received_at=datetime(2020, 1, 5, 12, 0, 0),
-            body_text="Mission Java",
+            message_id=parsed_mail.message_id,
+            subject=parsed_mail.subject,
+            sender=parsed_mail.sender,
+            received_at=parsed_mail.received_at,
+            body_text=parsed_mail.body_text,
         )
         insert_email(conn, email, job_related=True, matched_keywords=["java"])
         offer_id = upsert_offer(conn, email.uid, OfferExtraction(title="Mission Java", relevance_score=8))
@@ -407,6 +410,50 @@ def test_move_parsed_jobs_to_trash_uses_db_allowlist(tmp_path: Path):
     moved_count, _moved_report = move_parsed_jobs_to_trash(
         settings,
         uids=[report.candidates[0].uid],
+        min_age_days=7,
+        max_mails=20,
+        require_thunderbird_closed=False,
+    )
+
+    assert moved_count == 1
+    assert "Mission Java" not in mbox.read_text(encoding="utf-8")
+    assert "Mission Java" in (tmp_path / "Trash").read_text(encoding="utf-8")
+
+
+def test_move_parsed_jobs_to_trash_resolves_stale_mbox_offsets(tmp_path: Path):
+    mbox = tmp_path / "Inbox"
+    original_mbox = _make_msg(1, "Newsletter promo", "Soldes et unsubscribe.") + _make_msg(
+        2,
+        "Mission Java",
+        "Votre candidature emploi Java.",
+    )
+    mbox.write_text(original_mbox, encoding="utf-8")
+    original_job = [mail for mail in read_mbox(mbox) if mail.subject == "Mission Java"][0]
+    mbox.write_text(_make_msg(2, "Mission Java", "Votre candidature emploi Java."), encoding="utf-8")
+    current_job = next(read_mbox(mbox))
+    assert original_job.mbox_offset != current_job.mbox_offset
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+    )
+    init_db(settings.db_path)
+    with connect(settings.db_path) as conn:
+        email = RawEmail(
+            uid=f"{tmp_path.name}:mbox-{original_job.mbox_offset}",
+            message_id=original_job.message_id,
+            subject=original_job.subject,
+            sender=original_job.sender,
+            received_at=original_job.received_at,
+            body_text=original_job.body_text,
+        )
+        insert_email(conn, email, job_related=True, matched_keywords=["java"])
+        offer_id = upsert_offer(conn, email.uid, OfferExtraction(title="Mission Java", relevance_score=0))
+        update_status(conn, offer_id, OfferStatus.IGNORED)
+    stale_uid = f"mbox:{tmp_path.name}:{original_job.mbox_offset}"
+
+    moved_count, _moved_report = move_parsed_jobs_to_trash(
+        settings,
+        uids=[stale_uid],
         min_age_days=7,
         max_mails=20,
         require_thunderbird_closed=False,
