@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Mailbox cleaner — JobMail{% endblock %}
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/assets/cleaner.css">
+  <link rel="stylesheet" href="/static/assets/cleaner.css?v={{ static_version }}">
 {% endblock %}
 {% block content %}
 <section class="tool-head">
@@ -98,7 +98,7 @@
 </section>
 {% endblock %}
 {% block scripts %}
-  <script type="module" src="/static/assets/cleaner.js"></script>
+  <script type="module" src="/static/assets/cleaner.js?v={{ static_version }}"></script>
   <script>
     document.querySelectorAll(".js-pending-form").forEach((form) => {
       form.addEventListener("submit", () => {

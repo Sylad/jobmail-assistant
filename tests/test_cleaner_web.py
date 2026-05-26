@@ -53,8 +53,8 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     assert 'id="cleaner-vue-root"' in resp.text
     assert "data-initial" in resp.text
     assert '"source": "thunderbird"' in resp.text
-    assert '<link rel="stylesheet" href="/static/assets/cleaner.css">' in resp.text
-    assert '<script type="module" src="/static/assets/cleaner.js"></script>' in resp.text
+    assert '<link rel="stylesheet" href="/static/assets/cleaner.css?v=' in resp.text
+    assert '<script type="module" src="/static/assets/cleaner.js?v=' in resp.text
     assert "createApp" not in resp.text
 
 
@@ -664,6 +664,49 @@ def test_cleaner_regex_move_progress_endpoints(monkeypatch, tmp_path):
     assert result.status_code == 200
     assert "1 mail(s) deplace(s)" in result.text
     assert "corbeille Thunderbird" in result.text
+
+
+def test_cleaner_mbox_move_progress_endpoints(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_move(settings, *, uids, min_age_days, max_mails, progress_callback):
+        calls["uids"] = uids
+        calls["min_age_days"] = min_age_days
+        calls["max_mails"] = max_mails
+        progress_callback(1)
+        return 1, _report()
+
+    monkeypatch.setattr(web_app, "move_thunderbird_to_trash", fake_move)
+    client = _client(monkeypatch, tmp_path)
+
+    start = client.post(
+        "/cleaner/move-thunderbird-to-trash/start",
+        data={
+            "source": "thunderbird",
+            "selected_uid": "mbox:pop.example:123",
+            "confirm_move": "yes",
+            "confirm_thunderbird_closed": "yes",
+            "min_age_days": "9",
+            "max_mails": "12",
+        },
+    )
+
+    assert start.status_code == 200
+    move_job_id = start.json()["id"]
+    for _ in range(20):
+        payload = client.get(f"/cleaner/move/status/{move_job_id}").json()
+        if payload["status"] == "done":
+            break
+    assert payload["status"] == "done"
+    assert payload["total_count"] == 1
+    assert payload["moved_count"] == 1
+    assert payload["result_json_url"] == f"/cleaner/move/status/{move_job_id}/result-json"
+    assert calls == {"uids": ["mbox:pop.example:123"], "min_age_days": 9, "max_mails": 12}
+
+    result = client.get(f"/cleaner/move/status/{move_job_id}/result-json")
+    assert result.status_code == 200
+    assert result.json()["source"] == "thunderbird"
+    assert result.json()["moved_count"] == 1
 
 
 def test_cleaner_regex_move_requires_finished_scan_job(monkeypatch, tmp_path):

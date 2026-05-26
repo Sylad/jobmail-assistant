@@ -344,7 +344,7 @@ async function moveSelection(): Promise<void> {
   }
 
   if (reportResult.value.source === "regex") {
-    await moveRegexResults();
+    await moveThunderbirdResults();
     return;
   }
 
@@ -358,20 +358,24 @@ async function moveSelection(): Promise<void> {
   if (reportResult.value.source === "imap") {
     submitHtmlMove("/cleaner/move-to-delete", fields);
   } else {
-    submitHtmlMove("/cleaner/move-thunderbird-to-trash", {
-      ...fields,
-      confirm_thunderbird_closed: "yes",
-    });
+    await moveThunderbirdResults(fields);
   }
 }
 
-async function moveRegexResults(): Promise<void> {
+async function moveThunderbirdResults(fields?: Record<string, string | string[]>): Promise<void> {
   if (!reportResult.value) return;
   showMovePanel();
   const data = new FormData();
-  data.set("source", "regex");
-  data.set("regex_job_id", reportResult.value.regex_job_id);
-  data.set("confirm_move", "yes");
+  if (fields) {
+    Object.entries(fields).forEach(([key, value]) => {
+      const values = Array.isArray(value) ? value : [value];
+      values.forEach((entry) => data.append(key, entry));
+    });
+  } else {
+    data.set("source", "regex");
+    data.set("regex_job_id", reportResult.value.regex_job_id);
+    data.set("confirm_move", "yes");
+  }
   data.set("confirm_thunderbird_closed", "yes");
   const response = await fetch("/cleaner/move-thunderbird-to-trash/start", {
     method: "POST",
@@ -410,7 +414,7 @@ async function pollMove(jobId: string): Promise<void> {
   if (payload.status === "done") {
     movePanel.title = "Deplacement termine";
     movePanel.active = false;
-    await loadMoveResult(`/cleaner/move/status/${jobId}/result-json`);
+    await loadMoveResult(payload.result_json_url || `/cleaner/move/status/${jobId}/result-json`);
     return;
   }
   if (payload.status === "cancelled") {
@@ -438,6 +442,7 @@ async function loadMoveResult(url: string): Promise<void> {
   const payload = await response.json();
   actionMessage.value = `${payload.moved_count} mail(s) deplace(s) vers ${payload.moved_destination}.`;
   if (reportResult.value) {
+    reportResult.value.source = payload.source ?? reportResult.value.source;
     reportResult.value.report = payload.report;
     reportResult.value.regex_rules = payload.regex_rules;
   }
@@ -553,7 +558,7 @@ function moveButtonLabel(): string {
     />
 
     <section v-if="reportResult && currentReport" class="cleaner-report vue-report">
-      <div class="stats-grid">
+      <div class="stats-grid report-stats">
         <div class="stat-box">
           <span class="muted">Mails scannes</span>
           <strong>{{ currentReport.scanned_count }}</strong>

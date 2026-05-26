@@ -24,6 +24,7 @@ export interface CleanerMoveJobPayload {
   elapsed_seconds: number;
   error: string;
   result_url: string;
+  result_json_url: string;
   cancel_url: string;
 }
 

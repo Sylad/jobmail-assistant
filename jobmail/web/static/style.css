@@ -381,6 +381,18 @@ tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }
 .stat-box span,
 .stat-box strong { display: block; }
 .stat-box strong { margin-top: 4px; font-size: 1.4rem; }
+.vue-report .report-stats {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 180px));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.vue-report .report-stats .stat-box {
+  padding: 10px 12px;
+  min-height: 72px;
+}
+.vue-report .report-stats .stat-box strong {
+  font-size: 1.25rem;
+}
 
 .compact-table {
   width: min(760px, 100%);

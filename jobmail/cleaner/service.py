@@ -497,6 +497,7 @@ def move_thunderbird_duplicates_to_trash(
     uids: list[str],
     min_age_days: int | None = None,
     require_thunderbird_closed: bool = True,
+    progress_callback: Callable[[int], None] | None = None,
 ) -> tuple[int, CleanerReport]:
     if not uids:
         raise CleanerError("Aucun doublon selectionne.")
@@ -506,6 +507,7 @@ def move_thunderbird_duplicates_to_trash(
         min_age_days=min_age_days,
         require_thunderbird_closed=require_thunderbird_closed,
         validator="duplicate",
+        progress_callback=progress_callback,
     )
 
 
@@ -555,6 +557,7 @@ def move_thunderbird_to_trash(
     min_age_days: int | None = None,
     max_mails: int | None = None,
     require_thunderbird_closed: bool = True,
+    progress_callback: Callable[[int], None] | None = None,
 ) -> tuple[int, CleanerReport]:
     if not uids:
         raise CleanerError("Aucun mail selectionne.")
@@ -571,9 +574,19 @@ def move_thunderbird_to_trash(
         path = paths_by_mailbox.get(mailbox)
         if path is None:
             raise CleanerError(f"MBOX introuvable pour le compte Thunderbird {mailbox!r}.")
-        moved, candidates = _move_offsets_to_trash(path, mailbox, offsets, min_age)
+        moved, candidates = _move_offsets_to_trash(
+            path,
+            mailbox,
+            offsets,
+            min_age,
+            progress_callback=(lambda count, base=moved_count: progress_callback(base + count))
+            if progress_callback
+            else None,
+        )
         moved_count += moved
         moved_candidates.extend(candidates)
+        if progress_callback:
+            progress_callback(moved_count)
 
     if moved_count == 0:
         raise CleanerError("Aucun mail selectionne ne passe les regles de securite.")
@@ -639,6 +652,7 @@ def move_parsed_jobs_to_trash(
     min_age_days: int | None = None,
     max_mails: int | None = None,
     require_thunderbird_closed: bool = True,
+    progress_callback: Callable[[int], None] | None = None,
 ) -> tuple[int, CleanerReport]:
     if not uids:
         raise CleanerError("Aucun mail de job selectionne.")
@@ -652,6 +666,7 @@ def move_parsed_jobs_to_trash(
         min_age_days=min_age_days,
         require_thunderbird_closed=require_thunderbird_closed,
         validator="parsed_job",
+        progress_callback=progress_callback,
     )
 
 

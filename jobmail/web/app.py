@@ -134,7 +134,15 @@ def _compute_stats(conn: sqlite3.Connection) -> dict:
 
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-templates.env.globals["static_version"] = str(int((BASE_DIR / "static" / "style.css").stat().st_mtime))
+templates.env.globals["static_version"] = str(
+    int(
+        max(
+            (BASE_DIR / "static" / "style.css").stat().st_mtime,
+            (BASE_DIR / "static" / "assets" / "cleaner.css").stat().st_mtime,
+            (BASE_DIR / "static" / "assets" / "cleaner.js").stat().st_mtime,
+        )
+    )
+)
 
 
 @dataclass
@@ -163,6 +171,7 @@ class CleanerScanJob:
 class CleanerMoveJob:
     id: str
     status: str = "running"
+    source: str = "regex"
     moved_count: int = 0
     total_count: int = 0
     started_at: float = field(default_factory=time.time)
@@ -400,6 +409,7 @@ def _move_job_payload(job: CleanerMoveJob) -> dict:
         "elapsed_seconds": elapsed,
         "error": job.error,
         "result_url": f"/cleaner/move/status/{job.id}/result" if job.status == "done" else "",
+        "result_json_url": f"/cleaner/move/status/{job.id}/result-json" if job.status == "done" else "",
         "cancel_url": f"/cleaner/move/cancel/{job.id}" if job.status == "running" else "",
     }
 
@@ -955,22 +965,33 @@ def create_app() -> FastAPI:
         confirm_thunderbird_closed: str = Form(""),
         source: str = Form("thunderbird"),
         regex_job_id: str = Form(""),
+        selected_uid: list[str] = Form(default=[]),
+        min_age_days: int = Form(settings.cleaner_min_age_days),
+        max_mails: int = Form(settings.cleaner_max_mails),
     ):
-        if source != "regex":
-            raise HTTPException(status_code=400, detail="Le deplacement progressif est disponible pour les regex Thunderbird.")
         if confirm_move != "yes" or confirm_thunderbird_closed != "yes":
             raise HTTPException(status_code=400, detail="Confirmation obligatoire et Thunderbird doit etre ferme avant l'action.")
 
-        job_context = _regex_job_move_context(regex_job_id) if regex_job_id else None
-        if job_context is None:
-            raise HTTPException(status_code=400, detail="Le resultat du scan n'est plus disponible. Relance un scan regex avant de deplacer.")
-        safe_uids, scan_report, regex_rules, min_age_days, max_mails = job_context
-        if not safe_uids:
-            raise HTTPException(status_code=400, detail="Le scan termine ne contient aucun candidat a deplacer.")
+        selected_uids = list(selected_uid)
+        scan_report: CleanerReport | None = None
+        regex_rules: list[tuple[str, str]] = []
+        if source == "regex":
+            job_context = _regex_job_move_context(regex_job_id) if regex_job_id else None
+            if job_context is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Le resultat du scan n'est plus disponible. Relance un scan regex avant de deplacer.",
+                )
+            selected_uids, scan_report, regex_rules, min_age_days, max_mails = job_context
+        elif source not in {"thunderbird", "parsed_jobs", "duplicates"}:
+            raise HTTPException(status_code=400, detail="Source Thunderbird inconnue.")
+        if not selected_uids:
+            raise HTTPException(status_code=400, detail="Aucun mail selectionne.")
 
         move_job = CleanerMoveJob(
             id=uuid.uuid4().hex,
-            total_count=len(safe_uids),
+            source=source,
+            total_count=len(selected_uids),
             min_age_days=min_age_days,
             max_mails=max_mails,
             regex_rules=regex_rules,
@@ -991,13 +1012,38 @@ def create_app() -> FastAPI:
                         move_job.status = "cancelled"
                         move_job.finished_at = time.time()
                     return
-                moved_count, report = move_scanned_regex_uids_to_trash(
-                    settings,
-                    uids=safe_uids,
-                    min_age_days=min_age_days,
-                    progress_callback=progress,
-                )
-                report.scanned_count = scan_report.scanned_count
+                if source == "regex":
+                    moved_count, report = move_scanned_regex_uids_to_trash(
+                        settings,
+                        uids=selected_uids,
+                        min_age_days=min_age_days,
+                        progress_callback=progress,
+                    )
+                    if scan_report is not None:
+                        report.scanned_count = scan_report.scanned_count
+                elif source == "parsed_jobs":
+                    moved_count, report = move_parsed_jobs_to_trash(
+                        settings,
+                        uids=selected_uids,
+                        min_age_days=min_age_days,
+                        max_mails=max_mails,
+                        progress_callback=progress,
+                    )
+                elif source == "duplicates":
+                    moved_count, report = move_thunderbird_duplicates_to_trash(
+                        settings,
+                        uids=selected_uids,
+                        min_age_days=min_age_days,
+                        progress_callback=progress,
+                    )
+                else:
+                    moved_count, report = move_thunderbird_to_trash(
+                        settings,
+                        uids=selected_uids,
+                        min_age_days=min_age_days,
+                        max_mails=max_mails,
+                        progress_callback=progress,
+                    )
             except CleanerError as e:
                 with _cleaner_move_jobs_lock:
                     move_job.status = "error"
@@ -1053,7 +1099,7 @@ def create_app() -> FastAPI:
                         settings=settings,
                         min_age_days=job.min_age_days,
                         max_mails=job.max_mails,
-                        source="regex",
+                        source=job.source,
                         regex_rules=job.regex_rules,
                         error=job.error,
                     ),
@@ -1068,7 +1114,7 @@ def create_app() -> FastAPI:
                         settings=settings,
                         min_age_days=job.min_age_days,
                         max_mails=job.max_mails,
-                        source="regex",
+                        source=job.source,
                         regex_rules=job.regex_rules,
                         error="Deplacement annule avant modification Thunderbird.",
                     ),
@@ -1088,7 +1134,7 @@ def create_app() -> FastAPI:
                 report=report,
                 min_age_days=job.min_age_days,
                 max_mails=job.max_mails,
-                source="regex",
+                source=job.source,
                 regex_rules=regex_rules,
                 moved_count=job.moved_count,
                 moved_destination="corbeille Thunderbird",
@@ -1110,7 +1156,7 @@ def create_app() -> FastAPI:
             return {
                 "moved_count": job.moved_count,
                 "moved_destination": "corbeille Thunderbird",
-                "source": "regex",
+                "source": job.source,
                 "min_age_days": job.min_age_days,
                 "max_mails": job.max_mails,
                 "regex_rules": [
