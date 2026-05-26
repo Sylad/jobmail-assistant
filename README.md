@@ -190,6 +190,16 @@ python -m jobmail watch --mbox "C:\Users\Sylvain Ladoire\AppData\Roaming\Thunder
 
 For the web cleaner, configure `CLEANER_MBOX_GLOBS` in `.env`.
 
+Operational notes:
+
+- Close Thunderbird before moving local MBOX messages. On Windows/WSL, verify
+  with `powershell.exe -NoProfile -Command "Get-Process thunderbird -ErrorAction SilentlyContinue"`.
+- Never create backups directly inside Thunderbird `Mail/<account>` folders.
+  Extensionless files there are displayed by Thunderbird as mail folders. JobMail
+  stores cleaner backups under `<profile>/jobmail-backups/` instead.
+- MBOX files can be several GB. Prefer same-volume hardlinks/moves for backups
+  and avoid cross-filesystem copies unless explicitly needed.
+
 ## Tests
 
 ```powershell
