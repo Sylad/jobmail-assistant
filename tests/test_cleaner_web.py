@@ -61,6 +61,8 @@ def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
     assert 'name="selected_uid" value="101" checked data-candidate-checkbox' in resp.text
     assert "Tout selectionner" in resp.text
     assert "Tout exclure" in resp.text
+    assert 'data-sender-row="newsletter@example.com"' in resp.text
+    assert "data-sender-state" in resp.text
     assert 'data-exclude-sender="newsletter@example.com"' in resp.text
 
 

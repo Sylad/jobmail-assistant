@@ -80,9 +80,10 @@
       </thead>
       <tbody>
       {% for sender, count in report.top_senders %}
-        <tr>
+        <tr data-sender-row="{{ sender }}">
           <td>{{ sender }}</td>
           <td class="sender-actions">
+            <span class="sender-state" data-sender-state>Inclus</span>
             <button type="button" class="btn btn-sm" data-include-sender="{{ sender }}">Inclure</button>
             <button type="button" class="btn btn-sm btn-ghost" data-exclude-sender="{{ sender }}">Exclure</button>
           </td>
@@ -184,9 +185,30 @@
   if (!checkboxes.length) return;
 
   const selectedCount = document.querySelector("[data-selected-count]");
+  const senderRows = Array.from(document.querySelectorAll("[data-sender-row]"));
+  const updateSenderRows = () => {
+    senderRows.forEach((senderRow) => {
+      const sender = senderRow.dataset.senderRow;
+      const senderBoxes = checkboxes.filter((box) => box.closest("[data-sender]")?.dataset.sender === sender);
+      const checkedCount = senderBoxes.filter((box) => box.checked).length;
+      const state = senderRow.querySelector("[data-sender-state]");
+      senderRow.classList.remove("sender-excluded", "sender-partial", "sender-included");
+      if (checkedCount === 0) {
+        senderRow.classList.add("sender-excluded");
+        if (state) state.textContent = "Exclu";
+      } else if (checkedCount === senderBoxes.length) {
+        senderRow.classList.add("sender-included");
+        if (state) state.textContent = "Inclus";
+      } else {
+        senderRow.classList.add("sender-partial");
+        if (state) state.textContent = "Partiel";
+      }
+    });
+  };
   const updateCount = () => {
     if (!selectedCount) return;
     selectedCount.textContent = String(checkboxes.filter((box) => box.checked).length);
+    updateSenderRows();
   };
   const setAll = (checked) => {
     checkboxes.forEach((box) => { box.checked = checked; });
