@@ -10,5 +10,6 @@ data/
 htmlcov/
 dist/
 build/
+frontend/node_modules/
 .idea/
 .vscode/

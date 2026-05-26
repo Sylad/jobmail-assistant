@@ -53,6 +53,8 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     assert "Scanner toute la boite par regex" in resp.text
     assert "Backups Thunderbird" in resp.text
     assert "Nettoyer les anciens backups" in resp.text
+    assert '<script type="module" src="/static/assets/cleaner.js"></script>' in resp.text
+    assert "createApp" not in resp.text
 
 
 def test_cleaner_backup_cleanup_requires_confirmation(monkeypatch, tmp_path):

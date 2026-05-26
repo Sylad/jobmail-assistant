@@ -5,6 +5,8 @@
 [![Prompts by ChatGPT](https://img.shields.io/badge/Prompts%20by-ChatGPT-10A37F?logo=openai&logoColor=white)](https://chat.openai.com)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Vue 3](https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white)](https://vuejs.org)
+[![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vite.dev)
 [![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org)
 [![Ollama](https://img.shields.io/badge/Ollama-llama3.1%3A8b-000000?logo=ollama&logoColor=white)](https://ollama.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -29,7 +31,7 @@ and [Codex](https://openai.com/codex).**
 - Dry-run mode: reads and classifies locally, with no LLM provider instantiation
 - Mailbox cleaner: dry-run scan for old Thunderbird/IMAP newsletters, bulk selection by sender, CSV export, then optional move
 - SQLite storage (single file, no server)
-- HTML dashboard (FastAPI + Jinja2) — list, filter by techno/score/status, mark new/interesting/ignored/replied, open extracted offer links
+- HTML dashboard (FastAPI + Jinja2 + Vue 3 islands) — list, filter by techno/score/status, mark new/interesting/ignored/replied, open extracted offer links
 - CLI: `jobmail fetch | dry-run | watch | extract | serve | seed | classify`
 
 ## Architecture
@@ -107,6 +109,21 @@ python -m jobmail serve
 # → http://127.0.0.1:8765/
 ```
 
+### Frontend assets
+
+The dashboard is server-rendered with Jinja, and the Mailbox cleaner uses a
+small Vue 3/Vite island for client-side scan progress, cancellation, regex rule
+rows, and selection helpers.
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+The build writes `jobmail/web/static/assets/cleaner.js`, which is committed so
+the local Python server can run without a separate Vite dev server.
+
 Once configured:
 
 ```powershell
@@ -143,9 +160,9 @@ Safety rules:
   combined as a global OR. Use `0` as max-mails for an unbounded pass. Regex
   moves replay the same rules after the dry-run and move every matching result
   in one Thunderbird rewrite.
-- Regex scans launched from the web UI run in the background with live progress:
-  scanned mail count, candidate count, current mailbox, elapsed time, then the
-  final report is loaded automatically.
+- Scans launched from the web UI run in the background with live Vue-powered
+  progress: scanned mail count, candidate count, current mailbox, elapsed time,
+  cancellation button, then the final report is loaded automatically.
 - Regex move actions reuse the completed scan result shown in the UI, so the
   mailbox is not rescanned before moving candidates to Thunderbird trash.
 - Regex move actions also run with live progress while the Thunderbird MBOX is
