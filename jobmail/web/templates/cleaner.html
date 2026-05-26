@@ -39,20 +39,21 @@
       <span class="muted small">{{ backup_eligible_size }}</span>
     </div>
   </div>
-  <form method="post" action="/cleaner/backups/cleanup" class="backup-cleanup-form">
+  <form method="post" action="/cleaner/backups/cleanup" class="backup-cleanup-form js-pending-form">
     <div class="backup-retention-field">
       <label for="backup-retention-days">Garder les backups des N derniers jours</label>
       <input id="backup-retention-days" type="number" name="retention_days" min="1" max="3650" value="{{ backup_summary.retention_days }}">
     </div>
     <label class="confirm-line backup-confirm-line">
-      <input type="checkbox" name="confirm_cleanup" value="yes">
+      <input type="checkbox" name="confirm_cleanup" value="yes" required>
       <span>Je confirme vouloir supprimer uniquement les anciens backups JobMail dans <code>jobmail-backups</code>.</span>
     </label>
     <div class="backup-action-slot">
-      <button type="submit" class="btn btn-danger" {% if backup_summary.eligible_count == 0 %}disabled{% endif %}>
+      <button type="submit" class="btn btn-danger" data-pending-label="Nettoyage en cours..." {% if backup_summary.eligible_count == 0 %}disabled{% endif %}>
         Nettoyer les anciens backups
       </button>
     </div>
+    <p class="form-pending-message" role="status" aria-live="polite"></p>
   </form>
   {% if backup_summary.backup_roots %}
   <div class="backup-roots">
@@ -76,14 +77,15 @@
     {{ temp_summary.file_count }} fichier(s) temporaire(s) JobMail orphelin(s) dans les dossiers Mail Thunderbird
     ({{ temp_total_size }}). Ferme Thunderbird avant de les sortir du profil.
   </div>
-  <form method="post" action="/cleaner/temp/cleanup" class="backup-cleanup-form backup-temp-form">
+  <form method="post" action="/cleaner/temp/cleanup" class="backup-cleanup-form backup-temp-form js-pending-form">
     <label class="confirm-line backup-confirm-line">
-      <input type="checkbox" name="confirm_temp_cleanup" value="yes">
+      <input type="checkbox" name="confirm_temp_cleanup" value="yes" required>
       <span>Je confirme que Thunderbird est ferme et veux deplacer les temporaires hors des dossiers Mail.</span>
     </label>
     <div class="backup-action-slot">
-      <button type="submit" class="btn btn-danger">Sortir les temporaires orphelins</button>
+      <button type="submit" class="btn btn-danger" data-pending-label="Deplacement en cours...">Sortir les temporaires orphelins</button>
     </div>
+    <p class="form-pending-message" role="status" aria-live="polite"></p>
   </form>
   {% endif %}
 </section>
@@ -97,4 +99,21 @@
 {% endblock %}
 {% block scripts %}
   <script type="module" src="/static/assets/cleaner.js"></script>
+  <script>
+    document.querySelectorAll(".js-pending-form").forEach((form) => {
+      form.addEventListener("submit", () => {
+        const button = form.querySelector("button[type='submit']");
+        const message = form.querySelector(".form-pending-message");
+        if (button) {
+          button.dataset.originalLabel = button.textContent.trim();
+          button.textContent = button.dataset.pendingLabel || "Action en cours...";
+          button.disabled = true;
+        }
+        form.classList.add("is-pending");
+        if (message) {
+          message.textContent = "Action envoyee, JobMail traite la demande...";
+        }
+      });
+    });
+  </script>
 {% endblock %}

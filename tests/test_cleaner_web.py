@@ -47,6 +47,9 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     assert "Mailbox cleaner" in resp.text
     assert "Backups Thunderbird" in resp.text
     assert "Nettoyer les anciens backups" in resp.text
+    assert "js-pending-form" in resp.text
+    assert 'data-pending-label="Nettoyage en cours..."' in resp.text
+    assert 'aria-live="polite"' in resp.text
     assert 'id="cleaner-vue-root"' in resp.text
     assert "data-initial" in resp.text
     assert '"source": "thunderbird"' in resp.text
