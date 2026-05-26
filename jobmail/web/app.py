@@ -19,6 +19,7 @@ from ..cleaner import (
     CleanerError,
     CleanerReport,
     move_parsed_jobs_to_trash,
+    move_scanned_regex_uids_to_trash,
     move_thunderbird_to_trash,
     move_to_delete,
     scan_parsed_job_mails,
@@ -211,6 +212,7 @@ def _cleaner_context(
     regex_job_id: str = "",
     error: str = "",
     moved_count: int = 0,
+    moved_destination: str = "",
 ) -> dict:
     if regex_rules is None and not sender_regex and not subject_regex:
         regex_rules = _load_saved_regex_rules(settings)
@@ -230,6 +232,7 @@ def _cleaner_context(
         "mbox_patterns": settings.cleaner_mbox_patterns,
         "error": error,
         "moved_count": moved_count,
+        "moved_destination": moved_destination,
         "provider": settings.llm_provider,
         "imap_enabled": settings.imap_enabled,
     }
@@ -686,11 +689,10 @@ def create_app() -> FastAPI:
 
         def run_move() -> None:
             try:
-                moved_count, report = move_thunderbird_to_trash(
+                moved_count, report = move_scanned_regex_uids_to_trash(
                     settings,
                     uids=safe_uids,
                     min_age_days=min_age_days,
-                    max_mails=max_mails,
                 )
                 report.scanned_count = scan_report.scanned_count
             except CleanerError as e:
@@ -760,6 +762,7 @@ def create_app() -> FastAPI:
                 source="regex",
                 regex_rules=regex_rules,
                 moved_count=job.moved_count,
+                moved_destination="corbeille Thunderbird",
             ),
         )
 
@@ -814,11 +817,10 @@ def create_app() -> FastAPI:
                 safe_uids, scan_report, regex_rules, min_age_days, max_mails = job_context
                 if not safe_uids:
                     raise CleanerError("Le scan termine ne contient aucun candidat a deplacer.")
-                moved_count, report = move_thunderbird_to_trash(
+                moved_count, report = move_scanned_regex_uids_to_trash(
                     settings,
                     uids=safe_uids,
                     min_age_days=min_age_days,
-                    max_mails=max_mails,
                 )
                 report.scanned_count = scan_report.scanned_count
             else:

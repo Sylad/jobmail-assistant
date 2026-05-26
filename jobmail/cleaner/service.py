@@ -393,6 +393,22 @@ def move_thunderbird_regex_to_trash(
     return moved_count, moved_report
 
 
+def move_scanned_regex_uids_to_trash(
+    settings: Settings,
+    *,
+    uids: list[str],
+    min_age_days: int | None = None,
+    require_thunderbird_closed: bool = True,
+) -> tuple[int, CleanerReport]:
+    return _move_mbox_uids_to_trash(
+        settings,
+        uids=uids,
+        min_age_days=min_age_days,
+        require_thunderbird_closed=require_thunderbird_closed,
+        validator="regex",
+    )
+
+
 def move_parsed_jobs_to_trash(
     settings: Settings,
     *,

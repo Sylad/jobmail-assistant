@@ -14,7 +14,7 @@
   <div class="alert alert-error">{{ error }}</div>
 {% endif %}
 {% if moved_count %}
-  <div class="alert alert-ok">{{ moved_count }} mail(s) deplace(s) vers {{ delete_folder }}.</div>
+  <div class="alert alert-ok">{{ moved_count }} mail(s) deplace(s) vers {{ moved_destination or delete_folder }}.</div>
 {% endif %}
 
 <section class="filters">

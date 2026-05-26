@@ -354,13 +354,12 @@ def test_cleaner_parsed_jobs_move_calls_dedicated_service(monkeypatch, tmp_path)
 def test_cleaner_regex_move_reuses_finished_scan_job(monkeypatch, tmp_path):
     calls = {}
 
-    def fake_move(settings, *, uids, min_age_days, max_mails):
+    def fake_move(settings, *, uids, min_age_days):
         calls["uids"] = uids
         calls["min_age_days"] = min_age_days
-        calls["max_mails"] = max_mails
         return 2, _report()
 
-    monkeypatch.setattr(web_app, "move_thunderbird_to_trash", fake_move)
+    monkeypatch.setattr(web_app, "move_scanned_regex_uids_to_trash", fake_move)
     client = _client(monkeypatch, tmp_path)
     job = web_app.CleanerScanJob(
         id="job-123",
@@ -400,12 +399,12 @@ def test_cleaner_regex_move_reuses_finished_scan_job(monkeypatch, tmp_path):
     )
 
     assert resp.status_code == 200
-    assert calls == {"uids": ["mbox:pop.example:123"], "min_age_days": 9, "max_mails": 0}
+    assert calls == {"uids": ["mbox:pop.example:123"], "min_age_days": 9}
     assert "2 mail(s) deplace(s)" in resp.text
 
 
 def test_cleaner_regex_move_progress_endpoints(monkeypatch, tmp_path):
-    def fake_move(settings, *, uids, min_age_days, max_mails):
+    def fake_move(settings, *, uids, min_age_days):
         return 1, CleanerReport(
             scanned_count=12,
             candidates=[
@@ -420,7 +419,7 @@ def test_cleaner_regex_move_progress_endpoints(monkeypatch, tmp_path):
             ],
         )
 
-    monkeypatch.setattr(web_app, "move_thunderbird_to_trash", fake_move)
+    monkeypatch.setattr(web_app, "move_scanned_regex_uids_to_trash", fake_move)
     client = _client(monkeypatch, tmp_path)
     scan_job = web_app.CleanerScanJob(
         id="scan-job-456",
@@ -470,13 +469,14 @@ def test_cleaner_regex_move_progress_endpoints(monkeypatch, tmp_path):
     result = client.get(f"/cleaner/move/status/{move_job_id}/result")
     assert result.status_code == 200
     assert "1 mail(s) deplace(s)" in result.text
+    assert "corbeille Thunderbird" in result.text
 
 
 def test_cleaner_regex_move_requires_finished_scan_job(monkeypatch, tmp_path):
     def fail_move(*args, **kwargs):
         raise AssertionError("move must not run without a finished scan job")
 
-    monkeypatch.setattr(web_app, "move_thunderbird_to_trash", fail_move)
+    monkeypatch.setattr(web_app, "move_scanned_regex_uids_to_trash", fail_move)
     client = _client(monkeypatch, tmp_path)
 
     resp = client.post(
