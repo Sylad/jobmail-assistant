@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
-import { Download, ExternalLink, Plus, RotateCcw, Save, Search, Trash2 } from "@lucide/vue";
+import { Download, ExternalLink, Plus, Search, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import ProgressPanel from "./ProgressPanel.vue";
 import type {
@@ -16,12 +16,30 @@ import type {
 
 const props = defineProps<{ initial: CleanerInitialState }>();
 
-const sources: Array<{ value: CleanerSource; label: string }> = [
-  { value: "thunderbird", label: "Thunderbird MBOX" },
-  { value: "regex", label: "Regex Thunderbird" },
-  { value: "parsed_jobs", label: "Jobs deja parses" },
-  { value: "duplicates", label: "Doublons Orange/Gmail" },
-  { value: "imap", label: "IMAP" },
+type CleanerPhaseSource = Exclude<CleanerSource, "imap">;
+type PhaseStatus = "idle" | "running" | "done" | "cancelled" | "error";
+
+const scanPhases: Array<{ source: CleanerPhaseSource; label: string; description: string }> = [
+  {
+    source: "thunderbird",
+    label: "Pubs anciennes",
+    description: "Heuristique newsletters et publicites anciennes.",
+  },
+  {
+    source: "regex",
+    label: "Regles regex",
+    description: "Filtres expediteur/objet que tu pilotes.",
+  },
+  {
+    source: "parsed_jobs",
+    label: "Jobs cleanup",
+    description: "Mails de jobs deja extraits et peu utiles.",
+  },
+  {
+    source: "duplicates",
+    label: "Doublons",
+    description: "Copies Orange deja presentes cote Gmail.",
+  },
 ];
 
 const form = reactive({
@@ -33,6 +51,26 @@ const form = reactive({
 
 const regexRules = ref<RegexRule[]>(normalizeRules(props.initial.regex_rules ?? []));
 const reportResult = ref<CleanerScanResultPayload | null>(null);
+const phaseResults = reactive<Record<CleanerPhaseSource, CleanerScanResultPayload | null>>({
+  thunderbird: null,
+  regex: null,
+  parsed_jobs: null,
+  duplicates: null,
+});
+const phaseStatuses = reactive<Record<CleanerPhaseSource, PhaseStatus>>({
+  thunderbird: "idle",
+  regex: "idle",
+  parsed_jobs: "idle",
+  duplicates: "idle",
+});
+const phaseErrors = reactive<Record<CleanerPhaseSource, string>>({
+  thunderbird: "",
+  regex: "",
+  parsed_jobs: "",
+  duplicates: "",
+});
+const activePhase = ref<CleanerPhaseSource>("thunderbird");
+const fullScanRunning = ref(false);
 const selectedUids = ref<Set<string>>(new Set());
 const confirmMove = ref(false);
 const confirmThunderbirdClosed = ref(false);
@@ -70,6 +108,7 @@ const movePanel = reactive<ProgressPanelState>({
 const currentReport = computed<CleanerReportPayload | null>(() => reportResult.value?.report ?? null);
 const movableCandidates = computed(() => currentReport.value?.candidates.filter((candidate) => candidate.can_move) ?? []);
 const selectedCount = computed(() => selectedUids.value.size);
+const totalPhaseCandidates = computed(() => scanPhases.reduce((sum, phase) => sum + (phaseResults[phase.source]?.report.candidate_count ?? 0), 0));
 const canMoveSelection = computed(() => {
   if (!reportResult.value || !currentReport.value?.candidate_count) return false;
   if (reportResult.value.source === "regex") return currentReport.value.candidate_count > 0;
@@ -126,13 +165,6 @@ function sourceDescription(source: CleanerSource): string {
   return `MBOX scannes : ${props.initial.mbox_patterns.join(", ")}`;
 }
 
-function scanButtonLabel(source: CleanerSource): string {
-  if (source === "parsed_jobs") return "Scanner jobs nettoyables";
-  if (source === "duplicates") return "Scanner doublons";
-  if (source === "regex") return "Scanner regex";
-  return "Scanner pubs anciennes";
-}
-
 function moveHelpText(): string {
   if (reportResult.value?.source === "imap") {
     return `Les messages selectionnes seront deplaces vers ${reportResult.value.delete_folder}.`;
@@ -141,14 +173,10 @@ function moveHelpText(): string {
 }
 
 function addRegexRule(): void {
-  form.source = "regex";
   regexRules.value.push({ sender_regex: "", subject_regex: "" });
 }
 
 function scheduleRegexRulesSave(): void {
-  if (!regexHydrating) {
-    form.source = "regex";
-  }
   regexSaveState.value = "dirty";
   window.clearTimeout(regexSaveTimer);
   regexSaveTimer = window.setTimeout(() => {
@@ -182,13 +210,13 @@ async function saveRegexRules(): Promise<void> {
   regexSaveState.value = "saved";
 }
 
-function scanFormData(extra?: Record<string, string>): FormData {
+function scanFormData(extra?: Record<string, string>, source: CleanerSource = form.source, offset = form.scanOffset): FormData {
   const data = new FormData();
-  data.set("source", form.source);
+  data.set("source", source);
   data.set("min_age_days", String(form.minAgeDays));
   data.set("max_mails", String(form.maxMails));
-  data.set("scan_offset", String(form.scanOffset));
-  if (form.source === "regex") {
+  data.set("scan_offset", String(offset));
+  if (source === "regex") {
     cleanRegexRules().forEach((rule) => {
       data.append("sender_regex_rule", rule.sender_regex);
       data.append("subject_regex_rule", rule.subject_regex);
@@ -198,20 +226,59 @@ function scanFormData(extra?: Record<string, string>): FormData {
   return data;
 }
 
-async function startScan(offset = form.scanOffset): Promise<void> {
+async function startFullScan(): Promise<void> {
   actionMessage.value = "";
   actionError.value = "";
-  form.scanOffset = Math.max(0, offset);
   reportResult.value = null;
   selectedUids.value = new Set();
   confirmMove.value = false;
   confirmThunderbirdClosed.value = false;
-  showScanPanel("Scan en cours");
+  fullScanRunning.value = true;
+  scanPhases.forEach((phase) => {
+    phaseResults[phase.source] = null;
+    phaseStatuses[phase.source] = "idle";
+    phaseErrors[phase.source] = "";
+  });
 
+  try {
+    await saveRegexRules();
+    let firstCandidatePhase: CleanerPhaseSource | null = null;
+    let firstResultPhase: CleanerPhaseSource | null = null;
+    for (const phase of scanPhases) {
+      if (scanPanel.cancelling) break;
+      activePhase.value = phase.source;
+      phaseStatuses[phase.source] = "running";
+      const result = await startPhaseScan(phase.source);
+      if (!result) {
+        if (phaseStatuses[phase.source] === "running") phaseStatuses[phase.source] = "cancelled";
+        break;
+      }
+      phaseResults[phase.source] = result;
+      phaseStatuses[phase.source] = "done";
+      if (!firstResultPhase) firstResultPhase = phase.source;
+      if (!firstCandidatePhase && result.report.candidate_count > 0) {
+        firstCandidatePhase = phase.source;
+      }
+    }
+    const selectedPhase = firstCandidatePhase ?? firstResultPhase;
+    if (selectedPhase) selectPhase(selectedPhase);
+  } catch (error) {
+    scanPanel.title = error instanceof Error ? error.message : "Scan en erreur";
+    scanPanel.active = false;
+  } finally {
+    fullScanRunning.value = false;
+  }
+}
+
+async function startPhaseScan(source: CleanerPhaseSource): Promise<CleanerScanResultPayload | null> {
+  const offset = source === "thunderbird" ? Math.max(0, form.scanOffset) : 0;
+  form.source = source;
+  form.scanOffset = offset;
+  showScanPanel(`Scan : ${phaseLabel(source)}`);
   try {
     const response = await fetch("/cleaner/scan/start", {
       method: "POST",
-      body: scanFormData(),
+      body: scanFormData(undefined, source, offset),
     });
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
@@ -219,72 +286,68 @@ async function startScan(offset = form.scanOffset): Promise<void> {
     }
     const payload = await response.json() as CleanerScanJobPayload;
     currentScanJobId = payload.id;
-    setScanProgress(payload);
-    await pollScan(payload.id);
+    setScanProgress(payload, source);
+    return await pollScan(payload.id, source);
   } catch (error) {
-    scanPanel.title = error instanceof Error ? error.message : "Scan en erreur";
-    scanPanel.active = false;
+    phaseStatuses[source] = "error";
+    phaseErrors[source] = error instanceof Error ? error.message : "Scan en erreur";
+    throw error;
   }
 }
 
-async function startRegexScan(): Promise<void> {
-  form.source = "regex";
-  await saveRegexRules();
-  await startScan(0);
-}
-
-async function pollScan(jobId: string): Promise<void> {
+async function pollScan(jobId: string, source: CleanerSource): Promise<CleanerScanResultPayload | null> {
   const response = await fetch(`/cleaner/scan/status/${jobId}`);
   if (!response.ok) throw new Error("Impossible de lire le statut du scan.");
   const payload = await response.json() as CleanerScanJobPayload;
-  setScanProgress(payload);
+  setScanProgress(payload, source);
 
   if (payload.status === "done") {
-    scanPanel.title = "Scan termine";
+    scanPanel.title = fullScanRunning.value ? `Phase terminee : ${phaseLabel(source)}` : "Scan termine";
     scanPanel.active = false;
-    await loadScanResult(payload.result_json_url);
-    return;
+    return await loadScanResult(payload.result_json_url, false);
   }
   if (payload.status === "cancelled") {
     scanPanel.title = "Scan annule";
     scanPanel.active = false;
     scanPanel.cancelling = false;
-    return;
+    return null;
   }
   if (payload.status === "error") {
     scanPanel.title = payload.error || "Scan en erreur";
     scanPanel.active = false;
     scanPanel.cancelling = false;
-    return;
+    throw new Error(scanPanel.title);
   }
-  window.setTimeout(() => {
-    pollScan(jobId).catch((error: unknown) => {
-      scanPanel.title = error instanceof Error ? error.message : "Scan en erreur";
-      scanPanel.active = false;
-      scanPanel.cancelling = false;
-    });
-  }, 700);
+  await sleep(700);
+  return pollScan(jobId, source);
 }
 
-async function loadScanResult(url: string): Promise<void> {
+async function loadScanResult(url: string, activate = true): Promise<CleanerScanResultPayload> {
   const response = await fetch(url);
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.detail || "Impossible de charger le rapport.");
   }
   const payload = await response.json() as CleanerScanResultPayload;
-  reportResult.value = payload;
   form.source = payload.source;
   form.minAgeDays = payload.min_age_days;
   form.maxMails = payload.max_mails;
   form.scanOffset = payload.scan_offset;
-  regexHydrating = true;
-  regexRules.value = normalizeRules(payload.regex_rules);
-  window.queueMicrotask(() => {
-    regexHydrating = false;
-  });
-  regexSaveState.value = "saved";
-  selectAllCandidates();
+  if (isPhaseSource(payload.source)) {
+    phaseResults[payload.source] = payload;
+  }
+  if (payload.source === "regex") {
+    regexHydrating = true;
+    regexRules.value = normalizeRules(payload.regex_rules);
+    window.queueMicrotask(() => {
+      regexHydrating = false;
+    });
+    regexSaveState.value = "saved";
+  }
+  if (activate && isPhaseSource(payload.source)) {
+    selectPhase(payload.source);
+  }
+  return payload;
 }
 
 async function cancelScan(): Promise<void> {
@@ -304,13 +367,13 @@ function showScanPanel(title: string): void {
   scanPanel.stats = defaultScanStats();
 }
 
-function setScanProgress(payload: CleanerScanJobPayload): void {
+function setScanProgress(payload: CleanerScanJobPayload, source: CleanerSource = form.source): void {
   scanPanel.elapsedSeconds = payload.elapsed_seconds || 0;
   scanPanel.stats = [
     { label: "Mails scannes", value: payload.scanned_count || 0 },
     { label: "Candidats", value: payload.candidate_count || 0 },
     { label: "Factures avec PJ", value: payload.skipped_safety || 0 },
-    { label: form.source === "regex" ? "Hors regex" : "Hors filtre", value: payload.skipped_no_match || 0 },
+    { label: source === "regex" ? "Hors regex" : "Hors filtre", value: payload.skipped_no_match || 0 },
     { label: "Trop recents", value: payload.skipped_too_recent || 0 },
     ...(payload.current_mailbox ? [{ label: "Boite", value: payload.current_mailbox }] : []),
   ];
@@ -321,7 +384,7 @@ function exportCsv(): void {
   formElement.method = "POST";
   formElement.action = "/cleaner/scan";
   formElement.style.display = "none";
-  const data = scanFormData({ export_csv: "1" });
+  const data = scanFormData({ export_csv: "1" }, reportResult.value?.source ?? form.source, reportResult.value?.scan_offset ?? form.scanOffset);
   data.forEach((value, key) => {
     const input = document.createElement("input");
     input.type = "hidden";
@@ -332,6 +395,40 @@ function exportCsv(): void {
   document.body.appendChild(formElement);
   formElement.submit();
   formElement.remove();
+}
+
+function phaseLabel(source: CleanerSource): string {
+  return scanPhases.find((phase) => phase.source === source)?.label ?? "IMAP";
+}
+
+function phaseStatusLabel(status: PhaseStatus): string {
+  if (status === "running") return "En cours";
+  if (status === "done") return "Termine";
+  if (status === "cancelled") return "Annule";
+  if (status === "error") return "Erreur";
+  return "En attente";
+}
+
+function isPhaseSource(source: CleanerSource): source is CleanerPhaseSource {
+  return source !== "imap";
+}
+
+function selectPhase(source: CleanerPhaseSource): void {
+  const result = phaseResults[source];
+  activePhase.value = source;
+  if (!result) return;
+  reportResult.value = result;
+  form.source = result.source;
+  form.minAgeDays = result.min_age_days;
+  form.maxMails = result.max_mails;
+  form.scanOffset = result.scan_offset;
+  confirmMove.value = false;
+  confirmThunderbirdClosed.value = false;
+  selectAllCandidates();
+}
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 function selectAllCandidates(): void {
@@ -506,6 +603,9 @@ async function loadMoveResult(url: string): Promise<void> {
     reportResult.value.source = payload.source ?? reportResult.value.source;
     reportResult.value.report = payload.report;
     reportResult.value.regex_rules = payload.regex_rules;
+    if (isPhaseSource(reportResult.value.source)) {
+      phaseResults[reportResult.value.source] = reportResult.value;
+    }
   }
 }
 
@@ -527,11 +627,6 @@ function setMoveProgress(payload: CleanerMoveJobPayload): void {
   ];
 }
 
-function nextBatchOffset(): number {
-  if (!reportResult.value) return form.scanOffset;
-  return reportResult.value.scan_offset + reportResult.value.report.scanned_count;
-}
-
 function moveButtonLabel(): string {
   if (!reportResult.value) return "Deplacer la selection";
   if (reportResult.value.source === "regex") return "Deplacer tous les resultats regex vers la corbeille Thunderbird";
@@ -547,15 +642,20 @@ function moveButtonLabel(): string {
     <div v-if="actionError" class="alert alert-error">{{ actionError }}</div>
 
     <section class="vue-panel">
-      <div class="filter-form">
-        <label>
-          Source
-          <select v-model="form.source">
-            <option v-for="source in sources" :key="source.value" :value="source.value">
-              {{ source.label }}
-            </option>
-          </select>
-        </label>
+      <div class="cleaner-flow-head">
+        <div>
+          <span class="label-title">Nettoyage complet</span>
+          <p class="muted small">
+            Un seul scan lance les phases pubs anciennes, regex, jobs cleanup et doublons.
+          </p>
+        </div>
+        <Button type="button" :disabled="fullScanRunning" @click="startFullScan">
+          <Search :size="16" />
+          {{ fullScanRunning ? 'Scan en cours...' : 'Scanner le nettoyage' }}
+        </Button>
+      </div>
+
+      <div class="filter-form cleaner-options">
         <label>
           Plus vieux que (jours)
           <input v-model.number="form.minAgeDays" type="number" min="1" max="3650">
@@ -568,30 +668,36 @@ function moveButtonLabel(): string {
           Ignorer les N premiers
           <input v-model.number="form.scanOffset" type="number" min="0">
         </label>
-        <Button type="button" @click="startScan()">
-          <Search :size="16" />
-          {{ scanButtonLabel(form.source) }}
-        </Button>
-        <Button type="button" variant="ghost" @click="exportCsv">
-          <Download :size="16" />
-          Exporter rapport CSV
-        </Button>
       </div>
-      <p class="muted small">{{ sourceDescription(form.source) }}</p>
+
+      <div class="phase-strip">
+        <button
+          v-for="phase in scanPhases"
+          :key="phase.source"
+          type="button"
+          class="phase-card"
+          :class="[`phase-${phaseStatuses[phase.source]}`, { active: activePhase === phase.source }]"
+          @click="selectPhase(phase.source)"
+        >
+          <span class="phase-card-head">
+            <strong>{{ phase.label }}</strong>
+            <span>{{ phaseStatusLabel(phaseStatuses[phase.source]) }}</span>
+          </span>
+          <span class="muted small">{{ phase.description }}</span>
+          <span v-if="phaseResults[phase.source]" class="phase-counts">
+            <strong>{{ phaseResults[phase.source]?.report.candidate_count }}</strong> candidat(s)
+            <span>{{ phaseResults[phase.source]?.report.scanned_count }} scannes</span>
+          </span>
+          <span v-else-if="phaseErrors[phase.source]" class="phase-error">{{ phaseErrors[phase.source] }}</span>
+        </button>
+      </div>
+      <p class="muted small">{{ sourceDescription(activePhase) }}</p>
     </section>
 
     <section class="vue-panel">
       <div class="regex-rule-list">
         <div class="regex-rule-head">
           <span class="label-title">Regles regex</span>
-          <Button type="button" size="sm" @click="startRegexScan">
-            <Search :size="14" />
-            Scanner avec ces regles
-          </Button>
-          <Button type="button" variant="ghost" size="sm" @click="saveRegexRules">
-            <Save :size="14" />
-            Sauvegarder les regles
-          </Button>
           <Button type="button" variant="ghost" size="sm" @click="addRegexRule">
             <Plus :size="14" />
             Ajouter une regle
@@ -617,7 +723,7 @@ function moveButtonLabel(): string {
       </div>
       <p class="muted small">
         Dans une ligne, les champs remplis doivent tous correspondre. Les lignes sont combinees en OU global.
-        Ces regles sont utilisees uniquement par la source Regex Thunderbird.
+        Ces regles sont sauvegardees automatiquement et utilisees pendant la phase Regex Thunderbird.
       </p>
     </section>
 
@@ -660,14 +766,18 @@ function moveButtonLabel(): string {
         </div>
       </div>
 
-      <div v-if="reportResult.source === 'thunderbird'" class="bulk-actions">
-        <Button type="button" variant="secondary" @click="startScan(nextBatchOffset())">
-          <RotateCcw :size="15" />
-          Scanner les {{ reportResult.max_mails }} suivants
-        </Button>
-        <span class="muted small">
-          Tranche actuelle : {{ reportResult.scan_offset + 1 }} - {{ reportResult.scan_offset + currentReport.scanned_count }}
-        </span>
+      <div class="report-head-actions">
+        <div>
+          <span class="label-title">Rapport actif</span>
+          <h2>{{ phaseLabel(reportResult.source) }}</h2>
+        </div>
+        <div class="bulk-actions">
+          <span class="muted small"><strong>{{ totalPhaseCandidates }}</strong> candidat(s) sur tout le nettoyage</span>
+          <Button type="button" variant="ghost" @click="exportCsv">
+            <Download :size="16" />
+            Exporter cette phase CSV
+          </Button>
+        </div>
       </div>
 
       <h2>Top expediteurs</h2>

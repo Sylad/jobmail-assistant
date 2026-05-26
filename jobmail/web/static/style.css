@@ -201,6 +201,84 @@ select:focus-visible {
 .regex-save-dirty { color: var(--warn); }
 .regex-save-saving { color: var(--accent); }
 .regex-save-error { color: var(--bad); }
+.cleaner-flow-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+.cleaner-flow-head p {
+  margin: 4px 0 0;
+}
+.cleaner-options {
+  margin-bottom: 14px;
+}
+.phase-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 14px 0 10px;
+}
+.phase-card {
+  text-align: left;
+  color: var(--fg);
+  background: rgba(17, 21, 28, 0.86);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 12px;
+  min-height: 118px;
+  cursor: pointer;
+}
+.phase-card:hover,
+.phase-card.active {
+  border-color: rgba(124, 183, 255, 0.7);
+  background: rgba(124, 183, 255, 0.08);
+}
+.phase-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.phase-card-head span {
+  color: var(--fg-mute);
+  font-size: 0.76rem;
+}
+.phase-running .phase-card-head span { color: var(--accent); }
+.phase-done .phase-card-head span { color: var(--ok); }
+.phase-error .phase-card-head span,
+.phase-error {
+  color: var(--bad);
+}
+.phase-cancelled .phase-card-head span { color: var(--warn); }
+.phase-counts {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--fg-mute);
+  font-size: 0.85rem;
+}
+.phase-counts strong {
+  color: var(--fg);
+  font-size: 1.25rem;
+}
+.phase-counts span {
+  margin-left: auto;
+  font-size: 0.78rem;
+}
+.report-head-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.report-head-actions h2 {
+  margin: 0;
+}
 .scan-progress {
   margin-top: 14px;
   padding: 14px;
@@ -567,6 +645,14 @@ tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }
   }
   .backup-action-slot {
     justify-content: flex-start;
+  }
+  .cleaner-flow-head,
+  .report-head-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .phase-strip {
+    grid-template-columns: 1fr;
   }
   .sender-actions { justify-content: flex-start; flex-wrap: wrap; }
 }
