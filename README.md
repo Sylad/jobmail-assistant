@@ -46,7 +46,7 @@ Main capabilities:
 - Pluggable LLM providers: `mock` (default, offline), `ollama` (local), `claude`, `openai`.
 - Dry-run mode: reads and classifies locally, with no LLM provider instantiation.
 - SQLite storage: a single local DB file, no external server.
-- FastAPI/Jinja dashboard with Vue 3 islands for interactive cleaner workflows.
+- FastAPI/Jinja dashboard with a Vue 3 mini-app for interactive cleaner workflows.
 - CLI: `jobmail fetch | dry-run | watch | extract | serve | seed | classify`.
 
 ## How it works
@@ -100,9 +100,11 @@ move to Thunderbird Trash or IMAP ToDelete, never permanent delete
 - `/cleaner/duplicates` detects Orange-to-Gmail forwarded duplicates by
   `Message-Id` and proposes only the redundant Orange copies.
 
-The dashboard is server-rendered with FastAPI/Jinja for simple pages. The cleaner
-uses Vue 3 + TypeScript islands for the interactive parts: progressive scan
-feedback, cancellation, regex rule rows, move progress, and candidate selection.
+The dashboard keeps FastAPI/Jinja for simple server-rendered pages. The cleaner
+is now a focused Vue 3 + TypeScript mini-app mounted inside that shell: source
+selection, saved regex rules, progressive scan feedback, cancellation, reports,
+move progress, sender include/exclude controls, and candidate selection all run
+client-side.
 
 ## Install — Windows
 
@@ -173,10 +175,11 @@ python -m jobmail serve
 
 ## Frontend assets
 
-The dashboard is server-rendered with Jinja, and the Mailbox cleaner uses a
-small Vue 3/Vite/TypeScript island for client-side scan progress, cancellation,
-regex rule rows, and selection helpers. The frontend is structured with
-composables plus shadcn-style primitives on top of Tailwind CSS, Reka UI,
+The dashboard is server-rendered with Jinja, and the Mailbox cleaner is a
+Vue 3/Vite/TypeScript mini-app embedded in the page. It handles scans,
+progress/cancellation, regex rule editing, reports, sender filters, candidate
+selection, and move feedback without leaving the cleaner screen. The frontend
+uses shadcn-style primitives on top of Tailwind CSS, Reka UI,
 class-variance-authority, and tailwind-merge.
 
 ```bash

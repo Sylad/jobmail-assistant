@@ -322,6 +322,54 @@ def _report_to_csv(report: CleanerReport) -> str:
     return out.getvalue()
 
 
+def _candidate_payload(candidate) -> dict:
+    return {
+        "uid": candidate.uid,
+        "received_at": candidate.received_at.isoformat(),
+        "received_date": candidate.received_at.strftime("%Y-%m-%d"),
+        "sender": candidate.sender,
+        "subject": candidate.subject,
+        "reason": candidate.reason,
+        "source": candidate.source,
+        "mailbox": candidate.mailbox,
+        "source_path": candidate.source_path,
+        "offer_id": candidate.offer_id,
+        "status": candidate.status,
+        "score": candidate.score,
+        "company": candidate.company,
+        "duplicate_of": candidate.duplicate_of,
+        "can_move": candidate.can_move,
+    }
+
+
+def _report_payload(report: CleanerReport) -> dict:
+    return {
+        "scanned_count": report.scanned_count,
+        "candidate_count": report.candidate_count,
+        "skipped_too_recent": report.skipped_too_recent,
+        "skipped_safety": report.skipped_safety,
+        "skipped_no_match": report.skipped_no_match,
+        "top_senders": [{"sender": sender, "count": count} for sender, count in report.top_senders],
+        "candidates": [_candidate_payload(candidate) for candidate in report.candidates],
+    }
+
+
+def _cleaner_state_payload(settings, *, source: str = "thunderbird") -> dict:
+    return {
+        "source": source,
+        "min_age_days": settings.cleaner_min_age_days,
+        "max_mails": settings.cleaner_max_mails,
+        "scan_offset": 0,
+        "delete_folder": settings.cleaner_delete_folder,
+        "mbox_patterns": settings.cleaner_mbox_patterns,
+        "regex_rules": [
+            {"sender_regex": sender, "subject_regex": subject}
+            for sender, subject in _display_regex_rules(_load_saved_regex_rules(settings))
+        ],
+        "imap_enabled": settings.imap_enabled,
+    }
+
+
 def _job_payload(job: CleanerScanJob) -> dict:
     elapsed = int((job.finished_at or time.time()) - job.started_at)
     return {
@@ -336,6 +384,7 @@ def _job_payload(job: CleanerScanJob) -> dict:
         "elapsed_seconds": elapsed,
         "error": job.error,
         "result_url": f"/cleaner/scan/result/{job.id}" if job.status == "done" else "",
+        "result_json_url": f"/cleaner/scan/result-json/{job.id}" if job.status == "done" else "",
         "cancel_url": f"/cleaner/scan/cancel/{job.id}" if job.status == "running" else "",
     }
 
@@ -422,8 +471,15 @@ def create_app() -> FastAPI:
         return templates.TemplateResponse(
             request,
             "cleaner.html",
-            _cleaner_context(request=request, settings=settings),
+            _cleaner_context(request=request, settings=settings)
+            | {"cleaner_initial_state": _cleaner_state_payload(settings)},
         )
+
+    @app.get("/cleaner/state")
+    def cleaner_state(source: str = Query("thunderbird")):
+        if source not in {"thunderbird", "regex", "parsed_jobs", "duplicates", "imap"}:
+            raise HTTPException(status_code=400, detail="Source de cleaner inconnue.")
+        return _cleaner_state_payload(settings, source=source)
 
     @app.post("/cleaner/backups/cleanup", response_class=HTMLResponse)
     def cleaner_backup_cleanup(
@@ -499,7 +555,8 @@ def create_app() -> FastAPI:
         return templates.TemplateResponse(
             request,
             "cleaner.html",
-            _cleaner_context(request=request, settings=settings, source="parsed_jobs"),
+            _cleaner_context(request=request, settings=settings, source="parsed_jobs")
+            | {"cleaner_initial_state": _cleaner_state_payload(settings, source="parsed_jobs")},
         )
 
     @app.get("/cleaner/duplicates", response_class=HTMLResponse)
@@ -507,7 +564,8 @@ def create_app() -> FastAPI:
         return templates.TemplateResponse(
             request,
             "cleaner.html",
-            _cleaner_context(request=request, settings=settings, source="duplicates"),
+            _cleaner_context(request=request, settings=settings, source="duplicates")
+            | {"cleaner_initial_state": _cleaner_state_payload(settings, source="duplicates")},
         )
 
     @app.post("/cleaner/scan", response_class=HTMLResponse)
@@ -795,6 +853,33 @@ def create_app() -> FastAPI:
             ),
         )
 
+    @app.get("/cleaner/scan/result-json/{job_id}")
+    def cleaner_scan_result_json(job_id: str):
+        with _cleaner_jobs_lock:
+            job = _cleaner_jobs.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail="Scan introuvable.")
+            if job.status == "error":
+                raise HTTPException(status_code=400, detail=job.error)
+            if job.status == "cancelled":
+                raise HTTPException(status_code=400, detail="Scan annule. Aucun deplacement n'a ete lance.")
+            if job.status != "done" or job.report is None:
+                raise HTTPException(status_code=409, detail="Scan encore en cours.")
+            return {
+                "job_id": job.id,
+                "source": job.source,
+                "min_age_days": job.min_age_days,
+                "max_mails": job.max_mails,
+                "scan_offset": job.scan_offset,
+                "regex_job_id": job.id if job.source == "regex" else "",
+                "regex_rules": [
+                    {"sender_regex": sender, "subject_regex": subject}
+                    for sender, subject in _display_regex_rules(job.regex_rules)
+                ],
+                "delete_folder": settings.cleaner_delete_folder,
+                "report": _report_payload(job.report),
+            }
+
     @app.post("/cleaner/move-to-delete", response_class=HTMLResponse)
     def cleaner_move_to_delete(
         request: Request,
@@ -1008,6 +1093,31 @@ def create_app() -> FastAPI:
                 moved_destination="corbeille Thunderbird",
             ),
         )
+
+    @app.get("/cleaner/move/status/{job_id}/result-json")
+    def cleaner_move_result_json(job_id: str):
+        with _cleaner_move_jobs_lock:
+            job = _cleaner_move_jobs.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail="Deplacement introuvable.")
+            if job.status == "error":
+                raise HTTPException(status_code=400, detail=job.error)
+            if job.status == "cancelled":
+                raise HTTPException(status_code=400, detail="Deplacement annule avant modification Thunderbird.")
+            if job.status != "done" or job.report is None:
+                raise HTTPException(status_code=409, detail="Deplacement encore en cours.")
+            return {
+                "moved_count": job.moved_count,
+                "moved_destination": "corbeille Thunderbird",
+                "source": "regex",
+                "min_age_days": job.min_age_days,
+                "max_mails": job.max_mails,
+                "regex_rules": [
+                    {"sender_regex": sender, "subject_regex": subject}
+                    for sender, subject in _display_regex_rules(job.regex_rules)
+                ],
+                "report": _report_payload(job.report),
+            }
 
     @app.post("/cleaner/move-thunderbird-to-trash", response_class=HTMLResponse)
     def cleaner_move_thunderbird_to_trash(

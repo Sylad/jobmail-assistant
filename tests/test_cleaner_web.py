@@ -44,15 +44,12 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     resp = client.get("/cleaner")
 
     assert resp.status_code == 200
-    assert "Scanner pubs anciennes" in resp.text
     assert "Mailbox cleaner" in resp.text
-    assert '<input type="hidden" name="source" value="regex">' in resp.text
-    assert 'class="filter-form" data-async-scan-form>' in resp.text
-    regex_form = '<form method="post" action="/cleaner/scan" class="filter-form" data-async-scan-form data-regex-scan-form>'
-    assert resp.text.count(regex_form) == 1
-    assert "Scanner toute la boite par regex" in resp.text
     assert "Backups Thunderbird" in resp.text
     assert "Nettoyer les anciens backups" in resp.text
+    assert 'id="cleaner-vue-root"' in resp.text
+    assert "data-initial" in resp.text
+    assert '"source": "thunderbird"' in resp.text
     assert '<link rel="stylesheet" href="/static/assets/cleaner.css">' in resp.text
     assert '<script type="module" src="/static/assets/cleaner.js"></script>' in resp.text
     assert "createApp" not in resp.text
@@ -143,8 +140,8 @@ def test_cleaner_page_loads_saved_regex_rules(monkeypatch, tmp_path):
     resp = client.get("/cleaner")
 
     assert resp.status_code == 200
-    assert 'name="sender_regex_rule" value="store-news@amazon.fr"' in resp.text
-    assert 'name="subject_regex_rule" value="promo"' in resp.text
+    assert "store-news@amazon.fr" in resp.text
+    assert "promo" in resp.text
 
 
 def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
@@ -164,19 +161,7 @@ def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
 
     assert resp.status_code == 200
     assert calls == {"skip_mails": 1000}
-    assert "Mails scannes" in resp.text
-    assert "Mails ignores avant scan" in resp.text
-    assert "Scanner les 20 suivants" in resp.text
-    assert "Tranche actuelle : 1001 - 1003" in resp.text
-    assert "Promos anciennes" in resp.text
-    assert "Action Thunderbird locale" in resp.text
-    assert "corbeille Thunderbird" in resp.text
-    assert 'name="selected_uid" value="101" checked data-candidate-checkbox' in resp.text
-    assert "Tout selectionner" in resp.text
-    assert "Tout exclure" in resp.text
-    assert 'data-sender-row="newsletter@example.com"' in resp.text
-    assert "data-sender-state" in resp.text
-    assert 'data-exclude-sender="newsletter@example.com"' in resp.text
+    assert 'id="cleaner-vue-root"' in resp.text
 
 
 def test_cleaner_regex_scan_renders_report(monkeypatch, tmp_path):
@@ -212,10 +197,7 @@ def test_cleaner_regex_scan_renders_report(monkeypatch, tmp_path):
         "min_age_days": 30,
         "max_mails": 0,
     }
-    assert "Scanner toute la boite par regex" in resp.text
-    assert 'name="sender_regex_rule" value="amazon"' in resp.text
-    assert 'name="subject_regex_rule" value="promo"' in resp.text
-    assert "Deplacer tous les resultats regex vers la corbeille Thunderbird" in resp.text
+    assert 'id="cleaner-vue-root"' in resp.text
 
 
 def test_cleaner_regex_scan_progress_endpoints(monkeypatch, tmp_path):
@@ -276,10 +258,11 @@ def test_cleaner_regex_scan_progress_endpoints(monkeypatch, tmp_path):
     assert payload["scanned_count"] == 250
     assert payload["candidate_count"] == 1
 
-    result = client.get(f"/cleaner/scan/result/{job_id}")
+    result = client.get(f"/cleaner/scan/result-json/{job_id}")
     assert result.status_code == 200
-    assert "Promo" in result.text
-    assert "Regles appliquees" in result.text
+    payload = result.json()
+    assert payload["report"]["candidates"][0]["subject"] == "Promo"
+    assert payload["regex_rules"][0]["sender_regex"] == "amazon"
 
 
 def test_cleaner_main_scan_progress_endpoints(monkeypatch, tmp_path):
@@ -323,10 +306,11 @@ def test_cleaner_main_scan_progress_endpoints(monkeypatch, tmp_path):
     assert payload["candidate_count"] == 1
     assert calls["args"] == {"min_age_days": 7, "max_mails": 0, "skip_mails": 1000}
 
-    result = client.get(f"/cleaner/scan/result/{job_id}")
+    result = client.get(f"/cleaner/scan/result-json/{job_id}")
     assert result.status_code == 200
-    assert "Promos anciennes" in result.text
-    assert "Tranche actuelle : 1001 - 1003" in result.text
+    payload = result.json()
+    assert payload["report"]["candidates"][0]["subject"] == "Promos anciennes"
+    assert payload["scan_offset"] == 1000
 
 
 def test_cleaner_scan_exports_csv(monkeypatch, tmp_path):
@@ -362,9 +346,7 @@ def test_cleaner_parsed_jobs_scan_uses_dedicated_source(monkeypatch, tmp_path):
 
     assert resp.status_code == 200
     assert calls == {"min_age_days": 15, "max_mails": 20}
-    assert "offre <code>ignored</code>" in resp.text
-    assert "offres <code>interesting</code> et <code>replied</code> sont protegees" in resp.text
-    assert "/offers/42" in resp.text
+    assert 'id="cleaner-vue-root"' in resp.text
 
 
 def test_cleaner_jobs_page_selects_parsed_jobs_source(monkeypatch, tmp_path):
@@ -373,8 +355,7 @@ def test_cleaner_jobs_page_selects_parsed_jobs_source(monkeypatch, tmp_path):
     resp = client.get("/cleaner/jobs")
 
     assert resp.status_code == 200
-    assert 'value="parsed_jobs" selected' in resp.text
-    assert "Scanner jobs nettoyables" in resp.text
+    assert '"source": "parsed_jobs"' in resp.text
 
 
 def test_cleaner_duplicates_page_selects_duplicates_source(monkeypatch, tmp_path):
@@ -383,9 +364,7 @@ def test_cleaner_duplicates_page_selects_duplicates_source(monkeypatch, tmp_path
     resp = client.get("/cleaner/duplicates")
 
     assert resp.status_code == 200
-    assert 'value="duplicates" selected' in resp.text
-    assert "Scanner doublons" in resp.text
-    assert "Doublons Orange/Gmail" in resp.text
+    assert '"source": "duplicates"' in resp.text
 
 
 def test_cleaner_duplicates_scan_uses_dedicated_source(monkeypatch, tmp_path):
@@ -420,8 +399,7 @@ def test_cleaner_duplicates_scan_uses_dedicated_source(monkeypatch, tmp_path):
 
     assert resp.status_code == 200
     assert calls == {"min_age_days": 7, "max_mails": 1000}
-    assert "pop.gmail.com:&lt;dup@local&gt;" in resp.text
-    assert "Deplacer les doublons selectionnes" in resp.text
+    assert 'id="cleaner-vue-root"' in resp.text
 
 
 def test_cleaner_move_requires_confirmation(monkeypatch, tmp_path):
