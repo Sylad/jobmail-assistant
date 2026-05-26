@@ -139,6 +139,10 @@ Safety rules:
 - Thunderbird scans support a "skip first N mails" offset plus a "scan next
   batch" button, so large MBOX files can be processed in windows instead of
   rescanning the same first messages every time.
+- Regex scans can match the full Thunderbird mailbox by sender and/or subject
+  regular expressions. Use `0` as max-mails for an unbounded pass. Regex moves
+  replay the same rules after the dry-run and move every matching result in one
+  Thunderbird rewrite.
 - A report is shown before any move, and confirmation checkboxes are required.
 - Logs never include the full mail content.
 
@@ -152,6 +156,9 @@ Move actions:
   `Inbox.jobmail-backup-YYYYMMDD-HHMMSS` backup, rewrites the Inbox without the
   selected messages, appends the messages to `Trash`, and removes `.msf` index
   files so Thunderbird rebuilds them. Thunderbird must be closed.
+- Regex Thunderbird source: all regex results from the dry-run can be moved to
+  the local Thunderbird trash in one action. Safety keywords and the age filter
+  still apply.
 - Parsed jobs source: already extracted job mails can also be moved to the
   Thunderbird trash from `/cleaner/jobs`; only mails linked to ignored offers or
   offers scored 0-3 are proposed. Offers marked `interesting` or `replied` are

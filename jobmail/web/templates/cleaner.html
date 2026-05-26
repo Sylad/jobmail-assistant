@@ -5,9 +5,8 @@
 <section class="tool-head">
   <h1>Mailbox cleaner</h1>
   <p class="muted">
-    Scan Thunderbird ou IMAP en dry-run. Les fichiers Thunderbird sont lus en lecture seule :
-    aucune suppression definitive, aucune modification directe des MBOX. L'action disponible
-    deplace uniquement des messages IMAP selectionnes vers <strong>{{ delete_folder }}</strong>.
+    Scan Thunderbird ou IMAP en dry-run. Les actions demandent confirmation, creent un backup
+    Thunderbird si besoin, et deplacent les mails vers une corbeille au lieu d'une suppression definitive.
   </p>
 </section>
 
@@ -24,6 +23,7 @@
       Source
       <select name="source">
         <option value="thunderbird" {% if source == 'thunderbird' %}selected{% endif %}>Thunderbird MBOX</option>
+        <option value="regex" {% if source == 'regex' %}selected{% endif %}>Regex Thunderbird</option>
         <option value="parsed_jobs" {% if source == 'parsed_jobs' %}selected{% endif %}>Jobs deja parses</option>
         <option value="imap" {% if source == 'imap' %}selected{% endif %}>IMAP</option>
       </select>
@@ -41,7 +41,7 @@
       <input type="number" name="scan_offset" min="0" value="{{ current_scan_offset }}">
     </label>
     <button type="submit" class="btn">
-      {% if source == 'parsed_jobs' %}Scanner jobs nettoyables{% else %}Scanner pubs anciennes{% endif %}
+      {% if source == 'parsed_jobs' %}Scanner jobs nettoyables{% elif source == 'regex' %}Scanner regex{% else %}Scanner pubs anciennes{% endif %}
     </button>
     <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
   </form>
@@ -56,6 +56,34 @@
     ou score <= 3 sont proposes. Les offres <code>interesting</code> et <code>replied</code> sont protegees.
   </p>
   {% endif %}
+</section>
+
+<section class="filters">
+  <form method="post" action="/cleaner/scan" class="filter-form">
+    <input type="hidden" name="source" value="regex">
+    <label>
+      Regex expediteur
+      <input type="text" name="sender_regex" value="{{ sender_regex }}" placeholder="amazon|googleplay|newsletter">
+    </label>
+    <label>
+      Regex objet
+      <input type="text" name="subject_regex" value="{{ subject_regex }}" placeholder="promo|soldes|recommande">
+    </label>
+    <label>
+      Plus vieux que (jours)
+      <input type="number" name="min_age_days" min="1" max="3650" value="{{ min_age_days }}">
+    </label>
+    <label>
+      Limite max-mails
+      <input type="number" name="max_mails" min="0" value="{% if source == 'regex' %}{{ max_mails }}{% else %}0{% endif %}">
+    </label>
+    <button type="submit" class="btn btn-primary">Scanner toute la boite par regex</button>
+    <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
+  </form>
+  <p class="muted small">
+    Regex appliquees seulement sur expediteur et objet. L'action reste protegee par age minimum,
+    mots sensibles exclus, backup Thunderbird et confirmation explicite.
+  </p>
 </section>
 
 {% if report %}
@@ -93,16 +121,20 @@
 
   <h2>Top expediteurs</h2>
   {% if report.top_senders %}
+    {% if source != 'regex' %}
     <div class="bulk-actions" data-cleaner-bulk-actions>
       <button type="button" class="btn btn-sm" data-select-all-candidates>Tout selectionner</button>
       <button type="button" class="btn btn-sm btn-ghost" data-clear-all-candidates>Tout exclure</button>
       <span class="muted small"><strong data-selected-count>0</strong> mail(s) selectionne(s)</span>
     </div>
+    {% endif %}
     <table class="compact-table sender-table">
       <thead>
         <tr>
           <th>Expediteur</th>
+          {% if source != 'regex' %}
           <th>Actions</th>
+          {% endif %}
           <th>Nombre</th>
         </tr>
       </thead>
@@ -110,11 +142,13 @@
       {% for sender, count in report.top_senders %}
         <tr data-sender-row="{{ sender }}">
           <td>{{ sender }}</td>
+          {% if source != 'regex' %}
           <td class="sender-actions">
             <span class="sender-state" data-sender-state>Inclus</span>
             <button type="button" class="btn btn-sm" data-include-sender="{{ sender }}">Inclure</button>
             <button type="button" class="btn btn-sm btn-ghost" data-exclude-sender="{{ sender }}">Exclure</button>
           </td>
+          {% endif %}
           <td><strong>{{ count }}</strong></td>
         </tr>
       {% endfor %}
@@ -135,6 +169,10 @@
     <input type="hidden" name="min_age_days" value="{{ min_age_days }}">
     <input type="hidden" name="max_mails" value="{{ max_mails }}">
     <input type="hidden" name="source" value="{{ source }}">
+    {% if source == 'regex' %}
+    <input type="hidden" name="sender_regex" value="{{ sender_regex }}">
+    <input type="hidden" name="subject_regex" value="{{ subject_regex }}">
+    {% endif %}
   {% endif %}
     <table class="offers cleaner-table">
       <thead>
@@ -154,7 +192,9 @@
       {% for candidate in report.candidates %}
         <tr data-sender="{{ candidate.sender }}">
           <td>
-            {% if candidate.can_move %}
+            {% if source == 'regex' %}
+              <span class="chip">regex</span>
+            {% elif candidate.can_move %}
               <input type="checkbox" name="selected_uid" value="{{ candidate.uid }}" checked data-candidate-checkbox>
             {% else %}
               <span class="muted small">scan only</span>
@@ -200,6 +240,8 @@
         les index .msf pour laisser Thunderbird reconstruire les dossiers.
         {% if source == 'parsed_jobs' %}
         Seuls les mails d'offres ignorees ou tres faible score sont selectionnables ; interesting et replied sont exclus.
+        {% elif source == 'regex' %}
+        Les regex seront rejouees au moment de l'action, puis tous les mails correspondants seront deplaces en une seule passe.
         {% endif %}
       </p>
       <label class="confirm-line">
@@ -210,7 +252,9 @@
         <input type="checkbox" name="confirm_move" value="yes">
         Je confirme avoir relu le rapport et veux deplacer la selection vers la corbeille Thunderbird.
       </label>
-      <button type="submit" class="btn btn-danger">Deplacer la selection vers la corbeille Thunderbird</button>
+      <button type="submit" class="btn btn-danger">
+        {% if source == 'regex' %}Deplacer tous les resultats regex vers la corbeille Thunderbird{% else %}Deplacer la selection vers la corbeille Thunderbird{% endif %}
+      </button>
     </div>
   </form>
   {% endif %}

@@ -5,8 +5,10 @@ from pathlib import Path
 
 from jobmail.cleaner.service import (
     move_parsed_jobs_to_trash,
+    move_thunderbird_regex_to_trash,
     move_thunderbird_to_trash,
     scan_parsed_job_mails,
+    scan_thunderbird_regex,
     scan_thunderbird_promotions,
 )
 from jobmail.config import Settings
@@ -102,6 +104,59 @@ def test_move_thunderbird_to_trash_moves_selected_candidate(tmp_path: Path):
     backups = list(tmp_path.glob("Inbox.jobmail-backup-*"))
     assert backups
     assert "Newsletter promo" in backups[0].read_text(encoding="utf-8")
+
+
+def test_scan_thunderbird_regex_matches_sender_or_subject_and_keeps_safety(tmp_path: Path):
+    mbox = tmp_path / "Inbox"
+    mbox.write_text(
+        _make_msg(1, "Amazon recommande un casque", "Soldes et unsubscribe.")
+        + _make_msg(2, "Amazon facture disponible", "Facture importante.")
+        + _make_msg(3, "Mission Java", "Votre candidature emploi Java."),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+    )
+
+    report = scan_thunderbird_regex(settings, sender_regex="newsletter1", subject_regex="recommande", min_age_days=7)
+
+    assert report.scanned_count == 3
+    assert report.candidate_count == 1
+    assert report.candidates[0].subject == "Amazon recommande un casque"
+    assert "regex expediteur" in report.candidates[0].reason
+    assert "regex objet" in report.candidates[0].reason
+
+
+def test_move_thunderbird_regex_to_trash_moves_all_matches_in_one_action(tmp_path: Path):
+    mbox = tmp_path / "Inbox"
+    mbox.write_text(
+        _make_msg(1, "Amazon recommande un casque", "Soldes et unsubscribe.")
+        + _make_msg(2, "Google Play promo", "Newsletter sans sujet sensible.")
+        + _make_msg(3, "Mission Java", "Votre candidature emploi Java."),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+    )
+
+    moved_count, report = move_thunderbird_regex_to_trash(
+        settings,
+        sender_regex="newsletter[12]",
+        subject_regex="recommande|promo",
+        min_age_days=7,
+        require_thunderbird_closed=False,
+    )
+
+    assert moved_count == 2
+    assert report.candidate_count == 2
+    assert "Amazon recommande" not in mbox.read_text(encoding="utf-8")
+    assert "Google Play promo" not in mbox.read_text(encoding="utf-8")
+    assert "Mission Java" in mbox.read_text(encoding="utf-8")
+    trash = (tmp_path / "Trash").read_text(encoding="utf-8")
+    assert "Amazon recommande" in trash
+    assert "Google Play promo" in trash
 
 
 def test_scan_parsed_job_mails_only_keeps_ignored_or_low_score(tmp_path: Path):

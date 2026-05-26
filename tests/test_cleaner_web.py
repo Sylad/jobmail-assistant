@@ -77,6 +77,43 @@ def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
     assert 'data-exclude-sender="newsletter@example.com"' in resp.text
 
 
+def test_cleaner_regex_scan_renders_report(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_scan(settings, *, sender_regex, subject_regex, min_age_days, max_mails):
+        calls["sender_regex"] = sender_regex
+        calls["subject_regex"] = subject_regex
+        calls["min_age_days"] = min_age_days
+        calls["max_mails"] = max_mails
+        return _report()
+
+    monkeypatch.setattr(web_app, "scan_thunderbird_regex", fake_scan)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post(
+        "/cleaner/scan",
+        data={
+            "source": "regex",
+            "sender_regex": "amazon|googleplay",
+            "subject_regex": "promo|recommande",
+            "min_age_days": "30",
+            "max_mails": "0",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert calls == {
+        "sender_regex": "amazon|googleplay",
+        "subject_regex": "promo|recommande",
+        "min_age_days": 30,
+        "max_mails": 0,
+    }
+    assert "Scanner toute la boite par regex" in resp.text
+    assert 'name="sender_regex" value="amazon|googleplay"' in resp.text
+    assert 'name="subject_regex" value="promo|recommande"' in resp.text
+    assert "Deplacer tous les resultats regex vers la corbeille Thunderbird" in resp.text
+
+
 def test_cleaner_scan_exports_csv(monkeypatch, tmp_path):
     monkeypatch.setattr(web_app, "scan_thunderbird_promotions", lambda *args, **kwargs: _report())
     client = _client(monkeypatch, tmp_path)
@@ -235,3 +272,34 @@ def test_cleaner_parsed_jobs_move_calls_dedicated_service(monkeypatch, tmp_path)
 
     assert resp.status_code == 200
     assert calls == {"uids": ["mbox:pop.example:0"], "min_age_days": 9, "max_mails": 12}
+
+
+def test_cleaner_regex_move_replays_rules_after_confirmations(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_move(settings, *, sender_regex, subject_regex, min_age_days, max_mails):
+        calls["sender_regex"] = sender_regex
+        calls["subject_regex"] = subject_regex
+        calls["min_age_days"] = min_age_days
+        calls["max_mails"] = max_mails
+        return 2, _report()
+
+    monkeypatch.setattr(web_app, "move_thunderbird_regex_to_trash", fake_move)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post(
+        "/cleaner/move-thunderbird-to-trash",
+        data={
+            "source": "regex",
+            "sender_regex": "amazon",
+            "subject_regex": "promo",
+            "confirm_move": "yes",
+            "confirm_thunderbird_closed": "yes",
+            "min_age_days": "9",
+            "max_mails": "0",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert calls == {"sender_regex": "amazon", "subject_regex": "promo", "min_age_days": 9, "max_mails": 0}
+    assert "2 mail(s) deplace(s)" in resp.text

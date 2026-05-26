@@ -14,10 +14,12 @@ from ..cleaner import (
     CleanerError,
     CleanerReport,
     move_parsed_jobs_to_trash,
+    move_thunderbird_regex_to_trash,
     move_thunderbird_to_trash,
     move_to_delete,
     scan_parsed_job_mails,
     scan_old_promotions,
+    scan_thunderbird_regex,
     scan_thunderbird_promotions,
 )
 from ..config import get_settings
@@ -132,6 +134,8 @@ def _cleaner_context(
     max_mails: int | None = None,
     scan_offset: int = 0,
     source: str = "thunderbird",
+    sender_regex: str = "",
+    subject_regex: str = "",
     error: str = "",
     moved_count: int = 0,
 ) -> dict:
@@ -142,6 +146,8 @@ def _cleaner_context(
         "max_mails": max_mails or settings.cleaner_max_mails,
         "scan_offset": max(0, scan_offset),
         "source": source,
+        "sender_regex": sender_regex,
+        "subject_regex": subject_regex,
         "delete_folder": settings.cleaner_delete_folder,
         "mbox_patterns": settings.cleaner_mbox_patterns,
         "error": error,
@@ -245,6 +251,8 @@ def create_app() -> FastAPI:
         max_mails: int = Form(settings.cleaner_max_mails),
         scan_offset: int = Form(0),
         source: str = Form("thunderbird"),
+        sender_regex: str = Form(""),
+        subject_regex: str = Form(""),
         export_csv: str = Form(""),
     ):
         try:
@@ -257,6 +265,14 @@ def create_app() -> FastAPI:
             elif source == "parsed_jobs":
                 report = scan_parsed_job_mails(
                     settings,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                )
+            elif source == "regex":
+                report = scan_thunderbird_regex(
+                    settings,
+                    sender_regex=sender_regex,
+                    subject_regex=subject_regex,
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                 )
@@ -279,6 +295,8 @@ def create_app() -> FastAPI:
                     max_mails=max_mails,
                     scan_offset=scan_offset,
                     source=source,
+                    sender_regex=sender_regex,
+                    subject_regex=subject_regex,
                     error=str(e),
                 ),
                 status_code=400,
@@ -302,6 +320,8 @@ def create_app() -> FastAPI:
                 max_mails=max_mails,
                 scan_offset=scan_offset,
                 source=source,
+                sender_regex=sender_regex,
+                subject_regex=subject_regex,
             ),
         )
 
@@ -382,6 +402,8 @@ def create_app() -> FastAPI:
         confirm_move: str = Form(""),
         confirm_thunderbird_closed: str = Form(""),
         source: str = Form("thunderbird"),
+        sender_regex: str = Form(""),
+        subject_regex: str = Form(""),
     ):
         if confirm_move != "yes" or confirm_thunderbird_closed != "yes":
             return templates.TemplateResponse(
@@ -393,6 +415,8 @@ def create_app() -> FastAPI:
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                     source=source,
+                    sender_regex=sender_regex,
+                    subject_regex=subject_regex,
                     error="Confirmation obligatoire et Thunderbird doit etre ferme avant l'action.",
                 ),
                 status_code=400,
@@ -402,6 +426,14 @@ def create_app() -> FastAPI:
                 moved_count, report = move_parsed_jobs_to_trash(
                     settings,
                     uids=selected_uid,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                )
+            elif source == "regex":
+                moved_count, report = move_thunderbird_regex_to_trash(
+                    settings,
+                    sender_regex=sender_regex,
+                    subject_regex=subject_regex,
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                 )
@@ -422,6 +454,8 @@ def create_app() -> FastAPI:
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                     source=source,
+                    sender_regex=sender_regex,
+                    subject_regex=subject_regex,
                     error=str(e),
                 ),
                 status_code=400,
@@ -437,6 +471,8 @@ def create_app() -> FastAPI:
                 min_age_days=min_age_days,
                 max_mails=max_mails,
                 source=source,
+                sender_regex=sender_regex,
+                subject_regex=subject_regex,
                 moved_count=moved_count,
             ),
         )

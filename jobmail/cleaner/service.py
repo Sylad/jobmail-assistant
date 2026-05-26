@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone
@@ -149,6 +150,54 @@ def scan_thunderbird_promotions(
         min_age,
         limit,
     )
+    return report
+
+
+def scan_thunderbird_regex(
+    settings: Settings,
+    *,
+    sender_regex: str = "",
+    subject_regex: str = "",
+    min_age_days: int | None = None,
+    max_mails: int | None = None,
+) -> CleanerReport:
+    sender_pattern, subject_pattern = _compile_cleaner_regexes(sender_regex, subject_regex)
+    min_age = _clean_min_age(min_age_days, settings.cleaner_min_age_days)
+    limit = _clean_unbounded_limit(max_mails)
+    paths = _resolve_mbox_paths(settings.cleaner_mbox_patterns)
+    if not paths:
+        raise CleanerError("Aucun fichier Thunderbird Inbox trouve avec CLEANER_MBOX_GLOBS.")
+
+    report = CleanerReport()
+    for path in paths:
+        mailbox_name = path.parent.name
+        logger.info("Cleaner regex scanning mbox mailbox=%s path=%s", mailbox_name, path)
+        for mail in read_mbox(path):
+            if limit and report.scanned_count >= limit:
+                logger.info("Cleaner regex MBOX scan stopped at max_mails=%d candidates=%d", limit, report.candidate_count)
+                return report
+            report.scanned_count += 1
+            if not _is_older_than(mail.received_at, min_age):
+                continue
+            regex_reason = _regex_match_reason(mail.sender, mail.subject, sender_pattern, subject_pattern)
+            if not regex_reason:
+                continue
+            decision = classify_cleaner_candidate(mail.subject, mail.body_text, mail.sender)
+            if decision.safety_hit:
+                logger.info("Cleaner regex skipped mbox_offset=%s reason=safety_keyword:%s", mail.mbox_offset, decision.safety_hit)
+                continue
+            report.candidates.append(
+                CleanerCandidate(
+                    uid=f"mbox:{mailbox_name}:{mail.mbox_offset}",
+                    received_at=mail.received_at,
+                    sender=mail.sender,
+                    subject=mail.subject,
+                    reason=regex_reason,
+                    source="mbox",
+                    mailbox=mailbox_name,
+                    source_path=str(path),
+                )
+            )
     return report
 
 
@@ -302,6 +351,35 @@ def move_thunderbird_to_trash(
     return moved_count, report
 
 
+def move_thunderbird_regex_to_trash(
+    settings: Settings,
+    *,
+    sender_regex: str = "",
+    subject_regex: str = "",
+    min_age_days: int | None = None,
+    max_mails: int | None = None,
+    require_thunderbird_closed: bool = True,
+) -> tuple[int, CleanerReport]:
+    report = scan_thunderbird_regex(
+        settings,
+        sender_regex=sender_regex,
+        subject_regex=subject_regex,
+        min_age_days=min_age_days,
+        max_mails=max_mails,
+    )
+    if not report.candidates:
+        raise CleanerError("Aucun mail ne correspond aux regex apres application des regles de securite.")
+    moved_count, moved_report = _move_mbox_uids_to_trash(
+        settings,
+        uids=[candidate.uid for candidate in report.candidates],
+        min_age_days=min_age_days,
+        require_thunderbird_closed=require_thunderbird_closed,
+        validator="regex",
+    )
+    moved_report.scanned_count = report.scanned_count
+    return moved_count, moved_report
+
+
 def move_parsed_jobs_to_trash(
     settings: Settings,
     *,
@@ -352,6 +430,39 @@ def _clean_min_age(value: int | None, default: int) -> int:
 
 def _clean_limit(value: int | None, default: int) -> int:
     return max(1, min(1000, int(value if value is not None else default)))
+
+
+def _clean_unbounded_limit(value: int | None) -> int:
+    if value is None:
+        return 0
+    return max(0, int(value))
+
+
+def _compile_cleaner_regexes(sender_regex: str, subject_regex: str) -> tuple[re.Pattern | None, re.Pattern | None]:
+    sender_regex = sender_regex.strip()
+    subject_regex = subject_regex.strip()
+    if not sender_regex and not subject_regex:
+        raise CleanerError("Indique au moins une regex expediteur ou objet.")
+    try:
+        sender_pattern = re.compile(sender_regex, re.IGNORECASE) if sender_regex else None
+        subject_pattern = re.compile(subject_regex, re.IGNORECASE) if subject_regex else None
+    except re.error as e:
+        raise CleanerError(f"Regex invalide: {e}") from e
+    return sender_pattern, subject_pattern
+
+
+def _regex_match_reason(
+    sender: str,
+    subject: str,
+    sender_pattern: re.Pattern | None,
+    subject_pattern: re.Pattern | None,
+) -> str:
+    hits: list[str] = []
+    if sender_pattern and sender_pattern.search(sender):
+        hits.append(f"regex expediteur: {sender_pattern.pattern}")
+    if subject_pattern and subject_pattern.search(subject):
+        hits.append(f"regex objet: {subject_pattern.pattern}")
+    return ", ".join(hits)
 
 
 def _dedupe_uids(uids: list[str]) -> list[str]:
@@ -441,6 +552,13 @@ def _move_offsets_to_trash(
                 logger.info("Cleaner refused mbox_offset=%s reason=safety_or_not_candidate", offset)
                 continue
             reason = decision.reason
+            source = "mbox"
+        elif validator == "regex":
+            decision = classify_cleaner_candidate(mail.subject, mail.body_text, mail.sender)
+            if decision.safety_hit:
+                logger.info("Cleaner refused mbox_offset=%s reason=safety_keyword:%s", offset, decision.safety_hit)
+                continue
+            reason = "regex validee apres dry-run"
             source = "mbox"
         else:
             reason = "job deja parse dans SQLite"
