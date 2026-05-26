@@ -23,14 +23,14 @@ and [Codex](https://openai.com/codex).**
 
 ## Features (V1)
 
-- IMAP fetcher (`.env` driven) + Thunderbird MBOX reader
+- IMAP fetcher (`.env` driven) + Thunderbird MBOX reader with incremental offsets
 - Local rule-based filter (FR + EN keywords + your stack: Java/GeoServer/OpenLayers/K8s/PostGIS/Spring/Docker…)
 - Pluggable providers: `mock` (default, offline), `ollama` (local), `claude`, `openai`
 - Dry-run mode: reads and classifies locally, with no LLM provider instantiation
-- Mailbox cleaner: dry-run scan for old Thunderbird/IMAP newsletters, then optional IMAP move to `ToDelete`
+- Mailbox cleaner: dry-run scan for old Thunderbird/IMAP newsletters, bulk selection by sender, CSV export, then optional move
 - SQLite storage (single file, no server)
-- HTML dashboard (FastAPI + Jinja2) — list, filter by techno/score/status, mark new/interesting/ignored/replied
-- CLI: `jobmail fetch | serve | seed | classify`
+- HTML dashboard (FastAPI + Jinja2) — list, filter by techno/score/status, mark new/interesting/ignored/replied, open extracted offer links
+- CLI: `jobmail fetch | dry-run | watch | extract | serve | seed | classify`
 
 ## Architecture
 
@@ -124,19 +124,48 @@ python -m jobmail classify
 ## Mailbox cleaner
 
 Open `/cleaner` in the dashboard to scan old promotional/newsletter mails from
-Thunderbird POP3 MBOX files or IMAP. The primary action is always a dry-run: it
-reports scanned mails, candidates, top senders, and the candidate list with
-reasons. Thunderbird files are read-only: JobMail never deletes messages and
-never writes to MBOX files directly. The optional action only moves checked IMAP
-messages to `ToDelete`.
+Thunderbird POP3 MBOX files, IMAP, or already parsed job mails. The primary
+action is always a dry-run: it reports scanned mails, candidates, top senders,
+and the candidate list with reasons.
+
+Safety rules:
+
+- No permanent deletion.
+- Promotional scans exclude mails containing safety terms such as emploi,
+  recrutement, candidature, RH, contrat, facture, banque, impots, securite,
+  mot de passe, compte, assurance.
+- Candidates are selected by default, but can be included/excluded in bulk by
+  sender from the "Top expediteurs" table. Excluded senders are visibly marked.
+- A report is shown before any move, and confirmation checkboxes are required.
+- Logs never include the full mail content.
+
+Move actions:
+
+- IMAP source: checked mails are moved to the IMAP folder configured by
+  `CLEANER_DELETE_FOLDER` (`ToDelete` by default). This is a quarantine folder,
+  not the trash.
+- Thunderbird MBOX source: checked mails are moved to the local Thunderbird
+  `Trash` file for the same account. JobMail first creates an
+  `Inbox.jobmail-backup-YYYYMMDD-HHMMSS` backup, rewrites the Inbox without the
+  selected messages, appends the messages to `Trash`, and removes `.msf` index
+  files so Thunderbird rebuilds them. Thunderbird must be closed.
+- Parsed jobs source: already extracted job mails can also be moved to the
+  Thunderbird trash; offers marked `interesting` are protected.
 
 ## Thunderbird
 
 Thunderbird stores INBOX as an MBOX file at:
-`%APPDATA%\Thunderbird\Profiles\<id>\ImapMail\<server>\INBOX`
+`%APPDATA%\Thunderbird\Profiles\<id>\Mail\<server>\Inbox` for POP accounts, or
+`%APPDATA%\Thunderbird\Profiles\<id>\ImapMail\<server>\INBOX` for IMAP accounts.
 
-To plug it, edit `jobmail/mail/thunderbird.py` and feed `read_mbox(Path(...))` into
-`pipeline.run(source=...)`. Wire it as a CLI flag when ready (1-line addition).
+Use the repeatable `--mbox` flag for ingestion:
+
+```powershell
+python -m jobmail fetch --mbox "C:\Users\Sylvain Ladoire\AppData\Roaming\Thunderbird\Profiles\<id>\Mail\pop.gmail.com\Inbox" --since-days 90
+python -m jobmail watch --mbox "C:\Users\Sylvain Ladoire\AppData\Roaming\Thunderbird\Profiles\<id>\Mail\pop.gmail.com\Inbox"
+```
+
+For the web cleaner, configure `CLEANER_MBOX_GLOBS` in `.env`.
 
 ## Tests
 
@@ -162,7 +191,6 @@ jobmail/
 
 ## Roadmap
 
-- [ ] Thunderbird CLI flag (`jobmail fetch --mbox path`)
 - [ ] OpenAI provider (structured outputs)
 - [ ] Per-email "why was this kept?" inline matched-keyword viewer
 - [ ] CSV / JSON export of offers
@@ -175,4 +203,4 @@ MIT.
 
 ---
 
-*Built collaboratively with Claude (Opus 4.7).*
+*Prompts by ChatGPT; built collaboratively with Claude Code and Codex.*
