@@ -351,39 +351,76 @@ def test_cleaner_parsed_jobs_move_calls_dedicated_service(monkeypatch, tmp_path)
     assert calls == {"uids": ["mbox:pop.example:0"], "min_age_days": 9, "max_mails": 12}
 
 
-def test_cleaner_regex_move_replays_rules_after_confirmations(monkeypatch, tmp_path):
+def test_cleaner_regex_move_reuses_finished_scan_job(monkeypatch, tmp_path):
     calls = {}
 
-    def fake_move(settings, *, sender_regex, subject_regex, regex_rules, min_age_days, max_mails):
-        calls["sender_regex"] = sender_regex
-        calls["subject_regex"] = subject_regex
-        calls["regex_rules"] = regex_rules
+    def fake_move(settings, *, uids, min_age_days, max_mails):
+        calls["uids"] = uids
         calls["min_age_days"] = min_age_days
         calls["max_mails"] = max_mails
         return 2, _report()
 
-    monkeypatch.setattr(web_app, "move_thunderbird_regex_to_trash", fake_move)
+    monkeypatch.setattr(web_app, "move_thunderbird_to_trash", fake_move)
+    client = _client(monkeypatch, tmp_path)
+    job = web_app.CleanerScanJob(
+        id="job-123",
+        status="done",
+        scanned_count=12,
+        candidate_count=1,
+        report=CleanerReport(
+            scanned_count=12,
+            candidates=[
+                CleanerCandidate(
+                    uid="mbox:pop.example:123",
+                    received_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                    sender="amazon@example.com",
+                    subject="Promo",
+                    reason="regle 1",
+                    source="mbox",
+                )
+            ],
+        ),
+        min_age_days=9,
+        max_mails=0,
+        regex_rules=[("amazon", "promo")],
+    )
+    with web_app._cleaner_jobs_lock:
+        web_app._cleaner_jobs[job.id] = job
+
+    resp = client.post(
+        "/cleaner/move-thunderbird-to-trash",
+        data={
+            "source": "regex",
+            "regex_job_id": "job-123",
+            "sender_regex_rule": ["amazon", "googleplay"],
+            "subject_regex_rule": ["promo", ""],
+            "confirm_move": "yes",
+            "confirm_thunderbird_closed": "yes",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert calls == {"uids": ["mbox:pop.example:123"], "min_age_days": 9, "max_mails": 0}
+    assert "2 mail(s) deplace(s)" in resp.text
+
+
+def test_cleaner_regex_move_requires_finished_scan_job(monkeypatch, tmp_path):
+    def fail_move(*args, **kwargs):
+        raise AssertionError("move must not run without a finished scan job")
+
+    monkeypatch.setattr(web_app, "move_thunderbird_to_trash", fail_move)
     client = _client(monkeypatch, tmp_path)
 
     resp = client.post(
         "/cleaner/move-thunderbird-to-trash",
         data={
             "source": "regex",
-            "sender_regex_rule": ["amazon", "googleplay"],
-            "subject_regex_rule": ["promo", ""],
+            "sender_regex_rule": "amazon",
+            "subject_regex_rule": "promo",
             "confirm_move": "yes",
             "confirm_thunderbird_closed": "yes",
-            "min_age_days": "9",
-            "max_mails": "0",
         },
     )
 
-    assert resp.status_code == 200
-    assert calls == {
-        "sender_regex": "",
-        "subject_regex": "",
-        "regex_rules": [("amazon", "promo"), ("googleplay", "")],
-        "min_age_days": 9,
-        "max_mails": 0,
-    }
-    assert "2 mail(s) deplace(s)" in resp.text
+    assert resp.status_code == 400
+    assert "Relance un scan regex" in resp.text

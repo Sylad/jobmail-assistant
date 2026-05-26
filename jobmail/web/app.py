@@ -19,7 +19,6 @@ from ..cleaner import (
     CleanerError,
     CleanerReport,
     move_parsed_jobs_to_trash,
-    move_thunderbird_regex_to_trash,
     move_thunderbird_to_trash,
     move_to_delete,
     scan_parsed_job_mails,
@@ -192,6 +191,7 @@ def _cleaner_context(
     sender_regex: str = "",
     subject_regex: str = "",
     regex_rules: list[tuple[str, str]] | None = None,
+    regex_job_id: str = "",
     error: str = "",
     moved_count: int = 0,
 ) -> dict:
@@ -208,6 +208,7 @@ def _cleaner_context(
         "sender_regex": sender_regex,
         "subject_regex": subject_regex,
         "regex_rules": display_rules,
+        "regex_job_id": regex_job_id,
         "delete_folder": settings.cleaner_delete_folder,
         "mbox_patterns": settings.cleaner_mbox_patterns,
         "error": error,
@@ -274,6 +275,16 @@ def _job_payload(job: CleanerScanJob) -> dict:
         "error": job.error,
         "result_url": f"/cleaner/scan/result/{job.id}" if job.status == "done" else "",
     }
+
+
+def _regex_job_move_context(job_id: str) -> tuple[list[str], CleanerReport, list[tuple[str, str]], int, int] | None:
+    with _cleaner_jobs_lock:
+        job = _cleaner_jobs.get(job_id)
+        if job is None or job.status != "done" or job.report is None:
+            return None
+        report = job.report
+        uids = [candidate.uid for candidate in report.candidates]
+        return uids, report, list(job.regex_rules), job.min_age_days, job.max_mails
 
 
 def create_app() -> FastAPI:
@@ -542,6 +553,7 @@ def create_app() -> FastAPI:
                 max_mails=job.max_mails,
                 source="regex",
                 regex_rules=regex_rules,
+                regex_job_id=job_id,
             ),
         )
 
@@ -626,6 +638,7 @@ def create_app() -> FastAPI:
         subject_regex: str = Form(""),
         sender_regex_rule: list[str] = Form(default=[]),
         subject_regex_rule: list[str] = Form(default=[]),
+        regex_job_id: str = Form(""),
     ):
         regex_rules = _form_regex_rules(sender_regex_rule, subject_regex_rule, sender_regex, subject_regex)
         if confirm_move != "yes" or confirm_thunderbird_closed != "yes":
@@ -655,14 +668,21 @@ def create_app() -> FastAPI:
                 )
             elif source == "regex":
                 _save_regex_rules(settings, regex_rules)
-                moved_count, report = move_thunderbird_regex_to_trash(
+                job_context = _regex_job_move_context(regex_job_id) if regex_job_id else None
+                if job_context is None:
+                    raise CleanerError(
+                        "Le resultat du scan n'est plus disponible. Relance un scan regex avant de deplacer."
+                    )
+                safe_uids, scan_report, regex_rules, min_age_days, max_mails = job_context
+                if not safe_uids:
+                    raise CleanerError("Le scan termine ne contient aucun candidat a deplacer.")
+                moved_count, report = move_thunderbird_to_trash(
                     settings,
-                    sender_regex=sender_regex,
-                    subject_regex=subject_regex,
-                    regex_rules=regex_rules,
+                    uids=safe_uids,
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                 )
+                report.scanned_count = scan_report.scanned_count
             else:
                 moved_count, report = move_thunderbird_to_trash(
                     settings,
@@ -683,6 +703,7 @@ def create_app() -> FastAPI:
                     sender_regex=sender_regex,
                     subject_regex=subject_regex,
                     regex_rules=regex_rules,
+                    regex_job_id=regex_job_id,
                     error=str(e),
                 ),
                 status_code=400,
@@ -701,6 +722,7 @@ def create_app() -> FastAPI:
                 sender_regex=sender_regex,
                 subject_regex=subject_regex,
                 regex_rules=regex_rules,
+                regex_job_id=regex_job_id,
                 moved_count=moved_count,
             ),
         )

@@ -213,6 +213,7 @@
     <input type="hidden" name="max_mails" value="{{ max_mails }}">
     <input type="hidden" name="source" value="{{ source }}">
     {% if source == 'regex' %}
+      <input type="hidden" name="regex_job_id" value="{{ regex_job_id }}">
       {% for rule_sender, rule_subject in regex_rules %}
         {% if rule_sender or rule_subject %}
         <input type="hidden" name="sender_regex_rule" value="{{ rule_sender }}">
@@ -288,7 +289,7 @@
         {% if source == 'parsed_jobs' %}
         Seuls les mails d'offres ignorees ou tres faible score sont selectionnables ; interesting et replied sont exclus.
         {% elif source == 'regex' %}
-        Les regex seront rejouees au moment de l'action, puis tous les mails correspondants seront deplaces en une seule passe.
+        L'action reutilise le resultat du scan affiche, sans rescanner toute la mailbox.
         {% endif %}
       </p>
       <label class="confirm-line">
