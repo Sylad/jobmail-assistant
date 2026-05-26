@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@source "../**/*.{ts,vue}";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-background: #101216;
+  --color-foreground: #eef3f8;
+  --color-muted: #9fb0c3;
+  --color-border: #2d3748;
+  --color-accent: #7cb7ff;
+}

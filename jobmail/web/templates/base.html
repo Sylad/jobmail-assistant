@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}JobMail Assistant{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
+  {% block head_extra %}{% endblock %}
   {% if stats is defined and stats.is_running %}
   <meta http-equiv="refresh" content="8">
   {% endif %}

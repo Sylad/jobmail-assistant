@@ -7,6 +7,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white)](https://vuejs.org)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vite.dev)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org)
 [![Ollama](https://img.shields.io/badge/Ollama-llama3.1%3A8b-000000?logo=ollama&logoColor=white)](https://ollama.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -112,17 +113,21 @@ python -m jobmail serve
 ### Frontend assets
 
 The dashboard is server-rendered with Jinja, and the Mailbox cleaner uses a
-small Vue 3/Vite island for client-side scan progress, cancellation, regex rule
-rows, and selection helpers.
+small Vue 3/Vite/TypeScript island for client-side scan progress, cancellation,
+regex rule rows, and selection helpers. The frontend is structured with
+composables plus shadcn-style primitives on top of Tailwind CSS, Reka UI,
+class-variance-authority, and tailwind-merge.
 
 ```bash
 cd frontend
 npm install
+npm run typecheck
 npm run build
 ```
 
-The build writes `jobmail/web/static/assets/cleaner.js`, which is committed so
-the local Python server can run without a separate Vite dev server.
+The build writes `jobmail/web/static/assets/cleaner.js` and
+`jobmail/web/static/assets/cleaner.css`, which are committed so the local Python
+server can run without a separate Vite dev server.
 
 Once configured:
 

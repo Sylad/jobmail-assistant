@@ -53,6 +53,7 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     assert "Scanner toute la boite par regex" in resp.text
     assert "Backups Thunderbird" in resp.text
     assert "Nettoyer les anciens backups" in resp.text
+    assert '<link rel="stylesheet" href="/static/assets/cleaner.css">' in resp.text
     assert '<script type="module" src="/static/assets/cleaner.js"></script>' in resp.text
     assert "createApp" not in resp.text
 

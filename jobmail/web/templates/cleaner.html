@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Mailbox cleaner — JobMail{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/assets/cleaner.css">
+{% endblock %}
 {% block content %}
 {% set current_scan_offset = scan_offset | default(0) | int %}
 <section class="tool-head">
