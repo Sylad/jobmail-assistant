@@ -50,6 +50,14 @@ CREATE TABLE IF NOT EXISTS offers (
 CREATE INDEX IF NOT EXISTS idx_offers_status ON offers(status);
 CREATE INDEX IF NOT EXISTS idx_offers_score ON offers(relevance_score DESC);
 CREATE INDEX IF NOT EXISTS idx_emails_job_related ON emails(job_related);
+
+CREATE TABLE IF NOT EXISTS mbox_state (
+    path TEXT PRIMARY KEY,
+    last_offset INTEGER NOT NULL DEFAULT 0,
+    last_size INTEGER NOT NULL DEFAULT 0,
+    last_mtime REAL NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 
@@ -74,6 +82,38 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
 def email_exists(conn: sqlite3.Connection, uid: str) -> bool:
     row = conn.execute("SELECT 1 FROM emails WHERE uid = ?", (uid,)).fetchone()
     return row is not None
+
+
+def get_mbox_state(conn: sqlite3.Connection, path: str) -> dict | None:
+    row = conn.execute(
+        "SELECT last_offset, last_size, last_mtime FROM mbox_state WHERE path = ?",
+        (path,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {"last_offset": row["last_offset"], "last_size": row["last_size"], "last_mtime": row["last_mtime"]}
+
+
+def update_mbox_state(
+    conn: sqlite3.Connection,
+    path: str,
+    *,
+    last_offset: int,
+    last_size: int,
+    last_mtime: float,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO mbox_state (path, last_offset, last_size, last_mtime, updated_at)
+        VALUES (?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(path) DO UPDATE SET
+            last_offset = excluded.last_offset,
+            last_size = excluded.last_size,
+            last_mtime = excluded.last_mtime,
+            updated_at = excluded.updated_at
+        """,
+        (path, last_offset, last_size, last_mtime),
+    )
 
 
 def insert_email(

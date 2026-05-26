@@ -1,43 +1,62 @@
 from __future__ import annotations
 
-import mailbox
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import datetime, timezone
 from email.header import decode_header, make_header
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from ..models import RawEmail
+from .mbox_reader import iter_with_offsets
 from .parser import html_to_text, normalize_body
 
 
-def read_mbox(path: Path, since: datetime | None = None) -> Iterator[RawEmail]:
-    """Read a Thunderbird MBOX file. If `since` is provided, mails older than
-    that timestamp are skipped BEFORE the (costly) body extraction."""
-    mbox = mailbox.mbox(str(path))
-    for i, msg in enumerate(mbox):
-        # 1. Cheap header-only check first so we don't pay body parse on old mails.
-        received_raw = msg.get("Date", "")
-        try:
-            received_at = parsedate_to_datetime(received_raw)
-        except (TypeError, ValueError):
-            received_at = datetime.now()
+def read_mbox(
+    path: Path,
+    *,
+    since: datetime | None = None,
+    start_offset: int = 0,
+) -> Iterator[RawEmail]:
+    """Stream a Thunderbird MBOX file.
+
+    - `since` skips mails older than the given timestamp (after the cheap
+      header-only date parse, so we don't pay body extraction for old mails).
+    - `start_offset` resumes from a given byte offset in the file for
+      incremental reads. Pass 0 for a full scan.
+
+    Each yielded RawEmail carries `mbox_path` and `mbox_offset`, which the
+    pipeline uses to persist the resume cursor in the `mbox_state` table.
+    """
+    abs_path = str(path)
+    for offset, msg in iter_with_offsets(path, start_offset=start_offset):
+        received_at = _parse_date(msg.get("Date", ""))
         if since is not None:
             ref = received_at if received_at.tzinfo else received_at.replace(tzinfo=since.tzinfo)
             if ref < since:
                 continue
 
-        # 2. Now the heavier work — body extraction + decoding.
         body_text, body_html = _extract_bodies(msg)
         yield RawEmail(
-            uid=f"mbox-{i}",
-            message_id=_decode_hdr(msg.get("Message-Id", f"mbox-{i}@local")),
+            uid=f"mbox-{offset}",
+            message_id=_decode_hdr(msg.get("Message-Id", f"mbox-{offset}@local")),
             subject=_decode_hdr(msg.get("Subject", "")),
             sender=_decode_hdr(msg.get("From", "")),
             received_at=received_at,
             body_text=normalize_body(body_text),
             body_html=body_html,
+            mbox_path=abs_path,
+            mbox_offset=offset,
         )
+
+
+def _parse_date(raw: str) -> datetime:
+    try:
+        dt = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return datetime.now(timezone.utc)
+    if dt is None:
+        return datetime.now(timezone.utc)
+    return dt
 
 
 def _extract_bodies(msg) -> tuple[str, str]:

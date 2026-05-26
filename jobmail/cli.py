@@ -52,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
         dry_run = args.cmd == "dry-run" or getattr(args, "dry_run", False)
         mbox_paths: list[str] = getattr(args, "mbox", []) or []
         since_days: int | None = getattr(args, "since_days", None)
-        source = _build_mbox_source(mbox_paths, since_days) if mbox_paths else None
+        source = _build_mbox_source(mbox_paths, since_days, settings=settings) if mbox_paths else None
         stats = run_pipeline(source=source, settings=settings, dry_run=dry_run)
         print(f"Done. fetched={stats.fetched} new={stats.new} "
               f"job={stats.job_related} sent_to_llm={stats.sent_to_llm} dry_run={stats.dry_run}")
@@ -91,17 +91,30 @@ def main(argv: list[str] | None = None) -> int:
     return 1
 
 
-def _build_mbox_source(paths: list[str], since_days: int | None = None):
-    """Chain one or more MBOX files into a single email iterator.
+def _build_mbox_source(
+    paths: list[str],
+    since_days: int | None = None,
+    *,
+    settings=None,
+):
+    """Chain one or more MBOX files into a single email iterator with
+    incremental resume.
 
-    UIDs are namespaced by the MBOX filename so duplicate indices across files
-    don't collide. `since_days` filters out mails older than N days based on
-    the parsed Date header (timezone-aware).
+    For each MBOX path we look up `mbox_state` in SQLite to know where the
+    previous run stopped. If the file has grown, we seek to that offset and
+    only yield the new tail. If the file has SHRUNK (Thunderbird Compact
+    Folders), we reset to 0 and re-scan. The pipeline updates the cursor
+    after each email is committed.
     """
     from datetime import datetime, timedelta, timezone
 
+    from .config import get_settings
+    from .db import connect, get_mbox_state, init_db
     from .mail.thunderbird import read_mbox
     from .models import RawEmail
+
+    settings = settings or get_settings()
+    init_db(settings.db_path)
 
     cutoff: datetime | None = None
     if since_days is not None and since_days > 0:
@@ -115,20 +128,49 @@ def _build_mbox_source(paths: list[str], since_days: int | None = None):
             if not path.is_file():
                 logging.error("MBOX path not found: %s", path)
                 continue
+
+            abs_path = str(path.resolve())
+            stat = path.stat()
+            current_size = stat.st_size
+            current_mtime = stat.st_mtime
+
+            # Decide resume offset.
+            start_offset = 0
+            with connect(settings.db_path) as conn:
+                state = get_mbox_state(conn, abs_path)
+            if state is not None:
+                if current_size < state["last_size"]:
+                    logging.warning(
+                        "MBOX %s shrank (%d → %d bytes) — Thunderbird Compact suspected, "
+                        "full re-scan from offset 0.",
+                        path.name, state["last_size"], current_size,
+                    )
+                    start_offset = 0
+                else:
+                    start_offset = state["last_offset"]
+                    logging.info(
+                        "MBOX %s resume: offset=%d (file %d bytes, +%d new)",
+                        path.name, start_offset, current_size,
+                        current_size - state["last_size"],
+                    )
+            else:
+                logging.info("MBOX %s: first scan (%d bytes)", path.name, current_size)
+
             tag = path.parent.name or path.stem
-            logging.info("Reading MBOX %s (since=%s)", path, cutoff.isoformat() if cutoff else "all")
-            for mail in read_mbox(path, since=cutoff):
+            for mail in read_mbox(path, since=cutoff, start_offset=start_offset):
                 kept += 1
                 if kept % 50 == 0:
                     logging.info("MBOX progress: %d mails yielded", kept)
                 yield RawEmail(
-                    uid=f"{tag}:{mail.uid}",
+                    uid=f"{tag}:mbox-{mail.mbox_offset}",
                     message_id=mail.message_id,
                     subject=mail.subject,
                     sender=mail.sender,
                     received_at=mail.received_at,
                     body_text=mail.body_text,
                     body_html=mail.body_html,
+                    mbox_path=abs_path,
+                    mbox_offset=mail.mbox_offset,
                 )
         logging.info("MBOX done: %d mails kept", kept)
 

@@ -4,8 +4,17 @@ import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+import os
+
 from .config import Settings, get_settings
-from .db import connect, email_exists, init_db, insert_email, upsert_offer
+from .db import (
+    connect,
+    email_exists,
+    init_db,
+    insert_email,
+    update_mbox_state,
+    upsert_offer,
+)
 from .extraction import get_extractor
 from .extraction.base import ExtractorProvider, PrivacyError
 from .filtering.rules import classify
@@ -51,6 +60,7 @@ def run(
         stats.fetched += 1
         with connect(settings.db_path) as conn:
             if email_exists(conn, email.uid):
+                _persist_mbox_cursor(conn, email)
                 continue
             stats.new += 1
 
@@ -63,11 +73,13 @@ def run(
 
             if not result.is_job_related:
                 stats.skipped_non_job += 1
+                _persist_mbox_cursor(conn, email)
                 logger.debug("Skipped non-job mail uid=%s matched=%d", email.uid, len(result.all_matches))
                 continue
 
             stats.job_related += 1
             if dry_run:
+                _persist_mbox_cursor(conn, email)
                 logger.info("Dry-run kept job-related mail uid=%s matched=%d", email.uid, len(result.all_matches))
                 continue
 
@@ -78,12 +90,31 @@ def run(
             extraction = _safe_extract(extractor, email, settings.target_profile)
             upsert_offer(conn, email.uid, extraction)
             stats.extracted += 1
+            _persist_mbox_cursor(conn, email)
             logger.info(
                 "Extracted uid=%s score=%d company=%r",
                 email.uid, extraction.relevance_score, extraction.company[:30],
             )
 
     return stats
+
+
+def _persist_mbox_cursor(conn, email: RawEmail) -> None:
+    """If the email came from an MBOX file, update its resume cursor so a
+    later run picks up exactly after this message."""
+    if not email.mbox_path or email.mbox_offset < 0:
+        return
+    try:
+        stat = os.stat(email.mbox_path)
+    except OSError:
+        return
+    update_mbox_state(
+        conn,
+        email.mbox_path,
+        last_offset=email.mbox_offset,
+        last_size=stat.st_size,
+        last_mtime=stat.st_mtime,
+    )
 
 
 def _safe_extract(extractor: ExtractorProvider, email: RawEmail, profile: str):
