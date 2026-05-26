@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     imap_folder: str = "INBOX"
     imap_fetch_limit: int = 50
 
+    cleaner_min_age_days: int = 7
+    cleaner_max_mails: int = 250
+    cleaner_delete_folder: str = "ToDelete"
+
     db_path: Path = Path("./data/jobmail.db")
 
     llm_provider: Literal["mock", "ollama", "claude", "openai"] = "mock"

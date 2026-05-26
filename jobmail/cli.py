@@ -222,7 +222,6 @@ def _run_extract(settings, *, limit: int | None, re_extract: bool) -> int:
         over from a partial run);
       - re-extraction of all offers after a prompt tweak (--re-extract).
     """
-    import json
     from datetime import datetime
 
     from .db import connect, upsert_offer
@@ -323,7 +322,6 @@ def _build_mbox_source(
             abs_path = str(path.resolve())
             stat = path.stat()
             current_size = stat.st_size
-            current_mtime = stat.st_mtime
 
             # Decide resume offset.
             start_offset = 0

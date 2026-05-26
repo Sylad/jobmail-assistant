@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+import csv
+import io
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from ..cleaner import CleanerError, CleanerReport, move_to_delete, scan_old_promotions
 from ..config import get_settings
 from ..db import (
     all_known_technos,
@@ -111,6 +113,44 @@ BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
+def _cleaner_context(
+    *,
+    request: Request,
+    settings,
+    report: CleanerReport | None = None,
+    min_age_days: int | None = None,
+    max_mails: int | None = None,
+    error: str = "",
+    moved_count: int = 0,
+) -> dict:
+    return {
+        "request": request,
+        "report": report,
+        "min_age_days": min_age_days or settings.cleaner_min_age_days,
+        "max_mails": max_mails or settings.cleaner_max_mails,
+        "delete_folder": settings.cleaner_delete_folder,
+        "error": error,
+        "moved_count": moved_count,
+        "provider": settings.llm_provider,
+        "imap_enabled": settings.imap_enabled,
+    }
+
+
+def _report_to_csv(report: CleanerReport) -> str:
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["uid", "date", "sender", "subject", "reason"])
+    for candidate in report.candidates:
+        writer.writerow([
+            candidate.uid,
+            candidate.received_at.isoformat(),
+            candidate.sender,
+            candidate.subject,
+            candidate.reason,
+        ])
+    return out.getvalue()
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     init_db(settings.db_path)
@@ -163,6 +203,120 @@ def create_app() -> FastAPI:
     def api_status():
         with connect(settings.db_path) as conn:
             return _compute_stats(conn)
+
+    @app.get("/cleaner", response_class=HTMLResponse)
+    def cleaner(request: Request):
+        return templates.TemplateResponse(
+            request,
+            "cleaner.html",
+            _cleaner_context(request=request, settings=settings),
+        )
+
+    @app.post("/cleaner/scan", response_class=HTMLResponse)
+    def cleaner_scan(
+        request: Request,
+        min_age_days: int = Form(settings.cleaner_min_age_days),
+        max_mails: int = Form(settings.cleaner_max_mails),
+        export_csv: str = Form(""),
+    ):
+        try:
+            report = scan_old_promotions(
+                settings,
+                min_age_days=min_age_days,
+                max_mails=max_mails,
+            )
+        except CleanerError as e:
+            return templates.TemplateResponse(
+                request,
+                "cleaner.html",
+                _cleaner_context(
+                    request=request,
+                    settings=settings,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                    error=str(e),
+                ),
+                status_code=400,
+            )
+
+        if export_csv:
+            return Response(
+                content=_report_to_csv(report),
+                media_type="text/csv",
+                headers={"Content-Disposition": "attachment; filename=jobmail-cleaner-report.csv"},
+            )
+
+        return templates.TemplateResponse(
+            request,
+            "cleaner.html",
+            _cleaner_context(
+                request=request,
+                settings=settings,
+                report=report,
+                min_age_days=min_age_days,
+                max_mails=max_mails,
+            ),
+        )
+
+    @app.post("/cleaner/move-to-delete", response_class=HTMLResponse)
+    def cleaner_move_to_delete(
+        request: Request,
+        min_age_days: int = Form(settings.cleaner_min_age_days),
+        max_mails: int = Form(settings.cleaner_max_mails),
+        selected_uid: list[str] = Form(default=[]),
+        confirm_move: str = Form(""),
+    ):
+        if confirm_move != "yes":
+            report = CleanerReport(
+                scanned_count=len(selected_uid),
+                candidates=[],
+            )
+            return templates.TemplateResponse(
+                request,
+                "cleaner.html",
+                _cleaner_context(
+                    request=request,
+                    settings=settings,
+                    report=report,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                    error="Confirmation obligatoire avant tout deplacement.",
+                ),
+                status_code=400,
+            )
+        try:
+            moved_count, report = move_to_delete(
+                settings,
+                uids=selected_uid,
+                min_age_days=min_age_days,
+                max_mails=max_mails,
+            )
+        except CleanerError as e:
+            return templates.TemplateResponse(
+                request,
+                "cleaner.html",
+                _cleaner_context(
+                    request=request,
+                    settings=settings,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                    error=str(e),
+                ),
+                status_code=400,
+            )
+
+        return templates.TemplateResponse(
+            request,
+            "cleaner.html",
+            _cleaner_context(
+                request=request,
+                settings=settings,
+                report=report,
+                min_age_days=min_age_days,
+                max_mails=max_mails,
+                moved_count=moved_count,
+            ),
+        )
 
     @app.get("/offers/{offer_id}", response_class=HTMLResponse)
     def offer_detail(request: Request, offer_id: int):

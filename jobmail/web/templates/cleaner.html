@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Mailbox cleaner — JobMail{% endblock %}
+{% block content %}
+<section class="tool-head">
+  <h1>Mailbox cleaner</h1>
+  <p class="muted">
+    Scan IMAP en dry-run uniquement. Aucun fichier Thunderbird n'est modifie, aucune suppression definitive.
+    L'action disponible deplace la selection vers <strong>{{ delete_folder }}</strong>.
+  </p>
+</section>
+
+{% if error %}
+  <div class="alert alert-error">{{ error }}</div>
+{% endif %}
+{% if moved_count %}
+  <div class="alert alert-ok">{{ moved_count }} mail(s) deplace(s) vers {{ delete_folder }}.</div>
+{% endif %}
+
+<section class="filters">
+  <form method="post" action="/cleaner/scan" class="filter-form">
+    <label>
+      Plus vieux que (jours)
+      <input type="number" name="min_age_days" min="1" max="3650" value="{{ min_age_days }}">
+    </label>
+    <label>
+      Limite max-mails
+      <input type="number" name="max_mails" min="1" max="1000" value="{{ max_mails }}">
+    </label>
+    <button type="submit" class="btn">Scanner pubs anciennes</button>
+    <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
+  </form>
+</section>
+
+{% if report %}
+<section class="cleaner-report">
+  <div class="stats-grid">
+    <div class="stat-box">
+      <span class="muted">Mails scannes</span>
+      <strong>{{ report.scanned_count }}</strong>
+    </div>
+    <div class="stat-box">
+      <span class="muted">Candidats trouves</span>
+      <strong>{{ report.candidate_count }}</strong>
+    </div>
+  </div>
+
+  <h2>Top expediteurs</h2>
+  {% if report.top_senders %}
+    <table class="compact-table">
+      <tbody>
+      {% for sender, count in report.top_senders %}
+        <tr><td>{{ sender }}</td><td><strong>{{ count }}</strong></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">Aucun expediteur candidat.</p>
+  {% endif %}
+
+  <h2>Mails candidats</h2>
+  {% if report.candidates %}
+  <form method="post" action="/cleaner/move-to-delete">
+    <input type="hidden" name="min_age_days" value="{{ min_age_days }}">
+    <input type="hidden" name="max_mails" value="{{ max_mails }}">
+    <table class="offers cleaner-table">
+      <thead>
+        <tr>
+          <th>Selection</th>
+          <th>Date</th>
+          <th>Expediteur</th>
+          <th>Sujet</th>
+          <th>Raison</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for candidate in report.candidates %}
+        <tr>
+          <td><input type="checkbox" name="selected_uid" value="{{ candidate.uid }}"></td>
+          <td class="muted small">{{ candidate.received_at.strftime('%Y-%m-%d') }}</td>
+          <td>{{ candidate.sender }}</td>
+          <td>{{ candidate.subject }}</td>
+          <td><span class="chip">{{ candidate.reason }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="danger-action">
+      <label class="confirm-line">
+        <input type="checkbox" name="confirm_move" value="yes">
+        Je confirme avoir relu le rapport et veux deplacer uniquement la selection vers {{ delete_folder }}.
+      </label>
+      <button type="submit" class="btn btn-danger">Deplacer la selection vers {{ delete_folder }}</button>
+    </div>
+  </form>
+  {% else %}
+    <p class="empty">Aucun candidat trouve avec ces criteres.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

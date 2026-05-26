@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from jobmail.db import connect, get_mbox_state, init_db
 from jobmail.mail.mbox_reader import iter_with_offsets
 from jobmail.mail.thunderbird import read_mbox

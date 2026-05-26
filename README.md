@@ -1,8 +1,21 @@
 # JobMail Assistant
 
+[![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-D97757?logo=anthropic&logoColor=white)](https://claude.com/claude-code)
+[![Coded with Codex](https://img.shields.io/badge/Coded%20with-Codex-111827?logo=openai&logoColor=white)](https://openai.com/codex)
+[![Prompts by ChatGPT](https://img.shields.io/badge/Prompts%20by-ChatGPT-10A37F?logo=openai&logoColor=white)](https://chat.openai.com)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org)
+[![Ollama](https://img.shields.io/badge/Ollama-llama3.1%3A8b-000000?logo=ollama&logoColor=white)](https://ollama.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Local, privacy-first triage of job-recruitment emails.
 Reads your mailbox (IMAP or Thunderbird MBOX), filters **locally**, and only sends
 **job-related** emails to an LLM (Ollama / Claude / OpenAI) for structured extraction.
+
+**Prompts and feature framing generated with [ChatGPT](https://chat.openai.com);
+implementation pair-programmed with [Claude Code](https://claude.com/claude-code)
+and [Codex](https://openai.com/codex).**
 
 > **Privacy invariant** — the full mailbox is **never** sent to a cloud API. A 100% local
 > keyword filter runs first; only mails that pass it ever reach an LLM. Verified by
@@ -14,6 +27,7 @@ Reads your mailbox (IMAP or Thunderbird MBOX), filters **locally**, and only sen
 - Local rule-based filter (FR + EN keywords + your stack: Java/GeoServer/OpenLayers/K8s/PostGIS/Spring/Docker…)
 - Pluggable providers: `mock` (default, offline), `ollama` (local), `claude`, `openai`
 - Dry-run mode: reads and classifies locally, with no LLM provider instantiation
+- Mailbox cleaner: dry-run scan for old newsletters/promotions, then optional IMAP move to `ToDelete`
 - SQLite storage (single file, no server)
 - HTML dashboard (FastAPI + Jinja2) — list, filter by techno/score/status, mark new/interesting/ignored/replied
 - CLI: `jobmail fetch | serve | seed | classify`
@@ -64,6 +78,10 @@ IMAP_PASSWORD=app-specific-password   # Gmail: app password; Outlook: app passwo
 IMAP_FOLDER=INBOX
 IMAP_FETCH_LIMIT=50
 
+CLEANER_MIN_AGE_DAYS=7               # default age threshold for /cleaner
+CLEANER_MAX_MAILS=250                # scan cap for safety/latency
+CLEANER_DELETE_FOLDER=ToDelete       # IMAP folder used by the move action
+
 LLM_PROVIDER=mock                     # mock | ollama | claude | openai
 DRY_RUN=false                         # true = classify only, no LLM calls
 ANTHROPIC_API_KEY=sk-ant-...          # if LLM_PROVIDER=claude
@@ -101,6 +119,14 @@ python -m jobmail dry-run
 # Re-classify cached emails after editing rules.py (no LLM call)
 python -m jobmail classify
 ```
+
+## Mailbox cleaner
+
+Open `/cleaner` in the dashboard to scan old promotional/newsletter mails.
+The primary action is always a dry-run: it reports scanned mails, candidates,
+top senders, and the candidate list with reasons. The optional action only moves
+checked IMAP messages to `ToDelete`; it never deletes messages and never writes
+to Thunderbird MBOX files directly.
 
 ## Thunderbird
 
