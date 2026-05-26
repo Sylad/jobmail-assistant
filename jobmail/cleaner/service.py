@@ -102,6 +102,8 @@ def scan_old_promotions(
     min_age_days: int | None = None,
     max_mails: int | None = None,
     uids: list[str] | None = None,
+    progress_callback: Callable[[CleanerReport, str], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> CleanerReport:
     if not settings.imap_enabled:
         raise CleanerError("IMAP n'est pas configure. Le cleaner ne touche jamais aux MBOX Thunderbird.")
@@ -119,8 +121,15 @@ def scan_old_promotions(
         settings.imap_password,
         initial_folder=settings.imap_folder,
     ) as mailbox:
+        if progress_callback:
+            progress_callback(report, settings.imap_folder)
         for msg in mailbox.fetch(query, limit=fetch_limit, reverse=True, mark_seen=False):
+            if should_cancel and should_cancel():
+                logger.info("Cleaner IMAP scan cancelled scanned=%d candidates=%d", report.scanned_count, report.candidate_count)
+                return report
             report.scanned_count += 1
+            if progress_callback and report.scanned_count % 50 == 0:
+                progress_callback(report, settings.imap_folder)
             if uids and not _is_older_than(msg.date, min_age):
                 report.skipped_too_recent += 1
                 logger.info("Cleaner skipped uid=%s reason=too_recent", msg.uid)
@@ -146,6 +155,8 @@ def scan_old_promotions(
                 )
             )
 
+    if progress_callback:
+        progress_callback(report, "")
     logger.info(
         "Cleaner scan done scanned=%d candidates=%d min_age_days=%d max_mails=%d",
         report.scanned_count,
@@ -162,6 +173,8 @@ def scan_thunderbird_promotions(
     min_age_days: int | None = None,
     max_mails: int | None = None,
     skip_mails: int = 0,
+    progress_callback: Callable[[CleanerReport, str], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> CleanerReport:
     min_age = _clean_min_age(min_age_days, settings.cleaner_min_age_days)
     limit = _clean_limit(max_mails, settings.cleaner_max_mails)
@@ -174,7 +187,12 @@ def scan_thunderbird_promotions(
     for path in paths:
         mailbox_name = path.parent.name
         logger.info("Cleaner scanning mbox mailbox=%s path=%s", mailbox_name, path)
+        if progress_callback:
+            progress_callback(report, mailbox_name)
         for mail in read_mbox(path):
+            if should_cancel and should_cancel():
+                logger.info("Cleaner MBOX scan cancelled scanned=%d candidates=%d", report.scanned_count, report.candidate_count)
+                return report
             if skipped < skip_mails:
                 skipped += 1
                 continue
@@ -188,6 +206,8 @@ def scan_thunderbird_promotions(
                 return report
 
             report.scanned_count += 1
+            if progress_callback and report.scanned_count % 250 == 0:
+                progress_callback(report, mailbox_name)
             if not _is_older_than(mail.received_at, min_age):
                 report.skipped_too_recent += 1
                 logger.info("Cleaner skipped mbox_offset=%s reason=too_recent", mail.mbox_offset)
@@ -219,6 +239,8 @@ def scan_thunderbird_promotions(
                 )
             )
 
+    if progress_callback:
+        progress_callback(report, "")
     logger.info(
         "Cleaner MBOX scan done scanned=%d candidates=%d min_age_days=%d max_mails=%d",
         report.scanned_count,
@@ -300,6 +322,8 @@ def scan_parsed_job_mails(
     min_age_days: int | None = None,
     max_mails: int | None = None,
     include_interesting: bool = False,
+    progress_callback: Callable[[CleanerReport, str], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> CleanerReport:
     min_age = _clean_min_age(min_age_days, settings.cleaner_min_age_days)
     limit = _clean_limit(max_mails, settings.cleaner_max_mails)
@@ -318,8 +342,15 @@ def scan_parsed_job_mails(
     with connect(settings.db_path) as conn:
         rows = conn.execute(sql).fetchall()
 
+    if progress_callback:
+        progress_callback(report, "SQLite")
     for row in rows:
+        if should_cancel and should_cancel():
+            logger.info("Cleaner parsed jobs scan cancelled scanned=%d candidates=%d", report.scanned_count, report.candidate_count)
+            return report
         report.scanned_count += 1
+        if progress_callback and report.scanned_count % 250 == 0:
+            progress_callback(report, "SQLite")
         if limit and report.candidate_count >= limit:
             break
         parsed_uid = _stored_email_uid_to_mbox_uid(row["uid"])
@@ -361,6 +392,8 @@ def scan_parsed_job_mails(
             )
         )
 
+    if progress_callback:
+        progress_callback(report, "")
     logger.info(
         "Cleaner parsed jobs scan done scanned=%d candidates=%d include_interesting=%s",
         report.scanned_count,

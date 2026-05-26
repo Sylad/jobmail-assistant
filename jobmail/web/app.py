@@ -153,6 +153,7 @@ class CleanerScanJob:
     report: CleanerReport | None = None
     min_age_days: int = 7
     max_mails: int = 0
+    scan_offset: int = 0
     regex_rules: list[tuple[str, str]] = field(default_factory=list)
     cancel_requested: bool = False
 
@@ -607,14 +608,15 @@ def create_app() -> FastAPI:
     def cleaner_scan_start(
         min_age_days: int = Form(settings.cleaner_min_age_days),
         max_mails: int = Form(settings.cleaner_max_mails),
+        scan_offset: int = Form(0),
         source: str = Form("regex"),
         sender_regex: str = Form(""),
         subject_regex: str = Form(""),
         sender_regex_rule: list[str] = Form(default=[]),
         subject_regex_rule: list[str] = Form(default=[]),
     ):
-        if source not in {"regex", "duplicates"}:
-            raise HTTPException(status_code=400, detail="Le scan progressif est disponible pour les regex et doublons Thunderbird.")
+        if source not in {"thunderbird", "regex", "parsed_jobs", "duplicates", "imap"}:
+            raise HTTPException(status_code=400, detail="Source de scan inconnue.")
 
         regex_rules = _form_regex_rules(sender_regex_rule, subject_regex_rule, sender_regex, subject_regex)
         if source == "regex":
@@ -624,6 +626,7 @@ def create_app() -> FastAPI:
             source=source,
             min_age_days=min_age_days,
             max_mails=max_mails,
+            scan_offset=max(0, scan_offset),
             regex_rules=regex_rules,
         )
         with _cleaner_jobs_lock:
@@ -644,7 +647,23 @@ def create_app() -> FastAPI:
                     return job.cancel_requested
 
             try:
-                if source == "duplicates":
+                if source == "imap":
+                    report = scan_old_promotions(
+                        settings,
+                        min_age_days=min_age_days,
+                        max_mails=max_mails,
+                        progress_callback=progress,
+                        should_cancel=should_cancel,
+                    )
+                elif source == "parsed_jobs":
+                    report = scan_parsed_job_mails(
+                        settings,
+                        min_age_days=min_age_days,
+                        max_mails=max_mails,
+                        progress_callback=progress,
+                        should_cancel=should_cancel,
+                    )
+                elif source == "duplicates":
                     report = scan_thunderbird_duplicates(
                         settings,
                         min_age_days=min_age_days,
@@ -652,7 +671,7 @@ def create_app() -> FastAPI:
                         progress_callback=progress,
                         should_cancel=should_cancel,
                     )
-                else:
+                elif source == "regex":
                     report = scan_thunderbird_regex(
                         settings,
                         sender_regex=sender_regex,
@@ -660,6 +679,15 @@ def create_app() -> FastAPI:
                         regex_rules=regex_rules,
                         min_age_days=min_age_days,
                         max_mails=max_mails,
+                        progress_callback=progress,
+                        should_cancel=should_cancel,
+                    )
+                else:
+                    report = scan_thunderbird_promotions(
+                        settings,
+                        min_age_days=min_age_days,
+                        max_mails=max_mails,
+                        skip_mails=max(0, scan_offset),
                         progress_callback=progress,
                         should_cancel=should_cancel,
                     )
@@ -723,6 +751,7 @@ def create_app() -> FastAPI:
                         settings=settings,
                         min_age_days=job.min_age_days,
                         max_mails=job.max_mails,
+                        scan_offset=job.scan_offset,
                         source=job.source,
                         regex_rules=job.regex_rules,
                         error=job.error,
@@ -738,6 +767,7 @@ def create_app() -> FastAPI:
                         settings=settings,
                         min_age_days=job.min_age_days,
                         max_mails=job.max_mails,
+                        scan_offset=job.scan_offset,
                         source=job.source,
                         regex_rules=job.regex_rules,
                         error="Scan annule. Aucun deplacement n'a ete lance.",
@@ -758,6 +788,7 @@ def create_app() -> FastAPI:
                 report=report,
                 min_age_days=job.min_age_days,
                 max_mails=job.max_mails,
+                scan_offset=job.scan_offset,
                 source=job.source,
                 regex_rules=regex_rules,
                 regex_job_id=job_id,

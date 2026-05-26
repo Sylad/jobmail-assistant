@@ -47,7 +47,8 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     assert "Scanner pubs anciennes" in resp.text
     assert "Mailbox cleaner" in resp.text
     assert '<input type="hidden" name="source" value="regex">' in resp.text
-    regex_form = '<form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>'
+    assert 'class="filter-form" data-async-scan-form>' in resp.text
+    regex_form = '<form method="post" action="/cleaner/scan" class="filter-form" data-async-scan-form data-regex-scan-form>'
     assert resp.text.count(regex_form) == 1
     assert "Scanner toute la boite par regex" in resp.text
     assert "Backups Thunderbird" in resp.text
@@ -276,6 +277,53 @@ def test_cleaner_regex_scan_progress_endpoints(monkeypatch, tmp_path):
     assert result.status_code == 200
     assert "Promo" in result.text
     assert "Regles appliquees" in result.text
+
+
+def test_cleaner_main_scan_progress_endpoints(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_scan(
+        settings,
+        *,
+        min_age_days,
+        max_mails,
+        skip_mails,
+        progress_callback,
+        should_cancel,
+    ):
+        calls["args"] = {"min_age_days": min_age_days, "max_mails": max_mails, "skip_mails": skip_mails}
+        progress_callback(CleanerReport(scanned_count=250, candidates=[]), "pop.example")
+        return _report()
+
+    monkeypatch.setattr(web_app, "scan_thunderbird_promotions", fake_scan)
+    client = _client(monkeypatch, tmp_path)
+
+    start = client.post(
+        "/cleaner/scan/start",
+        data={
+            "source": "thunderbird",
+            "min_age_days": "7",
+            "max_mails": "0",
+            "scan_offset": "1000",
+        },
+    )
+
+    assert start.status_code == 200
+    assert start.json()["status"] in {"running", "done"}
+    job_id = start.json()["id"]
+    for _ in range(20):
+        payload = client.get(f"/cleaner/scan/status/{job_id}").json()
+        if payload["status"] == "done":
+            break
+    assert payload["status"] == "done"
+    assert payload["scanned_count"] == 3
+    assert payload["candidate_count"] == 1
+    assert calls["args"] == {"min_age_days": 7, "max_mails": 0, "skip_mails": 1000}
+
+    result = client.get(f"/cleaner/scan/result/{job_id}")
+    assert result.status_code == 200
+    assert "Promos anciennes" in result.text
+    assert "Tranche actuelle : 1001 - 1003" in result.text
 
 
 def test_cleaner_scan_exports_csv(monkeypatch, tmp_path):

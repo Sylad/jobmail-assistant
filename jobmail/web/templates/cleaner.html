@@ -18,7 +18,7 @@
 {% endif %}
 
 <section class="filters">
-  <form method="post" action="/cleaner/scan" class="filter-form">
+  <form method="post" action="/cleaner/scan" class="filter-form" data-async-scan-form>
     <label>
       Source
       <select name="source">
@@ -128,7 +128,7 @@
 </section>
 
 <section class="filters">
-  <form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>
+  <form method="post" action="/cleaner/scan" class="filter-form" data-async-scan-form data-regex-scan-form>
     <input type="hidden" name="source" value="{% if source == 'duplicates' %}duplicates{% else %}regex{% endif %}">
     <div class="regex-rule-list">
       <span class="label-title">Regles regex</span>
@@ -493,9 +493,9 @@
 })();
 
 (() => {
-  const form = document.querySelector("[data-regex-scan-form]");
+  const forms = Array.from(document.querySelectorAll("[data-async-scan-form]"));
   const progress = document.querySelector("[data-scan-progress]");
-  if (!form || !progress) return;
+  if (!forms.length || !progress) return;
 
   const scanned = progress.querySelector("[data-scan-progress-scanned]");
   const candidates = progress.querySelector("[data-scan-progress-candidates]");
@@ -505,8 +505,8 @@
   const mailbox = progress.querySelector("[data-scan-progress-mailbox]");
   const elapsed = progress.querySelector("[data-scan-progress-time]");
   const title = progress.querySelector("[data-scan-progress-title]");
-  const submitButton = form.querySelector("[data-start-regex-scan]");
   let currentJobId = "";
+  let activeSubmitButton = null;
   const cancelButton = document.createElement("button");
   cancelButton.type = "button";
   cancelButton.className = "btn btn-sm btn-ghost";
@@ -536,41 +536,53 @@
     }
     if (payload.status === "cancelled") {
       if (title) title.textContent = "Scan annule";
-      if (submitButton) submitButton.disabled = false;
+      if (activeSubmitButton) activeSubmitButton.disabled = false;
       cancelButton.hidden = true;
+      cancelButton.disabled = false;
       return;
     }
     if (payload.status === "error") {
       if (title) title.textContent = payload.error || "Scan en erreur";
-      if (submitButton) submitButton.disabled = false;
+      if (activeSubmitButton) activeSubmitButton.disabled = false;
+      cancelButton.hidden = true;
+      cancelButton.disabled = false;
       return;
     }
     window.setTimeout(() => poll(jobId).catch((error) => {
       if (title) title.textContent = error.message;
-      if (submitButton) submitButton.disabled = false;
+      if (activeSubmitButton) activeSubmitButton.disabled = false;
+      cancelButton.hidden = true;
+      cancelButton.disabled = false;
     }), 700);
   };
 
-  const startScan = async (event) => {
+  const startScan = async (event, form, submitButton) => {
     event.preventDefault();
     progress.hidden = false;
+    progress.scrollIntoView({ block: "nearest", behavior: "smooth" });
     cancelButton.hidden = false;
+    cancelButton.disabled = false;
     if (title) title.textContent = "Scan en cours";
-    if (submitButton) submitButton.disabled = true;
+    activeSubmitButton = submitButton || form.querySelector("[data-start-regex-scan]") || form.querySelector("button[type='submit']:not([name='export_csv'])");
+    if (activeSubmitButton) activeSubmitButton.disabled = true;
     try {
       const response = await fetch("/cleaner/scan/start", {
         method: "POST",
         body: new FormData(form),
       });
-      if (!response.ok) throw new Error("Impossible de lancer le scan.");
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || "Impossible de lancer le scan.");
+      }
       const payload = await response.json();
       currentJobId = payload.id;
       setProgress(payload);
       await poll(payload.id);
     } catch (error) {
       if (title) title.textContent = error.message || "Scan en erreur";
-      if (submitButton) submitButton.disabled = false;
+      if (activeSubmitButton) activeSubmitButton.disabled = false;
       cancelButton.hidden = true;
+      cancelButton.disabled = false;
     }
   };
 
@@ -581,11 +593,14 @@
     await fetch(`/cleaner/scan/cancel/${currentJobId}`, { method: "POST" }).catch(() => {});
   });
 
-  submitButton?.addEventListener("click", startScan);
-  form.addEventListener("submit", async (event) => {
-    const submitter = event.submitter;
-    if (submitter && submitter.name === "export_csv") return;
-    await startScan(event);
+  forms.forEach((form) => {
+    const startButton = form.querySelector("[data-start-regex-scan]");
+    startButton?.addEventListener("click", (event) => startScan(event, form, startButton));
+    form.addEventListener("submit", async (event) => {
+      const submitter = event.submitter;
+      if (submitter && submitter.name === "export_csv") return;
+      await startScan(event, form, submitter);
+    });
   });
 })();
 
