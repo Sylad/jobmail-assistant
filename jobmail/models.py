@@ -77,3 +77,4 @@ class StoredOffer:
     job_related: bool
     extraction: OfferExtraction | None
     status: OfferStatus = OfferStatus.NEW
+    body_text: str = ""

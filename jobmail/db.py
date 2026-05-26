@@ -247,16 +247,22 @@ def all_sender_domains(conn: sqlite3.Connection) -> list[tuple[str, int]]:
     return out
 
 
-def get_offer(conn: sqlite3.Connection, offer_id: int) -> StoredOffer | None:
+def get_offer(conn: sqlite3.Connection, offer_id: int, with_body: bool = False) -> StoredOffer | None:
+    body_col = ", e.body_text" if with_body else ""
     row = conn.execute(
-        """
-        SELECT o.*, e.subject, e.sender, e.received_at
+        f"""
+        SELECT o.*, e.subject, e.sender, e.received_at{body_col}
         FROM offers o JOIN emails e ON e.uid = o.email_uid
         WHERE o.id = ?
         """,
         (offer_id,),
     ).fetchone()
-    return _row_to_offer(row) if row else None
+    if row is None:
+        return None
+    offer = _row_to_offer(row)
+    if with_body:
+        offer.body_text = row["body_text"] or ""
+    return offer
 
 
 def all_known_technos(conn: sqlite3.Connection) -> list[str]:

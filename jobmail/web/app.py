@@ -58,6 +58,16 @@ def _process_uptime(pid: int) -> str | None:
         return None
 
 
+def _extract_email(s: str) -> str:
+    """Return the first email address found in `s`. Handles 'Name <addr>',
+    'addr', and 'Name addr@host' forms."""
+    import re
+    if not s:
+        return ""
+    m = re.search(r"[\w.+-]+@[\w-]+\.[\w.-]+", s)
+    return m.group(0) if m else ""
+
+
 def _compute_stats(conn: sqlite3.Connection) -> dict:
     n_emails = conn.execute("SELECT COUNT(*) FROM emails").fetchone()[0]
     n_jobs = conn.execute("SELECT COUNT(*) FROM emails WHERE job_related=1").fetchone()[0]
@@ -152,7 +162,7 @@ def create_app() -> FastAPI:
     @app.get("/offers/{offer_id}", response_class=HTMLResponse)
     def offer_detail(request: Request, offer_id: int):
         with connect(settings.db_path) as conn:
-            offer = get_offer(conn, offer_id)
+            offer = get_offer(conn, offer_id, with_body=True)
         if offer is None:
             raise HTTPException(status_code=404, detail="Offer not found")
         return templates.TemplateResponse(
@@ -160,6 +170,7 @@ def create_app() -> FastAPI:
             "offer.html",
             {
                 "offer": offer,
+                "recruiter_email": _extract_email(offer.extraction.recruiter or offer.sender),
                 "all_statuses": [s.value for s in OfferStatus],
                 "provider": settings.llm_provider,
                 "imap_enabled": settings.imap_enabled,

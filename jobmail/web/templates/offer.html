@@ -9,7 +9,22 @@
       <strong>{{ offer.extraction.company }}</strong>
       {% if offer.extraction.location %}· {{ offer.extraction.location }}{% endif %}
       · score <strong>{{ offer.extraction.relevance_score }}/10</strong>
+      · <span class="status status-{{ offer.status.value }}">{{ offer.status.value }}</span>
     </p>
+    {% if recruiter_email %}
+    <p class="meta">
+      <a class="btn btn-sm" href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}">
+        ✉ Répondre par mail
+      </a>
+      <a class="btn btn-sm btn-ghost"
+         href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}&body={{ 'Bonjour,%0A%0AVotre offre m%27int%C3%A9resse. Je suis disponible pour un %C3%A9change.%0A%0ACordialement,%0ASylvain Ladoire' | safe }}">
+        ✉ Réponse template
+      </a>
+      <button type="button" class="btn btn-sm btn-ghost" onclick="navigator.clipboard.writeText('{{ recruiter_email }}'); this.textContent='✓ copié'">
+        📋 Copier l'email
+      </button>
+    </p>
+    {% endif %}
   </header>
 
   <dl class="grid">
@@ -28,13 +43,26 @@
   </section>
 
   <section>
-    <h2>Résumé</h2>
-    <p>{{ offer.extraction.summary }}</p>
+    <h2>Résumé LLM</h2>
+    <p>{{ offer.extraction.summary or '(rien)' }}</p>
   </section>
+
+  {% if offer.body_text %}
+  <section>
+    <h2>Extrait du mail</h2>
+    <details {% if offer.extraction.relevance_score >= 7 %}open{% endif %}>
+      <summary class="muted">Cliquer pour {{ 'masquer' if offer.extraction.relevance_score >= 7 else 'afficher' }} ({{ offer.body_text | length }} caractères)</summary>
+      <pre class="mail-body">{{ offer.body_text[:3000] }}{% if offer.body_text | length > 3000 %}
+
+[…tronqué à 3000 chars…]{% endif %}</pre>
+    </details>
+  </section>
+  {% endif %}
 
   <section class="actions">
     <h2>Statut</h2>
     <form method="post" action="/offers/{{ offer.id }}/status" class="status-form">
+      <input type="hidden" name="return_to" value="/offers/{{ offer.id }}">
       {% for s in all_statuses %}
       <button type="submit" name="status" value="{{ s }}"
               class="btn status-btn status-{{ s }} {% if s == offer.status.value %}active{% endif %}">

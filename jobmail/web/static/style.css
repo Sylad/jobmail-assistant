@@ -143,3 +143,19 @@ dl.grid dd { margin: 0; }
 tr.row-status-ignored { opacity: 0.45; }
 tr.row-status-replied { background: rgba(251, 191, 36, 0.04); }
 tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }
+
+.mail-body {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 600px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
+  font-size: 0.85rem;
+  color: var(--fg-mute);
+}
+.offer-detail details summary { cursor: pointer; padding: 6px 0; }
+.offer-detail details[open] summary { color: var(--accent); }
