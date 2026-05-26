@@ -39,6 +39,23 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("serve", help="Run the local web dashboard.")
     sub.add_parser("seed", help="Seed the DB with mock offers for demo.")
     sub.add_parser("classify", help="Re-classify cached emails (no LLM call unless new).")
+    watch_parser = sub.add_parser(
+        "watch",
+        help="Watch MBOX file(s) for changes and trigger incremental fetch on each new mail.",
+    )
+    watch_parser.add_argument(
+        "--mbox", action="append", default=[], required=True, metavar="PATH",
+        help="MBOX path to watch. Repeatable.",
+    )
+    watch_parser.add_argument(
+        "--interval", type=float, default=30.0, metavar="SECONDS",
+        help="Polling interval in seconds (default 30; inotify is unreliable on /mnt/c).",
+    )
+    watch_parser.add_argument(
+        "--since-days", type=int, default=None, metavar="N",
+        help="On first scan, only ingest mails newer than N days.",
+    )
+
     extract_parser = sub.add_parser(
         "extract",
         help="Run LLM extraction on cached job-related mails that have no offer yet.",
@@ -85,6 +102,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Seeded {n} mock offers. Open http://{settings.web_host}:{settings.web_port}/")
         return 0
 
+    if args.cmd == "watch":
+        return _run_watch(
+            settings,
+            paths=args.mbox,
+            interval=args.interval,
+            since_days=args.since_days,
+        )
+
     if args.cmd == "extract":
         return _run_extract(settings, limit=args.limit, re_extract=args.re_extract)
 
@@ -104,6 +129,90 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     return 1
+
+
+def _run_watch(
+    settings,
+    *,
+    paths: list[str],
+    interval: float,
+    since_days: int | None,
+) -> int:
+    """Long-running poll loop: on each MBOX size+mtime change, trigger an
+    incremental fetch on just that path. Uses polling (stat-based) which is
+    reliable across the WSL2 9p boundary where inotify isn't.
+
+    Quick stat checks every `interval` seconds — negligible CPU. The actual
+    parse + LLM extraction only fires when a file changed.
+    """
+    import signal
+    import time
+
+    from .pipeline import run as run_pipeline
+
+    abs_paths = [str(Path(p).expanduser().resolve()) for p in paths]
+    for p in abs_paths:
+        if not Path(p).is_file():
+            logging.error("MBOX not found, ignoring: %s", p)
+    abs_paths = [p for p in abs_paths if Path(p).is_file()]
+    if not abs_paths:
+        logging.error("No valid MBOX paths to watch.")
+        return 1
+
+    # Seed last signatures from current state — we don't want to re-process
+    # everything on startup. Use stat snapshot as baseline; a real first-time
+    # run should use `jobmail fetch` separately.
+    signatures: dict[str, tuple[int, float]] = {}
+    for p in abs_paths:
+        stat = Path(p).stat()
+        signatures[p] = (stat.st_size, stat.st_mtime)
+        logging.info("Watching %s (%.1f MB)", Path(p).name, stat.st_size / 1024 / 1024)
+
+    stopping = False
+
+    def _on_sigint(_sig, _frame):
+        nonlocal stopping
+        stopping = True
+        logging.info("Shutdown requested — finishing current cycle then exiting.")
+
+    signal.signal(signal.SIGINT, _on_sigint)
+    signal.signal(signal.SIGTERM, _on_sigint)
+
+    logging.info("Watch loop started: %d paths, interval=%.0fs. Ctrl+C to stop.",
+                 len(abs_paths), interval)
+
+    while not stopping:
+        time.sleep(interval)
+        for p in abs_paths:
+            try:
+                stat = Path(p).stat()
+            except FileNotFoundError:
+                logging.warning("MBOX disappeared: %s", p)
+                continue
+            sig = (stat.st_size, stat.st_mtime)
+            if sig == signatures[p]:
+                continue
+
+            old_size, _ = signatures[p]
+            delta = stat.st_size - old_size
+            logging.info("MBOX changed: %s (+%d bytes) — fetching…",
+                         Path(p).name, delta)
+
+            source = _build_mbox_source([p], since_days=since_days, settings=settings)
+            try:
+                stats = run_pipeline(source=source, settings=settings)
+            except Exception:
+                logging.exception("Fetch failed for %s", p)
+                continue
+
+            logging.info(
+                "Fetch result: new=%d, job=%d, llm=%d",
+                stats.new, stats.job_related, stats.sent_to_llm,
+            )
+            signatures[p] = sig
+
+    logging.info("Watch loop exited.")
+    return 0
 
 
 def _run_extract(settings, *, limit: int | None, re_extract: bool) -> int:
