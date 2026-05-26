@@ -40,3 +40,18 @@ def test_mock_zero_score_on_unrelated():
     e = _email("Random", "Hello world")
     out = MockExtractor().extract(e, "Java GeoServer")
     assert out.relevance_score == 0
+
+
+def test_mock_scoring_rewards_profile_tech_matches_more_than_remote_only():
+    profile = "Java GeoServer OpenLayers Kubernetes"
+    remote_only = _email("Remote role", "Full remote, no stack details.")
+    strong_match = _email(
+        "Mission Java GeoServer",
+        "Java, GeoServer, OpenLayers, Kubernetes, Docker. Hybride Toulouse.",
+    )
+
+    low = MockExtractor().extract(remote_only, profile)
+    high = MockExtractor().extract(strong_match, profile)
+
+    assert high.relevance_score > low.relevance_score
+    assert high.relevance_score >= 8

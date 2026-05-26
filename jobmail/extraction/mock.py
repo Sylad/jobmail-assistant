@@ -3,12 +3,12 @@ from __future__ import annotations
 import hashlib
 import re
 
-from ..filtering.rules import TECHNO_KEYWORDS, classify
+from ..filtering.rules import TECHNO_KEYWORDS
 from ..models import ContractType, OfferExtraction, RawEmail, WorkMode
-from .base import ExtractorProvider
+from .base import LocalLLMProvider
 
 
-class MockExtractor(ExtractorProvider):
+class MockProvider(LocalLLMProvider):
     """Deterministic, offline extractor — never touches a network.
 
     Good enough for V1 demo + tests. Pulls heuristics from subject+body so
@@ -124,3 +124,6 @@ def _summary(subject: str, technos: list[str], wm: WorkMode, ct: ContractType) -
 # Deterministic hash used by tests to assert idempotency.
 def _deterministic_id(email: RawEmail) -> str:
     return hashlib.sha1(email.fingerprint.encode("utf-8")).hexdigest()[:12]
+
+
+MockExtractor = MockProvider

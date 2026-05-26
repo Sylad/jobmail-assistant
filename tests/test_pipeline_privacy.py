@@ -73,3 +73,21 @@ def test_pipeline_stores_classification_for_skipped_mails(tmp_settings, monkeypa
         row = conn.execute("SELECT job_related FROM emails WHERE uid = ?", ("skip-1",)).fetchone()
     assert row is not None
     assert row["job_related"] == 0
+
+
+def test_dry_run_never_instantiates_extractor(tmp_settings, monkeypatch):
+    def fail_get_extractor(settings):
+        raise AssertionError("dry-run must not create any LLM provider")
+
+    monkeypatch.setattr("jobmail.pipeline.get_extractor", fail_get_extractor)
+
+    emails = [
+        _email("dry-1", "Mission Java GeoServer", "Mission longue Java GeoServer."),
+        _email("dry-2", "Newsletter", "Articles du jour."),
+    ]
+    stats = run_pipeline(source=iter(emails), settings=tmp_settings, dry_run=True)
+
+    assert stats.dry_run is True
+    assert stats.job_related == 1
+    assert stats.sent_to_llm == 0
+    assert stats.extracted == 0

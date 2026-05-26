@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     db_path: Path = Path("./data/jobmail.db")
 
     llm_provider: Literal["mock", "ollama", "claude", "openai"] = "mock"
+    dry_run: bool = False
 
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"

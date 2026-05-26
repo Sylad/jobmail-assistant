@@ -12,7 +12,8 @@ Reads your mailbox (IMAP or Thunderbird MBOX), filters **locally**, and only sen
 
 - IMAP fetcher (`.env` driven) + Thunderbird MBOX reader
 - Local rule-based filter (FR + EN keywords + your stack: Java/GeoServer/OpenLayers/K8s/PostGIS/Spring/Docker…)
-- Pluggable extractor: `mock` (default, offline), `claude`, `ollama`, `openai` (stub)
+- Pluggable providers: `mock` (default, offline), `ollama` (local), `claude`, `openai`
+- Dry-run mode: reads and classifies locally, with no LLM provider instantiation
 - SQLite storage (single file, no server)
 - HTML dashboard (FastAPI + Jinja2) — list, filter by techno/score/status, mark new/interesting/ignored/replied
 - CLI: `jobmail fetch | serve | seed | classify`
@@ -64,9 +65,12 @@ IMAP_FOLDER=INBOX
 IMAP_FETCH_LIMIT=50
 
 LLM_PROVIDER=mock                     # mock | ollama | claude | openai
+DRY_RUN=false                         # true = classify only, no LLM calls
 ANTHROPIC_API_KEY=sk-ant-...          # if LLM_PROVIDER=claude
 ANTHROPIC_MODEL=claude-sonnet-4-6
 OLLAMA_MODEL=llama3.1                 # if LLM_PROVIDER=ollama
+OPENAI_API_KEY=sk-...                 # if LLM_PROVIDER=openai
+OPENAI_MODEL=gpt-4o-mini
 TARGET_PROFILE="Java senior, GeoServer, OpenLayers, Kubernetes, PostGIS, Spring, Docker"
 ```
 
@@ -89,6 +93,10 @@ Once configured:
 ```powershell
 # Fetch from IMAP, filter locally, extract via the configured provider
 python -m jobmail fetch
+
+# Read and classify only; never instantiates or calls an LLM provider
+python -m jobmail fetch --dry-run
+python -m jobmail dry-run
 
 # Re-classify cached emails after editing rules.py (no LLM call)
 python -m jobmail classify
@@ -119,7 +127,7 @@ jobmail/
 ├── pipeline.py      # fetch → filter → extract → store
 ├── mail/            # IMAP + Thunderbird + parser
 ├── filtering/       # local keyword rules (privacy-first)
-├── extraction/      # base + mock + claude + ollama + openai (stub)
+├── extraction/      # LLMProvider + mock/local/cloud providers
 ├── web/             # FastAPI + Jinja2 dashboard
 └── cli.py           # entry-point
 ```

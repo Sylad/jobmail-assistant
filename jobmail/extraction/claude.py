@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 
 from ..config import Settings
 from ..models import ContractType, OfferExtraction, RawEmail, WorkMode
-from .base import ExtractorProvider
+from .base import CloudLLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ TOOL_SCHEMA = {
 }
 
 
-class ClaudeExtractor(ExtractorProvider):
+class ClaudeProvider(CloudLLMProvider):
     def __init__(self, settings: Settings) -> None:
         if not settings.anthropic_api_key:
             raise RuntimeError("ANTHROPIC_API_KEY missing in .env")
@@ -58,7 +57,7 @@ class ClaudeExtractor(ExtractorProvider):
         self._client = Anthropic(api_key=settings.anthropic_api_key)
         self._model = settings.anthropic_model
 
-    def extract(self, email: RawEmail, target_profile: str) -> OfferExtraction:
+    def _extract_job_related(self, email: RawEmail, target_profile: str) -> OfferExtraction:
         user_msg = _build_user_message(email, target_profile)
         resp = self._client.messages.create(
             model=self._model,
@@ -108,3 +107,6 @@ def _from_tool_input(data: dict) -> OfferExtraction:
 # Used by tests to assert payload shape without hitting the SDK.
 def build_payload(email: RawEmail, target_profile: str) -> str:
     return _build_user_message(email, target_profile)
+
+
+ClaudeExtractor = ClaudeProvider
