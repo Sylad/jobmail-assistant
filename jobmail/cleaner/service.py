@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import subprocess
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from glob import glob
 from pathlib import Path
@@ -161,6 +162,7 @@ def scan_thunderbird_regex(
     regex_rules: list[tuple[str, str]] | None = None,
     min_age_days: int | None = None,
     max_mails: int | None = None,
+    progress_callback: Callable[[CleanerReport, str], None] | None = None,
 ) -> CleanerReport:
     rules = _compile_cleaner_regex_rules(sender_regex, subject_regex, regex_rules)
     min_age = _clean_min_age(min_age_days, settings.cleaner_min_age_days)
@@ -173,11 +175,17 @@ def scan_thunderbird_regex(
     for path in paths:
         mailbox_name = path.parent.name
         logger.info("Cleaner regex scanning mbox mailbox=%s path=%s", mailbox_name, path)
+        if progress_callback:
+            progress_callback(report, mailbox_name)
         for mail in read_mbox(path):
             if limit and report.scanned_count >= limit:
                 logger.info("Cleaner regex MBOX scan stopped at max_mails=%d candidates=%d", limit, report.candidate_count)
+                if progress_callback:
+                    progress_callback(report, mailbox_name)
                 return report
             report.scanned_count += 1
+            if progress_callback and report.scanned_count % 250 == 0:
+                progress_callback(report, mailbox_name)
             if not _is_older_than(mail.received_at, min_age):
                 continue
             regex_reason = _regex_match_reason(mail.sender, mail.subject, rules)
@@ -199,6 +207,8 @@ def scan_thunderbird_regex(
                     source_path=str(path),
                 )
             )
+    if progress_callback:
+        progress_callback(report, "")
     return report
 
 

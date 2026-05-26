@@ -18,7 +18,7 @@
 {% endif %}
 
 <section class="filters">
-  <form method="post" action="/cleaner/scan" class="filter-form">
+  <form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>
     <label>
       Source
       <select name="source">
@@ -92,6 +92,20 @@
     <button type="submit" class="btn btn-primary">Scanner toute la boite par regex</button>
     <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
   </form>
+  <div class="scan-progress" data-scan-progress hidden>
+    <div class="scan-progress-head">
+      <strong data-scan-progress-title>Scan en cours</strong>
+      <span class="muted small" data-scan-progress-time>0s</span>
+    </div>
+    <div class="progress-bar progress-bar-active">
+      <div class="progress-fill progress-fill-active"></div>
+    </div>
+    <div class="scan-progress-grid">
+      <span>Mails scannes <strong data-scan-progress-scanned>0</strong></span>
+      <span>Candidats <strong data-scan-progress-candidates>0</strong></span>
+      <span class="muted" data-scan-progress-mailbox></span>
+    </div>
+  </div>
   <p class="muted small">
     Dans une ligne, les champs remplis doivent tous correspondre. Les lignes sont combinees en OU global.
     L'action reste protegee par age minimum, mots sensibles exclus, backup Thunderbird et confirmation explicite.
@@ -364,6 +378,69 @@
     `;
     ruleBody.appendChild(row);
     row.querySelector("input")?.focus();
+  });
+})();
+
+(() => {
+  const form = document.querySelector("[data-regex-scan-form]");
+  const progress = document.querySelector("[data-scan-progress]");
+  if (!form || !progress) return;
+
+  const scanned = progress.querySelector("[data-scan-progress-scanned]");
+  const candidates = progress.querySelector("[data-scan-progress-candidates]");
+  const mailbox = progress.querySelector("[data-scan-progress-mailbox]");
+  const elapsed = progress.querySelector("[data-scan-progress-time]");
+  const title = progress.querySelector("[data-scan-progress-title]");
+  const submitButton = form.querySelector("button[type='submit']:not([name='export_csv'])");
+
+  const setProgress = (payload) => {
+    if (scanned) scanned.textContent = String(payload.scanned_count || 0);
+    if (candidates) candidates.textContent = String(payload.candidate_count || 0);
+    if (mailbox) mailbox.textContent = payload.current_mailbox ? `Boite ${payload.current_mailbox}` : "";
+    if (elapsed) elapsed.textContent = `${payload.elapsed_seconds || 0}s`;
+  };
+
+  const poll = async (jobId) => {
+    const response = await fetch(`/cleaner/scan/status/${jobId}`);
+    if (!response.ok) throw new Error("Impossible de lire le statut du scan.");
+    const payload = await response.json();
+    setProgress(payload);
+    if (payload.status === "done") {
+      if (title) title.textContent = "Scan termine";
+      window.location.href = payload.result_url;
+      return;
+    }
+    if (payload.status === "error") {
+      if (title) title.textContent = payload.error || "Scan en erreur";
+      if (submitButton) submitButton.disabled = false;
+      return;
+    }
+    window.setTimeout(() => poll(jobId).catch((error) => {
+      if (title) title.textContent = error.message;
+      if (submitButton) submitButton.disabled = false;
+    }), 700);
+  };
+
+  form.addEventListener("submit", async (event) => {
+    const submitter = event.submitter;
+    if (submitter && submitter.name === "export_csv") return;
+    event.preventDefault();
+    progress.hidden = false;
+    if (title) title.textContent = "Scan en cours";
+    if (submitButton) submitButton.disabled = true;
+    try {
+      const response = await fetch("/cleaner/scan/start", {
+        method: "POST",
+        body: new FormData(form),
+      });
+      if (!response.ok) throw new Error("Impossible de lancer le scan.");
+      const payload = await response.json();
+      setProgress(payload);
+      await poll(payload.id);
+    } catch (error) {
+      if (title) title.textContent = error.message || "Scan en erreur";
+      if (submitButton) submitButton.disabled = false;
+    }
   });
 })();
 </script>

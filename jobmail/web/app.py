@@ -3,6 +3,10 @@ from __future__ import annotations
 import sqlite3
 import csv
 import io
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request
@@ -125,6 +129,27 @@ BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
+@dataclass
+class CleanerScanJob:
+    id: str
+    status: str = "running"
+    source: str = "regex"
+    scanned_count: int = 0
+    candidate_count: int = 0
+    current_mailbox: str = ""
+    started_at: float = field(default_factory=time.time)
+    finished_at: float | None = None
+    error: str = ""
+    report: CleanerReport | None = None
+    min_age_days: int = 7
+    max_mails: int = 0
+    regex_rules: list[tuple[str, str]] = field(default_factory=list)
+
+
+_cleaner_jobs: dict[str, CleanerScanJob] = {}
+_cleaner_jobs_lock = threading.Lock()
+
+
 def _cleaner_context(
     *,
     request: Request,
@@ -203,6 +228,20 @@ def _report_to_csv(report: CleanerReport) -> str:
             candidate.source_path,
         ])
     return out.getvalue()
+
+
+def _job_payload(job: CleanerScanJob) -> dict:
+    elapsed = int((job.finished_at or time.time()) - job.started_at)
+    return {
+        "id": job.id,
+        "status": job.status,
+        "scanned_count": job.scanned_count,
+        "candidate_count": job.candidate_count,
+        "current_mailbox": job.current_mailbox,
+        "elapsed_seconds": elapsed,
+        "error": job.error,
+        "result_url": f"/cleaner/scan/result/{job.id}" if job.status == "done" else "",
+    }
 
 
 def create_app() -> FastAPI:
@@ -357,6 +396,117 @@ def create_app() -> FastAPI:
                 source=source,
                 sender_regex=sender_regex,
                 subject_regex=subject_regex,
+                regex_rules=regex_rules,
+            ),
+        )
+
+    @app.post("/cleaner/scan/start")
+    def cleaner_scan_start(
+        min_age_days: int = Form(settings.cleaner_min_age_days),
+        max_mails: int = Form(settings.cleaner_max_mails),
+        source: str = Form("regex"),
+        sender_regex: str = Form(""),
+        subject_regex: str = Form(""),
+        sender_regex_rule: list[str] = Form(default=[]),
+        subject_regex_rule: list[str] = Form(default=[]),
+    ):
+        if source != "regex":
+            raise HTTPException(status_code=400, detail="Le scan progressif est disponible pour les regex Thunderbird.")
+
+        regex_rules = _form_regex_rules(sender_regex_rule, subject_regex_rule, sender_regex, subject_regex)
+        job = CleanerScanJob(
+            id=uuid.uuid4().hex,
+            min_age_days=min_age_days,
+            max_mails=max_mails,
+            regex_rules=regex_rules,
+        )
+        with _cleaner_jobs_lock:
+            _cleaner_jobs[job.id] = job
+
+        def run_job() -> None:
+            def progress(report: CleanerReport, mailbox: str) -> None:
+                with _cleaner_jobs_lock:
+                    job.scanned_count = report.scanned_count
+                    job.candidate_count = report.candidate_count
+                    job.current_mailbox = mailbox
+
+            try:
+                report = scan_thunderbird_regex(
+                    settings,
+                    sender_regex=sender_regex,
+                    subject_regex=subject_regex,
+                    regex_rules=regex_rules,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                    progress_callback=progress,
+                )
+            except CleanerError as e:
+                with _cleaner_jobs_lock:
+                    job.status = "error"
+                    job.error = str(e)
+                    job.finished_at = time.time()
+                return
+            except Exception as e:
+                with _cleaner_jobs_lock:
+                    job.status = "error"
+                    job.error = f"Erreur inattendue pendant le scan: {e}"
+                    job.finished_at = time.time()
+                return
+            with _cleaner_jobs_lock:
+                job.status = "done"
+                job.report = report
+                job.scanned_count = report.scanned_count
+                job.candidate_count = report.candidate_count
+                job.current_mailbox = ""
+                job.finished_at = time.time()
+
+        threading.Thread(target=run_job, daemon=True).start()
+        return _job_payload(job)
+
+    @app.get("/cleaner/scan/status/{job_id}")
+    def cleaner_scan_status(job_id: str):
+        with _cleaner_jobs_lock:
+            job = _cleaner_jobs.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail="Scan introuvable.")
+            return _job_payload(job)
+
+    @app.get("/cleaner/scan/result/{job_id}", response_class=HTMLResponse)
+    def cleaner_scan_result(request: Request, job_id: str):
+        with _cleaner_jobs_lock:
+            job = _cleaner_jobs.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail="Scan introuvable.")
+            if job.status == "error":
+                return templates.TemplateResponse(
+                    request,
+                    "cleaner.html",
+                    _cleaner_context(
+                        request=request,
+                        settings=settings,
+                        min_age_days=job.min_age_days,
+                        max_mails=job.max_mails,
+                        source="regex",
+                        regex_rules=job.regex_rules,
+                        error=job.error,
+                    ),
+                    status_code=400,
+                )
+            if job.status != "done" or job.report is None:
+                raise HTTPException(status_code=409, detail="Scan encore en cours.")
+            report = job.report
+            regex_rules = list(job.regex_rules)
+
+        return templates.TemplateResponse(
+            request,
+            "cleaner.html",
+            _cleaner_context(
+                request=request,
+                settings=settings,
+                report=report,
+                min_age_days=job.min_age_days,
+                max_mails=job.max_mails,
+                source="regex",
                 regex_rules=regex_rules,
             ),
         )

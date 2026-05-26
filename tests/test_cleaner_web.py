@@ -116,6 +116,58 @@ def test_cleaner_regex_scan_renders_report(monkeypatch, tmp_path):
     assert "Deplacer tous les resultats regex vers la corbeille Thunderbird" in resp.text
 
 
+def test_cleaner_regex_scan_progress_endpoints(monkeypatch, tmp_path):
+    def fake_scan(settings, *, sender_regex, subject_regex, regex_rules, min_age_days, max_mails, progress_callback):
+        report = CleanerReport(
+            scanned_count=250,
+            candidates=[
+                CleanerCandidate(
+                    uid="mbox:pop.example:0",
+                    received_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                    sender="amazon@example.com",
+                    subject="Promo",
+                    reason="regle 1: regex expediteur: amazon",
+                    source="mbox",
+                )
+            ],
+        )
+        progress_callback(CleanerReport(scanned_count=100, candidates=[]), "pop.example")
+        return report
+
+    monkeypatch.setattr(web_app, "scan_thunderbird_regex", fake_scan)
+    client = _client(monkeypatch, tmp_path)
+
+    start = client.post(
+        "/cleaner/scan/start",
+        data={
+            "source": "regex",
+            "sender_regex_rule": "amazon",
+            "subject_regex_rule": "",
+            "min_age_days": "30",
+            "max_mails": "0",
+        },
+    )
+
+    assert start.status_code == 200
+    job_id = start.json()["id"]
+    status = client.get(f"/cleaner/scan/status/{job_id}")
+    assert status.status_code == 200
+    assert status.json()["status"] in {"running", "done"}
+
+    for _ in range(20):
+        payload = client.get(f"/cleaner/scan/status/{job_id}").json()
+        if payload["status"] == "done":
+            break
+    assert payload["status"] == "done"
+    assert payload["scanned_count"] == 250
+    assert payload["candidate_count"] == 1
+
+    result = client.get(f"/cleaner/scan/result/{job_id}")
+    assert result.status_code == 200
+    assert "Promo" in result.text
+    assert "Regles appliquees" in result.text
+
+
 def test_cleaner_scan_exports_csv(monkeypatch, tmp_path):
     monkeypatch.setattr(web_app, "scan_thunderbird_promotions", lambda *args, **kwargs: _report())
     client = _client(monkeypatch, tmp_path)

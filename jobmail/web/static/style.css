@@ -73,6 +73,18 @@ code { background: var(--bg-elev-2); padding: 2px 6px; border-radius: 4px; }
   background: linear-gradient(90deg, var(--accent), var(--ok));
   transition: width 0.8s ease;
 }
+.progress-bar-active {
+  margin: 10px 0;
+  height: 6px;
+}
+.progress-fill-active {
+  width: 45%;
+  animation: scan-slide 1.1s ease-in-out infinite alternate;
+}
+@keyframes scan-slide {
+  from { transform: translateX(-15%); }
+  to { transform: translateX(135%); }
+}
 .live-strip strong { color: var(--fg); }
 .live-strip-running { background: rgba(74, 222, 128, 0.10); color: var(--fg); }
 .live-dot {
@@ -138,6 +150,27 @@ select:focus-visible {
 .regex-rule-table input {
   width: 100%;
   min-width: 220px;
+}
+.scan-progress {
+  margin-top: 14px;
+  padding: 14px;
+  background: rgba(124, 183, 255, 0.08);
+  border: 1px solid rgba(124, 183, 255, 0.28);
+  border-radius: var(--radius);
+}
+.scan-progress-head,
+.scan-progress-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
+.scan-progress-head {
+  justify-content: space-between;
+}
+.scan-progress-grid strong {
+  color: var(--fg);
+  margin-left: 4px;
 }
 
 h1 { font-size: 1.55rem; margin: 0 0 18px; letter-spacing: 0.01em; }

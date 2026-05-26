@@ -144,6 +144,9 @@ Safety rules:
   combined as a global OR. Use `0` as max-mails for an unbounded pass. Regex
   moves replay the same rules after the dry-run and move every matching result
   in one Thunderbird rewrite.
+- Regex scans launched from the web UI run in the background with live progress:
+  scanned mail count, candidate count, current mailbox, elapsed time, then the
+  final report is loaded automatically.
 - A report is shown before any move, and confirmation checkboxes are required.
 - Logs never include the full mail content.
 
