@@ -79,6 +79,8 @@ const activePhase = ref<CleanerPhaseSource>("thunderbird");
 const fullScanRunning = ref(false);
 const moveAllRunning = ref(false);
 const moveAllBaseMoved = ref(0);
+const moveAllBaseProcessed = ref(0);
+const moveAllSkipped = ref(0);
 const moveAllTotalPlanned = ref(0);
 const moveAllCurrentPhaseIndex = ref(0);
 const moveAllPhaseCount = ref(0);
@@ -508,6 +510,8 @@ async function moveAllSelections(): Promise<void> {
 
   moveAllRunning.value = true;
   moveAllBaseMoved.value = 0;
+  moveAllBaseProcessed.value = 0;
+  moveAllSkipped.value = 0;
   moveAllCurrentPhase.value = null;
   const alreadyQueued = new Set<string>();
   const phaseMoves = scanPhases.flatMap((phase) => {
@@ -530,13 +534,21 @@ async function moveAllSelections(): Promise<void> {
       moveAllCurrentPhase.value = phase.source;
       moveAllCurrentPhaseIndex.value = index + 1;
       selectPhase(phase.source, true);
-      const moved = await moveThunderbirdResults(moveFieldsForPhase(result, uids));
-      movedTotal += moved;
-      moveAllBaseMoved.value = movedTotal;
+      try {
+        const moved = await moveThunderbirdResults(moveFieldsForPhase(result, uids));
+        movedTotal += moved;
+        moveAllBaseMoved.value = movedTotal;
+        moveAllBaseProcessed.value += uids.length;
+      } catch (error) {
+        if (!isSkippableMoveError(error)) throw error;
+        moveAllSkipped.value += uids.length;
+        moveAllBaseProcessed.value += uids.length;
+        setMoveAllSummaryProgress(error instanceof Error ? error.message : "Phase ignoree.");
+      }
     }
     actionMessage.value = movePanel.cancelling
       ? `${movedTotal} mail(s) deplace(s) avant l'arret demande.`
-      : `${movedTotal} mail(s) deplace(s) vers la corbeille Thunderbird depuis toutes les phases.`;
+      : `${movedTotal} mail(s) deplace(s) vers la corbeille Thunderbird depuis toutes les phases. ${moveAllSkipped.value} mail(s) ignore(s) car deja absents ou refuses.`;
   } catch (error) {
     actionError.value = error instanceof Error ? error.message : "Deplacement en erreur.";
   } finally {
@@ -564,6 +576,11 @@ function moveFieldsForPhase(result: CleanerScanResultPayload, uids: string[]): R
     fields.regex_job_id = result.regex_job_id;
   }
   return fields;
+}
+
+function isSkippableMoveError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Aucun mail") || message.includes("ne passe les regles");
 }
 
 async function moveThunderbirdResults(fields?: Record<string, string | string[]>): Promise<number> {
@@ -668,15 +685,18 @@ function setMoveProgress(payload: CleanerMoveJobPayload): void {
   const moved = payload.moved_count || 0;
   if (moveAllRunning.value && moveAllCurrentPhase.value) {
     const globalMoved = moveAllBaseMoved.value + moved;
+    const globalProcessed = moveAllBaseProcessed.value + moved;
     movePanel.title = `Deplacement en cours : ${phaseLabel(moveAllCurrentPhase.value)}`;
     movePanel.progressValue = moveAllTotalPlanned.value > 0
-      ? Math.round((globalMoved / moveAllTotalPlanned.value) * 100)
+      ? Math.round((globalProcessed / moveAllTotalPlanned.value) * 100)
       : null;
     movePanel.stats = [
       { label: "Phase", value: `${moveAllCurrentPhaseIndex.value}/${moveAllPhaseCount.value}` },
       { label: "Etape", value: phaseLabel(moveAllCurrentPhase.value) },
       { label: "Total prevu", value: moveAllTotalPlanned.value },
+      { label: "Total traite", value: globalProcessed },
       { label: "Total deplace", value: globalMoved },
+      { label: "Ignores", value: moveAllSkipped.value },
       { label: "Phase prevue", value: total },
       { label: "Phase deplacee", value: moved },
     ];
@@ -686,6 +706,23 @@ function setMoveProgress(payload: CleanerMoveJobPayload): void {
   movePanel.stats = [
     { label: "Messages prevus", value: total },
     { label: "Messages deplaces", value: moved },
+  ];
+}
+
+function setMoveAllSummaryProgress(title: string): void {
+  movePanel.visible = true;
+  movePanel.title = title;
+  movePanel.active = moveAllRunning.value;
+  movePanel.progressValue = moveAllTotalPlanned.value > 0
+    ? Math.round((moveAllBaseProcessed.value / moveAllTotalPlanned.value) * 100)
+    : null;
+  movePanel.stats = [
+    { label: "Phase", value: `${moveAllCurrentPhaseIndex.value}/${moveAllPhaseCount.value}` },
+    { label: "Etape", value: moveAllCurrentPhase.value ? phaseLabel(moveAllCurrentPhase.value) : "-" },
+    { label: "Total prevu", value: moveAllTotalPlanned.value },
+    { label: "Total traite", value: moveAllBaseProcessed.value },
+    { label: "Total deplace", value: moveAllBaseMoved.value },
+    { label: "Ignores", value: moveAllSkipped.value },
   ];
 }
 
