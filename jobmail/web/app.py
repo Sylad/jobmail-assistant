@@ -249,7 +249,7 @@ def _cleaner_context(
         "request": request,
         "report": report,
         "min_age_days": min_age_days or settings.cleaner_min_age_days,
-        "max_mails": max_mails or settings.cleaner_max_mails,
+        "max_mails": settings.cleaner_max_mails if max_mails is None else max_mails,
         "scan_offset": max(0, scan_offset),
         "source": source,
         "sender_regex": sender_regex,
@@ -613,13 +613,15 @@ def create_app() -> FastAPI:
         sender_regex_rule: list[str] = Form(default=[]),
         subject_regex_rule: list[str] = Form(default=[]),
     ):
-        if source != "regex":
-            raise HTTPException(status_code=400, detail="Le scan progressif est disponible pour les regex Thunderbird.")
+        if source not in {"regex", "duplicates"}:
+            raise HTTPException(status_code=400, detail="Le scan progressif est disponible pour les regex et doublons Thunderbird.")
 
         regex_rules = _form_regex_rules(sender_regex_rule, subject_regex_rule, sender_regex, subject_regex)
-        _save_regex_rules(settings, regex_rules)
+        if source == "regex":
+            _save_regex_rules(settings, regex_rules)
         job = CleanerScanJob(
             id=uuid.uuid4().hex,
+            source=source,
             min_age_days=min_age_days,
             max_mails=max_mails,
             regex_rules=regex_rules,
@@ -642,16 +644,25 @@ def create_app() -> FastAPI:
                     return job.cancel_requested
 
             try:
-                report = scan_thunderbird_regex(
-                    settings,
-                    sender_regex=sender_regex,
-                    subject_regex=subject_regex,
-                    regex_rules=regex_rules,
-                    min_age_days=min_age_days,
-                    max_mails=max_mails,
-                    progress_callback=progress,
-                    should_cancel=should_cancel,
-                )
+                if source == "duplicates":
+                    report = scan_thunderbird_duplicates(
+                        settings,
+                        min_age_days=min_age_days,
+                        max_mails=max_mails,
+                        progress_callback=progress,
+                        should_cancel=should_cancel,
+                    )
+                else:
+                    report = scan_thunderbird_regex(
+                        settings,
+                        sender_regex=sender_regex,
+                        subject_regex=subject_regex,
+                        regex_rules=regex_rules,
+                        min_age_days=min_age_days,
+                        max_mails=max_mails,
+                        progress_callback=progress,
+                        should_cancel=should_cancel,
+                    )
             except CleanerError as e:
                 with _cleaner_jobs_lock:
                     job.status = "error"
@@ -712,7 +723,7 @@ def create_app() -> FastAPI:
                         settings=settings,
                         min_age_days=job.min_age_days,
                         max_mails=job.max_mails,
-                        source="regex",
+                        source=job.source,
                         regex_rules=job.regex_rules,
                         error=job.error,
                     ),
@@ -727,7 +738,7 @@ def create_app() -> FastAPI:
                         settings=settings,
                         min_age_days=job.min_age_days,
                         max_mails=job.max_mails,
-                        source="regex",
+                        source=job.source,
                         regex_rules=job.regex_rules,
                         error="Scan annule. Aucun deplacement n'a ete lance.",
                     ),
@@ -747,7 +758,7 @@ def create_app() -> FastAPI:
                 report=report,
                 min_age_days=job.min_age_days,
                 max_mails=job.max_mails,
-                source="regex",
+                source=job.source,
                 regex_rules=regex_rules,
                 regex_job_id=job_id,
             ),

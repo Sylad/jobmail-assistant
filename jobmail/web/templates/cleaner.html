@@ -35,7 +35,7 @@
     </label>
     <label>
       Limite max-mails
-      <input type="number" name="max_mails" min="1" max="1000" value="{{ max_mails }}">
+      <input type="number" name="max_mails" min="0" max="1000" value="{{ max_mails }}">
     </label>
     <label>
       Ignorer les N premiers
@@ -129,7 +129,7 @@
 
 <section class="filters">
   <form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>
-    <input type="hidden" name="source" value="regex">
+    <input type="hidden" name="source" value="{% if source == 'duplicates' %}duplicates{% else %}regex{% endif %}">
     <div class="regex-rule-list">
       <span class="label-title">Regles regex</span>
       <table class="compact-table regex-rule-table">
@@ -158,7 +158,9 @@
       Limite max-mails
       <input type="number" name="max_mails" min="0" value="{% if source == 'regex' %}{{ max_mails }}{% else %}0{% endif %}">
     </label>
-    <button type="button" class="btn btn-primary" data-start-regex-scan>Scanner toute la boite par regex</button>
+    <button type="button" class="btn btn-primary" data-start-regex-scan>
+      {% if source == 'duplicates' %}Scanner les doublons avec progression{% else %}Scanner toute la boite par regex{% endif %}
+    </button>
     <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
   </form>
   <div class="scan-progress" data-scan-progress hidden>

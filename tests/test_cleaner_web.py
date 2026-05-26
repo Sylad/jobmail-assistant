@@ -49,7 +49,7 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     assert '<input type="hidden" name="source" value="regex">' in resp.text
     regex_form = '<form method="post" action="/cleaner/scan" class="filter-form" data-regex-scan-form>'
     assert resp.text.count(regex_form) == 1
-    assert '<button type="button" class="btn btn-primary" data-start-regex-scan>Scanner toute la boite par regex</button>' in resp.text
+    assert "Scanner toute la boite par regex" in resp.text
     assert "Backups Thunderbird" in resp.text
     assert "Nettoyer les anciens backups" in resp.text
 

@@ -112,7 +112,7 @@ def scan_old_promotions(
 
     report = CleanerReport()
     query = AND(uid=uids) if uids else AND(date_lt=cutoff)
-    fetch_limit = None if uids else limit
+    fetch_limit = None if uids or limit == 0 else limit
 
     with MailBox(settings.imap_host, port=settings.imap_port).login(
         settings.imap_user,
@@ -178,7 +178,7 @@ def scan_thunderbird_promotions(
             if skipped < skip_mails:
                 skipped += 1
                 continue
-            if report.scanned_count >= limit:
+            if limit and report.scanned_count >= limit:
                 logger.info(
                     "Cleaner MBOX scan stopped at max_mails=%d candidates=%d skip_mails=%d",
                     limit,
@@ -320,7 +320,7 @@ def scan_parsed_job_mails(
 
     for row in rows:
         report.scanned_count += 1
-        if report.candidate_count >= limit:
+        if limit and report.candidate_count >= limit:
             break
         parsed_uid = _stored_email_uid_to_mbox_uid(row["uid"])
         if parsed_uid is None:
@@ -377,6 +377,8 @@ def scan_thunderbird_duplicates(
     keeper_mailbox_regex: str = r"gmail",
     min_age_days: int | None = None,
     max_mails: int | None = None,
+    progress_callback: Callable[[CleanerReport, str], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> CleanerReport:
     source_pattern = re.compile(source_mailbox_regex, re.IGNORECASE)
     keeper_pattern = re.compile(keeper_mailbox_regex, re.IGNORECASE)
@@ -390,8 +392,15 @@ def scan_thunderbird_duplicates(
     report = CleanerReport()
     for path in paths:
         mailbox = path.parent.name
+        if progress_callback:
+            progress_callback(report, mailbox)
         for mail in read_mbox(path):
+            if should_cancel and should_cancel():
+                logger.info("Cleaner duplicate scan cancelled scanned=%d candidates=%d", report.scanned_count, report.candidate_count)
+                return report
             report.scanned_count += 1
+            if progress_callback and report.scanned_count % 250 == 0:
+                progress_callback(report, mailbox)
             message_id = (mail.message_id or "").strip().lower()
             if not message_id:
                 report.skipped_no_match += 1
@@ -434,7 +443,11 @@ def scan_thunderbird_duplicates(
                     duplicate_of=f"{keeper.mailbox}:{message_id}",
                 )
             )
+            if progress_callback and report.candidate_count % 100 == 0:
+                progress_callback(report, "dedupe")
 
+    if progress_callback:
+        progress_callback(report, "")
     logger.info(
         "Cleaner duplicate scan done scanned=%d candidates=%d source=%s keeper=%s",
         report.scanned_count,
@@ -728,7 +741,10 @@ def _clean_min_age(value: int | None, default: int) -> int:
 
 
 def _clean_limit(value: int | None, default: int) -> int:
-    return max(1, min(1000, int(value if value is not None else default)))
+    raw = int(value if value is not None else default)
+    if raw == 0:
+        return 0
+    return max(1, min(1000, raw))
 
 
 def _clean_unbounded_limit(value: int | None) -> int:
