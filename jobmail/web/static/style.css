@@ -598,6 +598,31 @@ tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }
   border-radius: var(--radius);
   background: rgba(248, 113, 113, 0.08);
 }
+.cleaner-action-bar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  margin: 12px 0 18px;
+}
+.cleaner-action-bar p {
+  margin: 6px 0 0;
+}
+.cleaner-action-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+.cleaner-action-controls .confirm-line {
+  margin: 0;
+  white-space: nowrap;
+}
+.cleaner-action-bar .vue-progress-panel {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+}
 .info-action {
   margin-top: 16px;
   padding: 14px;
@@ -653,6 +678,15 @@ tr.row-status-interesting { background: rgba(74, 222, 128, 0.05); }
   }
   .phase-strip {
     grid-template-columns: 1fr;
+  }
+  .cleaner-action-bar {
+    grid-template-columns: 1fr;
+  }
+  .cleaner-action-controls {
+    justify-content: flex-start;
+  }
+  .cleaner-action-controls .confirm-line {
+    white-space: normal;
   }
   .sender-actions { justify-content: flex-start; flex-wrap: wrap; }
 }

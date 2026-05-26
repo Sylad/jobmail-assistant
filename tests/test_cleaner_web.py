@@ -688,6 +688,72 @@ def test_cleaner_regex_move_progress_endpoints(monkeypatch, tmp_path):
     assert "corbeille Thunderbird" in result.text
 
 
+def test_cleaner_regex_move_progress_filters_selected_uids(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_move(settings, *, uids, min_age_days, progress_callback):
+        calls["uids"] = uids
+        calls["min_age_days"] = min_age_days
+        progress_callback(len(uids))
+        return len(uids), CleanerReport(scanned_count=12, candidates=[])
+
+    monkeypatch.setattr(web_app, "move_scanned_regex_uids_to_trash", fake_move)
+    client = _client(monkeypatch, tmp_path)
+    scan_job = web_app.CleanerScanJob(
+        id="scan-job-selected",
+        status="done",
+        scanned_count=12,
+        candidate_count=2,
+        report=CleanerReport(
+            scanned_count=12,
+            candidates=[
+                CleanerCandidate(
+                    uid="mbox:pop.example:456",
+                    received_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                    sender="amazon@example.com",
+                    subject="Promo",
+                    reason="regle 1",
+                    source="mbox",
+                ),
+                CleanerCandidate(
+                    uid="mbox:pop.example:789",
+                    received_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                    sender="google@example.com",
+                    subject="Promo",
+                    reason="regle 2",
+                    source="mbox",
+                ),
+            ],
+        ),
+        min_age_days=9,
+        max_mails=0,
+        regex_rules=[("amazon|google", "promo")],
+    )
+    with web_app._cleaner_jobs_lock:
+        web_app._cleaner_jobs[scan_job.id] = scan_job
+
+    start = client.post(
+        "/cleaner/move-thunderbird-to-trash/start",
+        data={
+            "source": "regex",
+            "regex_job_id": "scan-job-selected",
+            "selected_uid": "mbox:pop.example:789",
+            "confirm_move": "yes",
+            "confirm_thunderbird_closed": "yes",
+        },
+    )
+
+    assert start.status_code == 200
+    move_job_id = start.json()["id"]
+    for _ in range(20):
+        payload = client.get(f"/cleaner/move/status/{move_job_id}").json()
+        if payload["status"] == "done":
+            break
+    assert payload["status"] == "done"
+    assert payload["total_count"] == 1
+    assert calls == {"uids": ["mbox:pop.example:789"], "min_age_days": 9}
+
+
 def test_cleaner_mbox_move_progress_endpoints(monkeypatch, tmp_path):
     calls = {}
 

@@ -69,8 +69,15 @@ const phaseErrors = reactive<Record<CleanerPhaseSource, string>>({
   parsed_jobs: "",
   duplicates: "",
 });
+const phaseSelections = reactive<Record<CleanerPhaseSource, string[]>>({
+  thunderbird: [],
+  regex: [],
+  parsed_jobs: [],
+  duplicates: [],
+});
 const activePhase = ref<CleanerPhaseSource>("thunderbird");
 const fullScanRunning = ref(false);
+const moveAllRunning = ref(false);
 const selectedUids = ref<Set<string>>(new Set());
 const confirmMove = ref(false);
 const confirmThunderbirdClosed = ref(false);
@@ -109,10 +116,17 @@ const currentReport = computed<CleanerReportPayload | null>(() => reportResult.v
 const movableCandidates = computed(() => currentReport.value?.candidates.filter((candidate) => candidate.can_move) ?? []);
 const selectedCount = computed(() => selectedUids.value.size);
 const totalPhaseCandidates = computed(() => scanPhases.reduce((sum, phase) => sum + (phaseResults[phase.source]?.report.candidate_count ?? 0), 0));
-const canMoveSelection = computed(() => {
-  if (!reportResult.value || !currentReport.value?.candidate_count) return false;
-  if (reportResult.value.source === "regex") return currentReport.value.candidate_count > 0;
-  return selectedCount.value > 0;
+const totalSelectedCandidates = computed(() => {
+  const uids = new Set<string>();
+  scanPhases.forEach((phase) => {
+    const result = phaseResults[phase.source];
+    if (!result) return;
+    const selected = phase.source === "regex"
+      ? result.report.candidates.map((candidate) => candidate.uid)
+      : phaseSelections[phase.source];
+    selected.forEach((uid) => uids.add(uid));
+  });
+  return uids.size;
 });
 const regexSaveLabel = computed(() => {
   if (regexSaveState.value === "saving") return "Sauvegarde...";
@@ -163,13 +177,6 @@ function sourceDescription(source: CleanerSource): string {
     return props.initial.imap_enabled ? `Source IMAP configuree, deplacement vers ${props.initial.delete_folder}.` : "IMAP n'est pas configure.";
   }
   return `MBOX scannes : ${props.initial.mbox_patterns.join(", ")}`;
-}
-
-function moveHelpText(): string {
-  if (reportResult.value?.source === "imap") {
-    return `Les messages selectionnes seront deplaces vers ${reportResult.value.delete_folder}.`;
-  }
-  return "Ferme Thunderbird avant de lancer l'action. JobMail fera un backup hors des dossiers Mail Thunderbird puis deplacera les messages vers la corbeille locale.";
 }
 
 function addRegexRule(): void {
@@ -238,6 +245,7 @@ async function startFullScan(): Promise<void> {
     phaseResults[phase.source] = null;
     phaseStatuses[phase.source] = "idle";
     phaseErrors[phase.source] = "";
+    phaseSelections[phase.source] = [];
   });
 
   try {
@@ -335,6 +343,7 @@ async function loadScanResult(url: string, activate = true): Promise<CleanerScan
   form.scanOffset = payload.scan_offset;
   if (isPhaseSource(payload.source)) {
     phaseResults[payload.source] = payload;
+    initializePhaseSelection(payload.source, payload);
   }
   if (payload.source === "regex") {
     regexHydrating = true;
@@ -413,7 +422,7 @@ function isPhaseSource(source: CleanerSource): source is CleanerPhaseSource {
   return source !== "imap";
 }
 
-function selectPhase(source: CleanerPhaseSource): void {
+function selectPhase(source: CleanerPhaseSource, preserveConfirmation = false): void {
   const result = phaseResults[source];
   activePhase.value = source;
   if (!result) return;
@@ -422,9 +431,11 @@ function selectPhase(source: CleanerPhaseSource): void {
   form.minAgeDays = result.min_age_days;
   form.maxMails = result.max_mails;
   form.scanOffset = result.scan_offset;
-  confirmMove.value = false;
-  confirmThunderbirdClosed.value = false;
-  selectAllCandidates();
+  if (!preserveConfirmation) {
+    confirmMove.value = false;
+    confirmThunderbirdClosed.value = false;
+  }
+  selectedUids.value = new Set(phaseSelections[source]);
 }
 
 function sleep(milliseconds: number): Promise<void> {
@@ -432,11 +443,11 @@ function sleep(milliseconds: number): Promise<void> {
 }
 
 function selectAllCandidates(): void {
-  selectedUids.value = new Set(movableCandidates.value.map((candidate) => candidate.uid));
+  setActiveSelection(new Set(movableCandidates.value.map((candidate) => candidate.uid)));
 }
 
 function clearSelection(): void {
-  selectedUids.value = new Set();
+  setActiveSelection(new Set());
 }
 
 function setSenderSelection(sender: string, selected: boolean): void {
@@ -447,14 +458,23 @@ function setSenderSelection(sender: string, selected: boolean): void {
       if (selected) next.add(candidate.uid);
       else next.delete(candidate.uid);
     });
-  selectedUids.value = next;
+  setActiveSelection(next);
 }
 
 function toggleCandidate(uid: string, selected: boolean): void {
   const next = new Set(selectedUids.value);
   if (selected) next.add(uid);
   else next.delete(uid);
+  setActiveSelection(next);
+}
+
+function setActiveSelection(next: Set<string>): void {
   selectedUids.value = next;
+  phaseSelections[activePhase.value] = Array.from(next);
+}
+
+function initializePhaseSelection(source: CleanerPhaseSource, result: CleanerScanResultPayload): void {
+  phaseSelections[source] = result.report.candidates.filter((candidate) => candidate.can_move).map((candidate) => candidate.uid);
 }
 
 function senderState(sender: string): string {
@@ -472,56 +492,63 @@ function senderRowClass(sender: string): string {
   return "sender-included";
 }
 
-function submitHtmlMove(action: string, fields: Record<string, string | string[]>): void {
-  const formElement = document.createElement("form");
-  formElement.method = "POST";
-  formElement.action = action;
-  formElement.style.display = "none";
-  Object.entries(fields).forEach(([key, value]) => {
-    const values = Array.isArray(value) ? value : [value];
-    values.forEach((entry) => {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = key;
-      input.value = entry;
-      formElement.appendChild(input);
-    });
-  });
-  document.body.appendChild(formElement);
-  formElement.submit();
-  formElement.remove();
-}
-
-async function moveSelection(): Promise<void> {
+async function moveAllSelections(): Promise<void> {
   actionError.value = "";
   actionMessage.value = "";
-  if (!reportResult.value || !canMoveSelection.value) return;
-  if (!confirmMove.value || (reportResult.value.source !== "imap" && !confirmThunderbirdClosed.value)) {
+  if (!confirmMove.value || !confirmThunderbirdClosed.value) {
     actionError.value = "Confirmation obligatoire avant tout deplacement.";
     return;
   }
+  if (totalSelectedCandidates.value <= 0) return;
 
-  if (reportResult.value.source === "regex") {
-    await moveThunderbirdResults();
-    return;
-  }
-
-  const fields: Record<string, string | string[]> = {
-    source: reportResult.value.source,
-    min_age_days: String(reportResult.value.min_age_days),
-    max_mails: String(reportResult.value.max_mails),
-    selected_uid: Array.from(selectedUids.value),
-    confirm_move: "yes",
-  };
-  if (reportResult.value.source === "imap") {
-    submitHtmlMove("/cleaner/move-to-delete", fields);
-  } else {
-    await moveThunderbirdResults(fields);
+  moveAllRunning.value = true;
+  const alreadyQueued = new Set<string>();
+  let movedTotal = 0;
+  try {
+    for (const phase of scanPhases) {
+      const result = phaseResults[phase.source];
+      if (!result) continue;
+      const selectedForPhase = selectedUidsForMove(phase.source, result).filter((uid) => {
+        if (alreadyQueued.has(uid)) return false;
+        alreadyQueued.add(uid);
+        return true;
+      });
+      if (!selectedForPhase.length) continue;
+      selectPhase(phase.source, true);
+      const moved = await moveThunderbirdResults(moveFieldsForPhase(result, selectedForPhase));
+      movedTotal += moved;
+    }
+    actionMessage.value = `${movedTotal} mail(s) deplace(s) vers la corbeille Thunderbird depuis toutes les phases.`;
+  } catch (error) {
+    actionError.value = error instanceof Error ? error.message : "Deplacement en erreur.";
+  } finally {
+    moveAllRunning.value = false;
   }
 }
 
-async function moveThunderbirdResults(fields?: Record<string, string | string[]>): Promise<void> {
-  if (!reportResult.value) return;
+function selectedUidsForMove(source: CleanerPhaseSource, result: CleanerScanResultPayload): string[] {
+  if (source === "regex") {
+    return result.report.candidates.map((candidate) => candidate.uid);
+  }
+  return phaseSelections[source];
+}
+
+function moveFieldsForPhase(result: CleanerScanResultPayload, uids: string[]): Record<string, string | string[]> {
+  const fields: Record<string, string | string[]> = {
+    source: result.source,
+    min_age_days: String(result.min_age_days),
+    max_mails: String(result.max_mails),
+    selected_uid: uids,
+    confirm_move: "yes",
+  };
+  if (result.source === "regex") {
+    fields.regex_job_id = result.regex_job_id;
+  }
+  return fields;
+}
+
+async function moveThunderbirdResults(fields?: Record<string, string | string[]>): Promise<number> {
+  if (!reportResult.value) return 0;
   showMovePanel();
   const data = new FormData();
   if (fields) {
@@ -543,12 +570,12 @@ async function moveThunderbirdResults(fields?: Record<string, string | string[]>
     const payload = await response.json().catch(() => ({}));
     movePanel.title = payload.detail || "Impossible de lancer le deplacement.";
     movePanel.active = false;
-    return;
+    throw new Error(movePanel.title);
   }
   const payload = await response.json() as CleanerMoveJobPayload;
   currentMoveJobId = payload.id;
   setMoveProgress(payload);
-  await pollMove(payload.id);
+  return await pollMove(payload.id);
 }
 
 function showMovePanel(): void {
@@ -564,7 +591,7 @@ function showMovePanel(): void {
   ];
 }
 
-async function pollMove(jobId: string): Promise<void> {
+async function pollMove(jobId: string): Promise<number> {
   const response = await fetch(`/cleaner/move/status/${jobId}`);
   if (!response.ok) throw new Error("Impossible de lire le statut du deplacement.");
   const payload = await response.json() as CleanerMoveJobPayload;
@@ -572,31 +599,27 @@ async function pollMove(jobId: string): Promise<void> {
   if (payload.status === "done") {
     movePanel.title = "Deplacement termine";
     movePanel.active = false;
-    await loadMoveResult(payload.result_json_url || `/cleaner/move/status/${jobId}/result-json`);
-    return;
+    return await loadMoveResult(payload.result_json_url || `/cleaner/move/status/${jobId}/result-json`);
   }
   if (payload.status === "cancelled") {
     movePanel.title = "Deplacement annule";
     movePanel.active = false;
     movePanel.cancelling = false;
-    return;
+    return payload.moved_count || 0;
   }
   if (payload.status === "error") {
     movePanel.title = payload.error || "Deplacement en erreur";
     movePanel.active = false;
     movePanel.cancelling = false;
-    return;
+    throw new Error(movePanel.title);
   }
-  window.setTimeout(() => pollMove(jobId).catch((error: unknown) => {
-    movePanel.title = error instanceof Error ? error.message : "Deplacement en erreur";
-    movePanel.active = false;
-    movePanel.cancelling = false;
-  }), 700);
+  await sleep(700);
+  return pollMove(jobId);
 }
 
-async function loadMoveResult(url: string): Promise<void> {
+async function loadMoveResult(url: string): Promise<number> {
   const response = await fetch(url);
-  if (!response.ok) return;
+  if (!response.ok) return 0;
   const payload = await response.json();
   actionMessage.value = `${payload.moved_count} mail(s) deplace(s) vers ${payload.moved_destination}.`;
   if (reportResult.value) {
@@ -605,8 +628,10 @@ async function loadMoveResult(url: string): Promise<void> {
     reportResult.value.regex_rules = payload.regex_rules;
     if (isPhaseSource(reportResult.value.source)) {
       phaseResults[reportResult.value.source] = reportResult.value;
+      initializePhaseSelection(reportResult.value.source, reportResult.value);
     }
   }
+  return Number(payload.moved_count || 0);
 }
 
 async function cancelMove(): Promise<void> {
@@ -627,13 +652,6 @@ function setMoveProgress(payload: CleanerMoveJobPayload): void {
   ];
 }
 
-function moveButtonLabel(): string {
-  if (!reportResult.value) return "Deplacer la selection";
-  if (reportResult.value.source === "regex") return "Deplacer tous les resultats regex vers la corbeille Thunderbird";
-  if (reportResult.value.source === "duplicates") return "Deplacer les doublons selectionnes vers la corbeille Thunderbird";
-  if (reportResult.value.source === "imap") return `Deplacer la selection vers ${reportResult.value.delete_folder}`;
-  return "Deplacer la selection vers la corbeille Thunderbird";
-}
 </script>
 
 <template>
@@ -780,6 +798,46 @@ function moveButtonLabel(): string {
         </div>
       </div>
 
+      <div v-if="totalPhaseCandidates" class="danger-action cleaner-action-bar">
+        <div>
+          <strong>Action Thunderbird locale : toutes les phases scannees.</strong>
+          <p class="muted">
+            {{ totalSelectedCandidates }} mail(s) selectionne(s) seront deplaces vers la corbeille Thunderbird.
+            Les doublons entre phases sont ignores pour ne pas traiter deux fois le meme message.
+          </p>
+        </div>
+        <div class="cleaner-action-controls">
+          <label class="confirm-line">
+            <input v-model="confirmThunderbirdClosed" type="checkbox">
+            Thunderbird est ferme.
+          </label>
+          <label class="confirm-line">
+            <input v-model="confirmMove" type="checkbox">
+            Rapport relu, lancer le deplacement.
+          </label>
+          <Button
+            type="button"
+            variant="destructive"
+            :disabled="!totalSelectedCandidates || moveAllRunning"
+            @click="moveAllSelections"
+          >
+            <Trash2 :size="16" />
+            {{ moveAllRunning ? 'Deplacement en cours...' : 'Deplacer toutes les phases selectionnees' }}
+          </Button>
+        </div>
+
+        <ProgressPanel
+          v-if="movePanel.visible"
+          :title="movePanel.title"
+          :elapsed-seconds="movePanel.elapsedSeconds"
+          :active="movePanel.active"
+          :cancelling="movePanel.cancelling"
+          :progress-value="movePanel.progressValue"
+          :stats="movePanel.stats"
+          @cancel="cancelMove"
+        />
+      </div>
+
       <h2>Top expediteurs</h2>
       <div v-if="currentReport.top_senders.length && reportResult.source !== 'regex'" class="bulk-actions">
         <Button type="button" size="sm" @click="selectAllCandidates">Tout selectionner</Button>
@@ -861,33 +919,6 @@ function moveButtonLabel(): string {
       </table>
       <p v-else class="empty">Aucun candidat trouve avec ces criteres.</p>
 
-      <div v-if="currentReport.candidates.length" class="danger-action">
-        <strong>{{ reportResult.source === 'imap' ? 'Action IMAP.' : 'Action Thunderbird locale.' }}</strong>
-        <p class="muted">{{ moveHelpText() }}</p>
-        <label v-if="reportResult.source !== 'imap'" class="confirm-line">
-          <input v-model="confirmThunderbirdClosed" type="checkbox">
-          Je confirme que Thunderbird est ferme.
-        </label>
-        <label class="confirm-line">
-          <input v-model="confirmMove" type="checkbox">
-          Je confirme avoir relu le rapport et veux lancer le deplacement.
-        </label>
-        <Button type="button" variant="destructive" :disabled="!canMoveSelection" @click="moveSelection">
-          <Trash2 :size="16" />
-          {{ moveButtonLabel() }}
-        </Button>
-
-        <ProgressPanel
-          v-if="movePanel.visible"
-          :title="movePanel.title"
-          :elapsed-seconds="movePanel.elapsedSeconds"
-          :active="movePanel.active"
-          :cancelling="movePanel.cancelling"
-          :progress-value="movePanel.progressValue"
-          :stats="movePanel.stats"
-          @cancel="cancelMove"
-        />
-      </div>
     </section>
   </div>
 </template>

@@ -998,13 +998,15 @@ def create_app() -> FastAPI:
         scan_report: CleanerReport | None = None
         regex_rules: list[tuple[str, str]] = []
         if source == "regex":
+            requested_uids = set(selected_uids)
             job_context = _regex_job_move_context(regex_job_id) if regex_job_id else None
             if job_context is None:
                 raise HTTPException(
                     status_code=400,
                     detail="Le resultat du scan n'est plus disponible. Relance un scan regex avant de deplacer.",
                 )
-            selected_uids, scan_report, regex_rules, min_age_days, max_mails = job_context
+            scanned_uids, scan_report, regex_rules, min_age_days, max_mails = job_context
+            selected_uids = [uid for uid in scanned_uids if not requested_uids or uid in requested_uids]
         elif source not in {"thunderbird", "parsed_jobs", "duplicates"}:
             raise HTTPException(status_code=400, detail="Source Thunderbird inconnue.")
         if not selected_uids:
