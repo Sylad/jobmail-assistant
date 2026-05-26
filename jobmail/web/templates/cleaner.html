@@ -4,8 +4,9 @@
 <section class="tool-head">
   <h1>Mailbox cleaner</h1>
   <p class="muted">
-    Scan IMAP en dry-run uniquement. Aucun fichier Thunderbird n'est modifie, aucune suppression definitive.
-    L'action disponible deplace la selection vers <strong>{{ delete_folder }}</strong>.
+    Scan Thunderbird ou IMAP en dry-run. Les fichiers Thunderbird sont lus en lecture seule :
+    aucune suppression definitive, aucune modification directe des MBOX. L'action disponible
+    deplace uniquement des messages IMAP selectionnes vers <strong>{{ delete_folder }}</strong>.
   </p>
 </section>
 
@@ -19,6 +20,13 @@
 <section class="filters">
   <form method="post" action="/cleaner/scan" class="filter-form">
     <label>
+      Source
+      <select name="source">
+        <option value="thunderbird" {% if source == 'thunderbird' %}selected{% endif %}>Thunderbird MBOX</option>
+        <option value="imap" {% if source == 'imap' %}selected{% endif %}>IMAP</option>
+      </select>
+    </label>
+    <label>
       Plus vieux que (jours)
       <input type="number" name="min_age_days" min="1" max="3650" value="{{ min_age_days }}">
     </label>
@@ -29,6 +37,12 @@
     <button type="submit" class="btn">Scanner pubs anciennes</button>
     <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
   </form>
+  {% if source == 'thunderbird' %}
+  <p class="muted small">
+    MBOX scannes :
+    {% for pattern in mbox_patterns %}<code>{{ pattern }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+  </p>
+  {% endif %}
 </section>
 
 {% if report %}
@@ -66,6 +80,7 @@
       <thead>
         <tr>
           <th>Selection</th>
+          <th>Source</th>
           <th>Date</th>
           <th>Expediteur</th>
           <th>Sujet</th>
@@ -75,7 +90,17 @@
       <tbody>
       {% for candidate in report.candidates %}
         <tr>
-          <td><input type="checkbox" name="selected_uid" value="{{ candidate.uid }}"></td>
+          <td>
+            {% if candidate.can_move %}
+              <input type="checkbox" name="selected_uid" value="{{ candidate.uid }}">
+            {% else %}
+              <span class="muted small">scan only</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="chip">{{ candidate.source }}</span>
+            {% if candidate.mailbox %}<span class="muted small">{{ candidate.mailbox }}</span>{% endif %}
+          </td>
           <td class="muted small">{{ candidate.received_at.strftime('%Y-%m-%d') }}</td>
           <td>{{ candidate.sender }}</td>
           <td>{{ candidate.subject }}</td>
@@ -86,11 +111,19 @@
     </table>
 
     <div class="danger-action">
+      {% if source == 'thunderbird' %}
+      <p class="muted">
+        Les candidats Thunderbird sont detectes pour nettoyage manuel dans Thunderbird.
+        JobMail ne modifie pas les fichiers MBOX directement.
+      </p>
+      {% endif %}
       <label class="confirm-line">
         <input type="checkbox" name="confirm_move" value="yes">
         Je confirme avoir relu le rapport et veux deplacer uniquement la selection vers {{ delete_folder }}.
       </label>
-      <button type="submit" class="btn btn-danger">Deplacer la selection vers {{ delete_folder }}</button>
+      <button type="submit" class="btn btn-danger" {% if source == 'thunderbird' %}disabled{% endif %}>
+        Deplacer la selection vers {{ delete_folder }}
+      </button>
     </div>
   </form>
   {% else %}

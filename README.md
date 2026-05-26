@@ -27,7 +27,7 @@ and [Codex](https://openai.com/codex).**
 - Local rule-based filter (FR + EN keywords + your stack: Java/GeoServer/OpenLayers/K8s/PostGIS/Spring/Docker…)
 - Pluggable providers: `mock` (default, offline), `ollama` (local), `claude`, `openai`
 - Dry-run mode: reads and classifies locally, with no LLM provider instantiation
-- Mailbox cleaner: dry-run scan for old newsletters/promotions, then optional IMAP move to `ToDelete`
+- Mailbox cleaner: dry-run scan for old Thunderbird/IMAP newsletters, then optional IMAP move to `ToDelete`
 - SQLite storage (single file, no server)
 - HTML dashboard (FastAPI + Jinja2) — list, filter by techno/score/status, mark new/interesting/ignored/replied
 - CLI: `jobmail fetch | serve | seed | classify`
@@ -81,6 +81,7 @@ IMAP_FETCH_LIMIT=50
 CLEANER_MIN_AGE_DAYS=7               # default age threshold for /cleaner
 CLEANER_MAX_MAILS=250                # scan cap for safety/latency
 CLEANER_DELETE_FOLDER=ToDelete       # IMAP folder used by the move action
+CLEANER_MBOX_GLOBS="/mnt/c/Users/Sylvain Ladoire/AppData/Roaming/Thunderbird/Profiles/*.default*/Mail/pop.*/Inbox"
 
 LLM_PROVIDER=mock                     # mock | ollama | claude | openai
 DRY_RUN=false                         # true = classify only, no LLM calls
@@ -122,11 +123,12 @@ python -m jobmail classify
 
 ## Mailbox cleaner
 
-Open `/cleaner` in the dashboard to scan old promotional/newsletter mails.
-The primary action is always a dry-run: it reports scanned mails, candidates,
-top senders, and the candidate list with reasons. The optional action only moves
-checked IMAP messages to `ToDelete`; it never deletes messages and never writes
-to Thunderbird MBOX files directly.
+Open `/cleaner` in the dashboard to scan old promotional/newsletter mails from
+Thunderbird POP3 MBOX files or IMAP. The primary action is always a dry-run: it
+reports scanned mails, candidates, top senders, and the candidate list with
+reasons. Thunderbird files are read-only: JobMail never deletes messages and
+never writes to MBOX files directly. The optional action only moves checked IMAP
+messages to `ToDelete`.
 
 ## Thunderbird
 

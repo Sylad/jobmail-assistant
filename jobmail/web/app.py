@@ -10,7 +10,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from ..cleaner import CleanerError, CleanerReport, move_to_delete, scan_old_promotions
+from ..cleaner import (
+    CleanerError,
+    CleanerReport,
+    move_to_delete,
+    scan_old_promotions,
+    scan_thunderbird_promotions,
+)
 from ..config import get_settings
 from ..db import (
     all_known_technos,
@@ -120,6 +126,7 @@ def _cleaner_context(
     report: CleanerReport | None = None,
     min_age_days: int | None = None,
     max_mails: int | None = None,
+    source: str = "thunderbird",
     error: str = "",
     moved_count: int = 0,
 ) -> dict:
@@ -128,7 +135,9 @@ def _cleaner_context(
         "report": report,
         "min_age_days": min_age_days or settings.cleaner_min_age_days,
         "max_mails": max_mails or settings.cleaner_max_mails,
+        "source": source,
         "delete_folder": settings.cleaner_delete_folder,
+        "mbox_patterns": settings.cleaner_mbox_patterns,
         "error": error,
         "moved_count": moved_count,
         "provider": settings.llm_provider,
@@ -139,14 +148,17 @@ def _cleaner_context(
 def _report_to_csv(report: CleanerReport) -> str:
     out = io.StringIO()
     writer = csv.writer(out)
-    writer.writerow(["uid", "date", "sender", "subject", "reason"])
+    writer.writerow(["uid", "source", "mailbox", "date", "sender", "subject", "reason", "source_path"])
     for candidate in report.candidates:
         writer.writerow([
             candidate.uid,
+            candidate.source,
+            candidate.mailbox,
             candidate.received_at.isoformat(),
             candidate.sender,
             candidate.subject,
             candidate.reason,
+            candidate.source_path,
         ])
     return out.getvalue()
 
@@ -217,14 +229,23 @@ def create_app() -> FastAPI:
         request: Request,
         min_age_days: int = Form(settings.cleaner_min_age_days),
         max_mails: int = Form(settings.cleaner_max_mails),
+        source: str = Form("thunderbird"),
         export_csv: str = Form(""),
     ):
         try:
-            report = scan_old_promotions(
-                settings,
-                min_age_days=min_age_days,
-                max_mails=max_mails,
-            )
+            if source == "imap":
+                report = scan_old_promotions(
+                    settings,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                )
+            else:
+                source = "thunderbird"
+                report = scan_thunderbird_promotions(
+                    settings,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                )
         except CleanerError as e:
             return templates.TemplateResponse(
                 request,
@@ -234,6 +255,7 @@ def create_app() -> FastAPI:
                     settings=settings,
                     min_age_days=min_age_days,
                     max_mails=max_mails,
+                    source=source,
                     error=str(e),
                 ),
                 status_code=400,
@@ -255,6 +277,7 @@ def create_app() -> FastAPI:
                 report=report,
                 min_age_days=min_age_days,
                 max_mails=max_mails,
+                source=source,
             ),
         )
 

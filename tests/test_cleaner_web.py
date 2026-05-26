@@ -45,10 +45,13 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
 
 
 def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
-    monkeypatch.setattr(web_app, "scan_old_promotions", lambda *args, **kwargs: _report())
+    monkeypatch.setattr(web_app, "scan_thunderbird_promotions", lambda *args, **kwargs: _report())
     client = _client(monkeypatch, tmp_path)
 
-    resp = client.post("/cleaner/scan", data={"min_age_days": "7", "max_mails": "20"})
+    resp = client.post(
+        "/cleaner/scan",
+        data={"source": "thunderbird", "min_age_days": "7", "max_mails": "20"},
+    )
 
     assert resp.status_code == 200
     assert "Mails scannes" in resp.text
@@ -57,17 +60,18 @@ def test_cleaner_scan_renders_report(monkeypatch, tmp_path):
 
 
 def test_cleaner_scan_exports_csv(monkeypatch, tmp_path):
-    monkeypatch.setattr(web_app, "scan_old_promotions", lambda *args, **kwargs: _report())
+    monkeypatch.setattr(web_app, "scan_thunderbird_promotions", lambda *args, **kwargs: _report())
     client = _client(monkeypatch, tmp_path)
 
     resp = client.post(
         "/cleaner/scan",
-        data={"min_age_days": "7", "max_mails": "20", "export_csv": "1"},
+        data={"source": "thunderbird", "min_age_days": "7", "max_mails": "20", "export_csv": "1"},
     )
 
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/csv")
     assert "newsletter@example.com" in resp.text
+    assert "source_path" in resp.text
 
 
 def test_cleaner_move_requires_confirmation(monkeypatch, tmp_path):

@@ -11,6 +11,13 @@ class CleanerCandidate:
     sender: str
     subject: str
     reason: str
+    source: str = "imap"
+    mailbox: str = ""
+    source_path: str = ""
+
+    @property
+    def can_move(self) -> bool:
+        return self.source == "imap"
 
 
 @dataclass(slots=True)

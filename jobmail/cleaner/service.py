@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+from glob import glob
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from imap_tools import AND, MailBox
 
 from ..config import Settings
+from ..mail.thunderbird import read_mbox
 from ..mail.parser import html_to_text, normalize_body
 from .models import CleanerCandidate, CleanerReport
 from .rules import classify_cleaner_candidate
@@ -66,6 +69,70 @@ def scan_old_promotions(
 
     logger.info(
         "Cleaner scan done scanned=%d candidates=%d min_age_days=%d max_mails=%d",
+        report.scanned_count,
+        report.candidate_count,
+        min_age,
+        limit,
+    )
+    return report
+
+
+def scan_thunderbird_promotions(
+    settings: Settings,
+    *,
+    min_age_days: int | None = None,
+    max_mails: int | None = None,
+) -> CleanerReport:
+    min_age = _clean_min_age(min_age_days, settings.cleaner_min_age_days)
+    limit = _clean_limit(max_mails, settings.cleaner_max_mails)
+    paths = _resolve_mbox_paths(settings.cleaner_mbox_patterns)
+    if not paths:
+        raise CleanerError("Aucun fichier Thunderbird Inbox trouve pour le cleaner.")
+
+    report = CleanerReport()
+    for path in paths:
+        mailbox_name = path.parent.name
+        logger.info("Cleaner scanning mbox mailbox=%s path=%s", mailbox_name, path)
+        for mail in read_mbox(path):
+            if report.scanned_count >= limit:
+                logger.info(
+                    "Cleaner MBOX scan stopped at max_mails=%d candidates=%d",
+                    limit,
+                    report.candidate_count,
+                )
+                return report
+
+            report.scanned_count += 1
+            if not _is_older_than(mail.received_at, min_age):
+                logger.info("Cleaner skipped mbox_offset=%s reason=too_recent", mail.mbox_offset)
+                continue
+
+            decision = classify_cleaner_candidate(mail.subject, mail.body_text, mail.sender)
+            if decision.safety_hit:
+                logger.info(
+                    "Cleaner skipped mbox_offset=%s reason=safety_keyword:%s",
+                    mail.mbox_offset,
+                    decision.safety_hit,
+                )
+                continue
+            if not decision.is_candidate:
+                continue
+
+            report.candidates.append(
+                CleanerCandidate(
+                    uid=f"mbox:{mailbox_name}:{mail.mbox_offset}",
+                    received_at=mail.received_at,
+                    sender=mail.sender,
+                    subject=mail.subject,
+                    reason=decision.reason,
+                    source="mbox",
+                    mailbox=mailbox_name,
+                    source_path=str(path),
+                )
+            )
+
+    logger.info(
+        "Cleaner MBOX scan done scanned=%d candidates=%d min_age_days=%d max_mails=%d",
         report.scanned_count,
         report.candidate_count,
         min_age,
@@ -138,3 +205,13 @@ def _clean_limit(value: int | None, default: int) -> int:
 
 def _dedupe_uids(uids: list[str]) -> list[str]:
     return list(dict.fromkeys(uid for uid in uids if uid.strip()))
+
+
+def _resolve_mbox_paths(patterns: list[str]) -> list[Path]:
+    paths: list[Path] = []
+    for pattern in patterns:
+        for match in glob(pattern):
+            path = Path(match)
+            if path.is_file() and path.name == "Inbox":
+                paths.append(path)
+    return sorted(set(paths), key=lambda path: str(path).lower())

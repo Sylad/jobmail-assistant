@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     cleaner_min_age_days: int = 7
     cleaner_max_mails: int = 250
     cleaner_delete_folder: str = "ToDelete"
+    cleaner_mbox_globs: str = (
+        "/mnt/c/Users/Sylvain Ladoire/AppData/Roaming/Thunderbird/Profiles/"
+        "*.default*/Mail/pop.*/Inbox"
+    )
 
     db_path: Path = Path("./data/jobmail.db")
 
@@ -43,6 +47,10 @@ class Settings(BaseSettings):
     @property
     def imap_enabled(self) -> bool:
         return bool(self.imap_host and self.imap_user and self.imap_password)
+
+    @property
+    def cleaner_mbox_patterns(self) -> list[str]:
+        return [part.strip() for part in self.cleaner_mbox_globs.split(",") if part.strip()]
 
 
 _settings: Settings | None = None
