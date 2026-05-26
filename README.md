@@ -162,10 +162,11 @@ Move actions:
   `CLEANER_DELETE_FOLDER` (`ToDelete` by default). This is a quarantine folder,
   not the trash.
 - Thunderbird MBOX source: checked mails are moved to the local Thunderbird
-  `Trash` file for the same account. JobMail first creates an
-  `Inbox.jobmail-backup-YYYYMMDD-HHMMSS` backup, rewrites the Inbox without the
-  selected messages, appends the messages to `Trash`, and removes `.msf` index
-  files so Thunderbird rebuilds them. Thunderbird must be closed.
+  `Trash` file for the same account. JobMail first creates a `.mbox` backup in
+  `<profile>/jobmail-backups/` outside Thunderbird's `Mail/<account>` folders,
+  rewrites the Inbox without the selected messages, appends the messages to
+  `Trash`, and removes `.msf` index files so Thunderbird rebuilds them.
+  Thunderbird must be closed.
 - Regex Thunderbird source: all regex results from the dry-run can be moved to
   the local Thunderbird trash in one action. Safety keywords and the age filter
   still apply.

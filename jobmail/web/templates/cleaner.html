@@ -283,9 +283,9 @@
     <div class="danger-action">
       <strong>Action Thunderbird locale.</strong>
       <p class="muted">
-        Ferme Thunderbird avant de lancer l'action. JobMail fera un backup de chaque Inbox touche,
-        deplacera les messages selectionnes dans le fichier Trash du meme compte, puis supprimera
-        les index .msf pour laisser Thunderbird reconstruire les dossiers.
+        Ferme Thunderbird avant de lancer l'action. JobMail fera un backup .mbox hors des dossiers
+        Mail Thunderbird, deplacera les messages selectionnes dans le fichier Trash du meme compte,
+        puis supprimera les index .msf pour laisser Thunderbird reconstruire les dossiers.
         {% if source == 'parsed_jobs' %}
         Seuls les mails d'offres ignorees ou tres faible score sont selectionnables ; interesting et replied sont exclus.
         {% elif source == 'regex' %}

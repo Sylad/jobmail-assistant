@@ -101,9 +101,41 @@ def test_move_thunderbird_to_trash_moves_selected_candidate(tmp_path: Path):
     assert "Newsletter promo" not in mbox.read_text(encoding="utf-8")
     assert "Mission Java" in mbox.read_text(encoding="utf-8")
     assert "Newsletter promo" in (tmp_path / "Trash").read_text(encoding="utf-8")
-    backups = list(tmp_path.glob("Inbox.jobmail-backup-*"))
+    backups = list((tmp_path / "jobmail-backups").glob("Inbox.jobmail-backup-*.mbox"))
     assert backups
     assert "Newsletter promo" in backups[0].read_text(encoding="utf-8")
+
+
+def test_move_thunderbird_to_trash_keeps_profile_backup_outside_mail_folder(tmp_path: Path):
+    profile_root = tmp_path / "profile.default"
+    account_dir = profile_root / "Mail" / "pop.example.com"
+    account_dir.mkdir(parents=True)
+    mbox = account_dir / "Inbox"
+    mbox.write_text(
+        _make_msg(1, "Newsletter promo", "Soldes et unsubscribe."),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(mbox),
+    )
+    report = scan_thunderbird_promotions(settings, min_age_days=7, max_mails=20)
+
+    moved_count, _moved_report = move_thunderbird_to_trash(
+        settings,
+        uids=[report.candidates[0].uid],
+        min_age_days=7,
+        max_mails=20,
+        require_thunderbird_closed=False,
+    )
+
+    assert moved_count == 1
+    mail_folder_backups = list(account_dir.glob("Inbox.jobmail-backup-*"))
+    profile_backups = list(
+        (profile_root / "jobmail-backups" / "Mail" / "pop.example.com").glob("Inbox.jobmail-backup-*.mbox")
+    )
+    assert mail_folder_backups == []
+    assert profile_backups
 
 
 def test_scan_thunderbird_regex_matches_sender_or_subject_and_keeps_safety(tmp_path: Path):

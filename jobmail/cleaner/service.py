@@ -689,7 +689,9 @@ def _move_offsets_to_trash(
 
 
 def _create_mbox_backup(inbox_path: Path, timestamp: str) -> Path:
-    backup_path = inbox_path.with_name(f"{inbox_path.name}.jobmail-backup-{timestamp}")
+    backup_dir = _backup_dir_for_inbox(inbox_path)
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup_path = backup_dir / f"{inbox_path.name}.jobmail-backup-{timestamp}.mbox"
     try:
         os.link(inbox_path, backup_path)
         logger.info("Cleaner created mbox hardlink backup=%s", backup_path)
@@ -697,6 +699,16 @@ def _create_mbox_backup(inbox_path: Path, timestamp: str) -> Path:
         shutil.copy2(inbox_path, backup_path)
         logger.info("Cleaner created mbox copied backup=%s", backup_path)
     return backup_path
+
+
+def _backup_dir_for_inbox(inbox_path: Path) -> Path:
+    parts = inbox_path.parts
+    if "Mail" in parts:
+        mail_index = parts.index("Mail")
+        profile_root = Path(*parts[:mail_index])
+        account_name = inbox_path.parent.name
+        return profile_root / "jobmail-backups" / "Mail" / account_name
+    return inbox_path.parent / "jobmail-backups"
 
 
 def _iter_mbox_chunks(path: Path):
