@@ -122,15 +122,18 @@ def scan_old_promotions(
         for msg in mailbox.fetch(query, limit=fetch_limit, reverse=True, mark_seen=False):
             report.scanned_count += 1
             if uids and not _is_older_than(msg.date, min_age):
+                report.skipped_too_recent += 1
                 logger.info("Cleaner skipped uid=%s reason=too_recent", msg.uid)
                 continue
 
             body_text = _message_text(msg)
             decision = classify_cleaner_candidate(msg.subject or "", body_text, msg.from_ or "")
             if decision.safety_hit:
+                report.skipped_safety += 1
                 logger.info("Cleaner skipped uid=%s reason=safety_keyword:%s", msg.uid, decision.safety_hit)
                 continue
             if not decision.is_candidate:
+                report.skipped_no_match += 1
                 continue
 
             report.candidates.append(
@@ -186,11 +189,13 @@ def scan_thunderbird_promotions(
 
             report.scanned_count += 1
             if not _is_older_than(mail.received_at, min_age):
+                report.skipped_too_recent += 1
                 logger.info("Cleaner skipped mbox_offset=%s reason=too_recent", mail.mbox_offset)
                 continue
 
             decision = classify_cleaner_candidate(mail.subject, mail.body_text, mail.sender)
             if decision.safety_hit:
+                report.skipped_safety += 1
                 logger.info(
                     "Cleaner skipped mbox_offset=%s reason=safety_keyword:%s",
                     mail.mbox_offset,
@@ -198,6 +203,7 @@ def scan_thunderbird_promotions(
                 )
                 continue
             if not decision.is_candidate:
+                report.skipped_no_match += 1
                 continue
 
             report.candidates.append(
@@ -260,12 +266,15 @@ def scan_thunderbird_regex(
             if progress_callback and report.scanned_count % 250 == 0:
                 progress_callback(report, mailbox_name)
             if not _is_older_than(mail.received_at, min_age):
+                report.skipped_too_recent += 1
                 continue
             regex_reason = _regex_match_reason(mail.sender, mail.subject, rules)
             if not regex_reason:
+                report.skipped_no_match += 1
                 continue
             decision = classify_cleaner_candidate(mail.subject, mail.body_text, mail.sender)
             if decision.safety_hit:
+                report.skipped_safety += 1
                 logger.info("Cleaner regex skipped mbox_offset=%s reason=safety_keyword:%s", mail.mbox_offset, decision.safety_hit)
                 continue
             report.candidates.append(

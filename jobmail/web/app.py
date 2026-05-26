@@ -141,6 +141,9 @@ class CleanerScanJob:
     source: str = "regex"
     scanned_count: int = 0
     candidate_count: int = 0
+    skipped_too_recent: int = 0
+    skipped_safety: int = 0
+    skipped_no_match: int = 0
     current_mailbox: str = ""
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
@@ -323,6 +326,9 @@ def _job_payload(job: CleanerScanJob) -> dict:
         "status": job.status,
         "scanned_count": job.scanned_count,
         "candidate_count": job.candidate_count,
+        "skipped_too_recent": job.skipped_too_recent,
+        "skipped_safety": job.skipped_safety,
+        "skipped_no_match": job.skipped_no_match,
         "current_mailbox": job.current_mailbox,
         "elapsed_seconds": elapsed,
         "error": job.error,
@@ -610,6 +616,9 @@ def create_app() -> FastAPI:
                 with _cleaner_jobs_lock:
                     job.scanned_count = report.scanned_count
                     job.candidate_count = report.candidate_count
+                    job.skipped_too_recent = report.skipped_too_recent
+                    job.skipped_safety = report.skipped_safety
+                    job.skipped_no_match = report.skipped_no_match
                     job.current_mailbox = mailbox
 
             def should_cancel() -> bool:
@@ -643,6 +652,9 @@ def create_app() -> FastAPI:
                 job.report = report
                 job.scanned_count = report.scanned_count
                 job.candidate_count = report.candidate_count
+                job.skipped_too_recent = report.skipped_too_recent
+                job.skipped_safety = report.skipped_safety
+                job.skipped_no_match = report.skipped_no_match
                 job.current_mailbox = ""
                 job.status = "cancelled" if job.cancel_requested else "done"
                 job.finished_at = time.time()

@@ -166,6 +166,9 @@
     <div class="scan-progress-grid">
       <span>Mails scannes <strong data-scan-progress-scanned>0</strong></span>
       <span>Candidats <strong data-scan-progress-candidates>0</strong></span>
+      <span>Factures <strong data-scan-progress-safety>0</strong></span>
+      <span>Hors regex <strong data-scan-progress-no-match>0</strong></span>
+      <span>Trop recents <strong data-scan-progress-too-recent>0</strong></span>
       <span class="muted" data-scan-progress-mailbox></span>
     </div>
   </div>
@@ -192,6 +195,20 @@
       <span class="muted">Candidats trouves</span>
       <strong>{{ report.candidate_count }}</strong>
     </div>
+    {% if source == 'regex' %}
+    <div class="stat-box">
+      <span class="muted">Exclus facture</span>
+      <strong>{{ report.skipped_safety }}</strong>
+    </div>
+    <div class="stat-box">
+      <span class="muted">Hors regex</span>
+      <strong>{{ report.skipped_no_match }}</strong>
+    </div>
+    <div class="stat-box">
+      <span class="muted">Trop recents</span>
+      <strong>{{ report.skipped_too_recent }}</strong>
+    </div>
+    {% endif %}
   </div>
 
   {% if source == 'regex' %}
@@ -468,6 +485,9 @@
 
   const scanned = progress.querySelector("[data-scan-progress-scanned]");
   const candidates = progress.querySelector("[data-scan-progress-candidates]");
+  const safety = progress.querySelector("[data-scan-progress-safety]");
+  const noMatch = progress.querySelector("[data-scan-progress-no-match]");
+  const tooRecent = progress.querySelector("[data-scan-progress-too-recent]");
   const mailbox = progress.querySelector("[data-scan-progress-mailbox]");
   const elapsed = progress.querySelector("[data-scan-progress-time]");
   const title = progress.querySelector("[data-scan-progress-title]");
@@ -483,6 +503,9 @@
   const setProgress = (payload) => {
     if (scanned) scanned.textContent = String(payload.scanned_count || 0);
     if (candidates) candidates.textContent = String(payload.candidate_count || 0);
+    if (safety) safety.textContent = String(payload.skipped_safety || 0);
+    if (noMatch) noMatch.textContent = String(payload.skipped_no_match || 0);
+    if (tooRecent) tooRecent.textContent = String(payload.skipped_too_recent || 0);
     if (mailbox) mailbox.textContent = payload.current_mailbox ? `Boite ${payload.current_mailbox}` : "";
     if (elapsed) elapsed.textContent = `${payload.elapsed_seconds || 0}s`;
   };

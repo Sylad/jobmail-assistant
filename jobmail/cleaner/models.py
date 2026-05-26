@@ -28,6 +28,9 @@ class CleanerCandidate:
 class CleanerReport:
     scanned_count: int = 0
     candidates: list[CleanerCandidate] = field(default_factory=list)
+    skipped_too_recent: int = 0
+    skipped_safety: int = 0
+    skipped_no_match: int = 0
 
     @property
     def candidate_count(self) -> int:
