@@ -1,36 +1,37 @@
-import { getSubmitter, query, queryAll, text } from "./dom";
-import type { CleanerScanJobPayload } from "./types";
+import { reactive } from "vue";
+import { getSubmitter, query, queryAll } from "./dom";
+import type { CleanerScanJobPayload, ProgressPanelState } from "./types";
 
 export function useScanJobs() {
   let currentScanJobId = "";
   let activeScanButton: HTMLElement | null = null;
+  const panel = reactive<ProgressPanelState>({
+    visible: false,
+    title: "Scan en cours",
+    elapsedSeconds: 0,
+    active: false,
+    cancelling: false,
+    progressValue: null,
+    stats: [
+      { label: "Mails scannes", value: 0 },
+      { label: "Candidats", value: 0 },
+      { label: "Factures", value: 0 },
+      { label: "Hors regex", value: 0 },
+      { label: "Trop recents", value: 0 },
+    ],
+  });
 
   function initScanForms(): void {
     const forms = queryAll<HTMLFormElement>("[data-async-scan-form]");
-    const progress = query<HTMLElement>("[data-scan-progress]");
-    if (!forms.length || !progress) return;
-
-    const cancelButton = document.createElement("button");
-    cancelButton.type = "button";
-    cancelButton.className = "btn btn-sm btn-ghost";
-    cancelButton.textContent = "Arreter";
-    cancelButton.hidden = true;
-    query(".scan-progress-head", progress)?.appendChild(cancelButton);
-
-    cancelButton.addEventListener("click", async () => {
-      if (!currentScanJobId) return;
-      cancelButton.disabled = true;
-      setProgressTitle(progress, "Arret demande");
-      await fetch(`/cleaner/scan/cancel/${currentScanJobId}`, { method: "POST" }).catch(() => {});
-    });
+    if (!forms.length) return;
 
     forms.forEach((form) => {
       const startButton = query<HTMLButtonElement>("[data-start-regex-scan]", form);
-      startButton?.addEventListener("click", (event) => startScan(event, form, startButton, progress, cancelButton));
+      startButton?.addEventListener("click", (event) => startScan(event, form, startButton));
       form.addEventListener("submit", async (event) => {
         const submitter = getSubmitter(event);
         if (submitter instanceof HTMLButtonElement && submitter.name === "export_csv") return;
-        await startScan(event, form, submitter, progress, cancelButton);
+        await startScan(event, form, submitter);
       });
     });
   }
@@ -39,15 +40,10 @@ export function useScanJobs() {
     event: Event,
     form: HTMLFormElement,
     submitButton: HTMLElement | null,
-    progress: HTMLElement,
-    cancelButton: HTMLButtonElement,
   ): Promise<void> {
     event.preventDefault();
-    progress.hidden = false;
-    progress.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    cancelButton.hidden = false;
-    cancelButton.disabled = false;
-    setProgressTitle(progress, "Scan en cours");
+    showPanel("Scan en cours");
+    document.querySelector("#cleaner-vue-root")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     activeScanButton = submitButton
       || query<HTMLButtonElement>("[data-start-regex-scan]", form)
       || query<HTMLButtonElement>("button[type='submit']:not([name='export_csv'])", form);
@@ -64,63 +60,84 @@ export function useScanJobs() {
       }
       const payload = await response.json() as CleanerScanJobPayload;
       currentScanJobId = payload.id;
-      setScanProgress(progress, payload);
-      await pollScan(payload.id, progress, cancelButton);
+      setScanProgress(payload);
+      await pollScan(payload.id);
     } catch (error) {
-      setProgressTitle(progress, error instanceof Error ? error.message : "Scan en erreur");
+      panel.title = error instanceof Error ? error.message : "Scan en erreur";
+      panel.active = false;
       if (activeScanButton instanceof HTMLButtonElement) activeScanButton.disabled = false;
-      cancelButton.hidden = true;
-      cancelButton.disabled = false;
     }
   }
 
-  async function pollScan(jobId: string, progress: HTMLElement, cancelButton: HTMLButtonElement): Promise<void> {
+  async function pollScan(jobId: string): Promise<void> {
     const response = await fetch(`/cleaner/scan/status/${jobId}`);
     if (!response.ok) throw new Error("Impossible de lire le statut du scan.");
     const payload = await response.json() as CleanerScanJobPayload;
-    setScanProgress(progress, payload);
+    setScanProgress(payload);
     if (payload.status === "done") {
-      setProgressTitle(progress, "Scan termine");
+      panel.title = "Scan termine";
+      panel.active = false;
       window.location.href = payload.result_url;
       return;
     }
     if (payload.status === "cancelled") {
-      setProgressTitle(progress, "Scan annule");
+      panel.title = "Scan annule";
+      panel.active = false;
+      panel.cancelling = false;
       if (activeScanButton instanceof HTMLButtonElement) activeScanButton.disabled = false;
-      cancelButton.hidden = true;
-      cancelButton.disabled = false;
       return;
     }
     if (payload.status === "error") {
-      setProgressTitle(progress, payload.error || "Scan en erreur");
+      panel.title = payload.error || "Scan en erreur";
+      panel.active = false;
+      panel.cancelling = false;
       if (activeScanButton instanceof HTMLButtonElement) activeScanButton.disabled = false;
-      cancelButton.hidden = true;
-      cancelButton.disabled = false;
       return;
     }
     window.setTimeout(() => {
-      pollScan(jobId, progress, cancelButton).catch((error: unknown) => {
-        setProgressTitle(progress, error instanceof Error ? error.message : "Scan en erreur");
+      pollScan(jobId).catch((error: unknown) => {
+        panel.title = error instanceof Error ? error.message : "Scan en erreur";
+        panel.active = false;
+        panel.cancelling = false;
         if (activeScanButton instanceof HTMLButtonElement) activeScanButton.disabled = false;
-        cancelButton.hidden = true;
-        cancelButton.disabled = false;
       });
     }, 700);
   }
 
-  function setScanProgress(progress: HTMLElement, payload: CleanerScanJobPayload): void {
-    text(query("[data-scan-progress-scanned]", progress), String(payload.scanned_count || 0));
-    text(query("[data-scan-progress-candidates]", progress), String(payload.candidate_count || 0));
-    text(query("[data-scan-progress-safety]", progress), String(payload.skipped_safety || 0));
-    text(query("[data-scan-progress-no-match]", progress), String(payload.skipped_no_match || 0));
-    text(query("[data-scan-progress-too-recent]", progress), String(payload.skipped_too_recent || 0));
-    text(query("[data-scan-progress-mailbox]", progress), payload.current_mailbox ? `Boite ${payload.current_mailbox}` : "");
-    text(query("[data-scan-progress-time]", progress), `${payload.elapsed_seconds || 0}s`);
+  async function cancelScan(): Promise<void> {
+    if (!currentScanJobId) return;
+    panel.cancelling = true;
+    panel.title = "Arret demande";
+    await fetch(`/cleaner/scan/cancel/${currentScanJobId}`, { method: "POST" }).catch(() => {});
   }
 
-  function setProgressTitle(progress: HTMLElement, value: string): void {
-    text(query("[data-scan-progress-title]", progress), value);
+  function showPanel(title: string): void {
+    panel.visible = true;
+    panel.title = title;
+    panel.elapsedSeconds = 0;
+    panel.active = true;
+    panel.cancelling = false;
+    panel.progressValue = null;
+    panel.stats = [
+      { label: "Mails scannes", value: 0 },
+      { label: "Candidats", value: 0 },
+      { label: "Factures", value: 0 },
+      { label: "Hors regex", value: 0 },
+      { label: "Trop recents", value: 0 },
+    ];
   }
 
-  return { initScanForms };
+  function setScanProgress(payload: CleanerScanJobPayload): void {
+    panel.elapsedSeconds = payload.elapsed_seconds || 0;
+    panel.stats = [
+      { label: "Mails scannes", value: payload.scanned_count || 0 },
+      { label: "Candidats", value: payload.candidate_count || 0 },
+      { label: "Factures", value: payload.skipped_safety || 0 },
+      { label: "Hors regex", value: payload.skipped_no_match || 0 },
+      { label: "Trop recents", value: payload.skipped_too_recent || 0 },
+      ...(payload.current_mailbox ? [{ label: "Boite", value: payload.current_mailbox }] : []),
+    ];
+  }
+
+  return { cancelScan, initScanForms, panel };
 }

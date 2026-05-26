@@ -25,3 +25,18 @@ export interface CleanerMoveJobPayload {
   result_url: string;
   cancel_url: string;
 }
+
+export interface ProgressStat {
+  label: string;
+  value: string | number;
+}
+
+export interface ProgressPanelState {
+  visible: boolean;
+  title: string;
+  elapsedSeconds: number;
+  active: boolean;
+  cancelling: boolean;
+  progressValue: number | null;
+  stats: ProgressStat[];
+}

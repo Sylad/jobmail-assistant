@@ -166,23 +166,7 @@
     </button>
     <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
   </form>
-  <div class="scan-progress" data-scan-progress hidden>
-    <div class="scan-progress-head">
-      <strong data-scan-progress-title>Scan en cours</strong>
-      <span class="muted small" data-scan-progress-time>0s</span>
-    </div>
-    <div class="progress-bar progress-bar-active">
-      <div class="progress-fill progress-fill-active"></div>
-    </div>
-    <div class="scan-progress-grid">
-      <span>Mails scannes <strong data-scan-progress-scanned>0</strong></span>
-      <span>Candidats <strong data-scan-progress-candidates>0</strong></span>
-      <span>Factures <strong data-scan-progress-safety>0</strong></span>
-      <span>Hors regex <strong data-scan-progress-no-match>0</strong></span>
-      <span>Trop recents <strong data-scan-progress-too-recent>0</strong></span>
-      <span class="muted" data-scan-progress-mailbox></span>
-    </div>
-  </div>
+  <div id="cleaner-vue-root"></div>
   <p class="muted small">
     Dans une ligne, les champs remplis doivent tous correspondre. Les lignes sont combinees en OU global.
     L'action reste protegee par age minimum, mots sensibles exclus, backup Thunderbird et confirmation explicite.
@@ -402,19 +386,7 @@
         {% if source == 'regex' %}Deplacer tous les resultats regex vers la corbeille Thunderbird{% elif source == 'duplicates' %}Deplacer les doublons selectionnes vers la corbeille Thunderbird{% else %}Deplacer la selection vers la corbeille Thunderbird{% endif %}
       </button>
       {% if source == 'regex' %}
-      <div class="scan-progress" data-move-progress hidden>
-        <div class="scan-progress-head">
-          <strong data-move-progress-title>Deplacement en cours</strong>
-          <span class="muted small" data-move-progress-time>0s</span>
-        </div>
-        <div class="progress-bar progress-bar-active">
-          <div class="progress-fill progress-fill-active"></div>
-        </div>
-        <div class="scan-progress-grid">
-          <span>Messages prevus <strong data-move-progress-total>0</strong></span>
-          <span>Messages deplaces <strong data-move-progress-moved>0</strong></span>
-        </div>
-      </div>
+      <div id="cleaner-move-progress-root"></div>
       {% endif %}
     </div>
   </form>
@@ -424,7 +396,6 @@
   {% endif %}
 </section>
 {% endif %}
-<div id="cleaner-vue-root" hidden></div>
 {% endblock %}
 {% block scripts %}
   <script type="module" src="/static/assets/cleaner.js"></script>
