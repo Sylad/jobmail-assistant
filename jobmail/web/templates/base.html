@@ -15,6 +15,7 @@
     <nav>
       <a href="/cleaner" class="btn btn-ghost">Mailbox cleaner</a>
       <a href="/cleaner/jobs" class="btn btn-ghost">Jobs cleanup</a>
+      <a href="/cleaner/duplicates" class="btn btn-ghost">Doublons</a>
       <span class="badge">Provider: <strong>{{ provider | default('mock') }}</strong></span>
       {% if imap_enabled is defined %}
         <span class="badge {% if imap_enabled %}badge-ok{% else %}badge-warn{% endif %}">

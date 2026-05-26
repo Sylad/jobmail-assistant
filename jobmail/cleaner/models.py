@@ -18,6 +18,7 @@ class CleanerCandidate:
     status: str = ""
     score: int = -1
     company: str = ""
+    duplicate_of: str = ""
 
     @property
     def can_move(self) -> bool:

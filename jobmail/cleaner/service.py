@@ -370,6 +370,99 @@ def scan_parsed_job_mails(
     return report
 
 
+def scan_thunderbird_duplicates(
+    settings: Settings,
+    *,
+    source_mailbox_regex: str = r"orange",
+    keeper_mailbox_regex: str = r"gmail",
+    min_age_days: int | None = None,
+    max_mails: int | None = None,
+) -> CleanerReport:
+    source_pattern = re.compile(source_mailbox_regex, re.IGNORECASE)
+    keeper_pattern = re.compile(keeper_mailbox_regex, re.IGNORECASE)
+    min_age = _clean_min_age(min_age_days, settings.cleaner_min_age_days)
+    limit = _clean_unbounded_limit(max_mails)
+    paths = _resolve_mbox_paths(settings.cleaner_mbox_patterns)
+    if not paths:
+        raise CleanerError("Aucun fichier Thunderbird Inbox trouve avec CLEANER_MBOX_GLOBS.")
+
+    seen_by_message_id: dict[str, list[CleanerCandidate]] = {}
+    report = CleanerReport()
+    for path in paths:
+        mailbox = path.parent.name
+        for mail in read_mbox(path):
+            report.scanned_count += 1
+            message_id = (mail.message_id or "").strip().lower()
+            if not message_id:
+                report.skipped_no_match += 1
+                continue
+            seen_by_message_id.setdefault(message_id, []).append(
+                CleanerCandidate(
+                    uid=f"mbox:{mailbox}:{mail.mbox_offset}",
+                    received_at=mail.received_at,
+                    sender=mail.sender,
+                    subject=mail.subject,
+                    reason="doublon Message-Id",
+                    source="mbox",
+                    mailbox=mailbox,
+                    source_path=str(path),
+                )
+            )
+
+    for message_id, items in seen_by_message_id.items():
+        keepers = [item for item in items if keeper_pattern.search(item.mailbox)]
+        sources = [item for item in items if source_pattern.search(item.mailbox)]
+        if not keepers or not sources:
+            continue
+        keeper = keepers[0]
+        for source in sources:
+            if limit and report.candidate_count >= limit:
+                return report
+            if not _is_older_than(source.received_at, min_age):
+                report.skipped_too_recent += 1
+                continue
+            report.candidates.append(
+                CleanerCandidate(
+                    uid=source.uid,
+                    received_at=source.received_at,
+                    sender=source.sender,
+                    subject=source.subject,
+                    reason=f"doublon Message-Id present dans {keeper.mailbox}",
+                    source="mbox",
+                    mailbox=source.mailbox,
+                    source_path=source.source_path,
+                    duplicate_of=f"{keeper.mailbox}:{message_id}",
+                )
+            )
+
+    logger.info(
+        "Cleaner duplicate scan done scanned=%d candidates=%d source=%s keeper=%s",
+        report.scanned_count,
+        report.candidate_count,
+        source_mailbox_regex,
+        keeper_mailbox_regex,
+    )
+    return report
+
+
+def move_thunderbird_duplicates_to_trash(
+    settings: Settings,
+    *,
+    uids: list[str],
+    min_age_days: int | None = None,
+    require_thunderbird_closed: bool = True,
+) -> tuple[int, CleanerReport]:
+    if not uids:
+        raise CleanerError("Aucun doublon selectionne.")
+    return _move_mbox_uids_to_trash(
+        settings,
+        uids=uids,
+        min_age_days=min_age_days,
+        require_thunderbird_closed=require_thunderbird_closed,
+        validator="duplicate",
+    )
+
+
 def move_to_delete(
     settings: Settings,
     *,
@@ -936,6 +1029,9 @@ def _move_offsets_to_trash(
                 logger.info("Cleaner refused mbox_offset=%s reason=safety_keyword:%s", offset, decision.safety_hit)
                 continue
             reason = "regex validee apres dry-run"
+            source = "mbox"
+        elif validator == "duplicate":
+            reason = "doublon Message-Id valide apres dry-run"
             source = "mbox"
         else:
             reason = "job deja parse dans SQLite"

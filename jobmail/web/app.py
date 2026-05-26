@@ -24,10 +24,12 @@ from ..cleaner import (
     move_parsed_jobs_to_trash,
     move_orphan_cleaner_temp_files,
     move_scanned_regex_uids_to_trash,
+    move_thunderbird_duplicates_to_trash,
     move_thunderbird_to_trash,
     move_to_delete,
     scan_parsed_job_mails,
     scan_old_promotions,
+    scan_thunderbird_duplicates,
     scan_thunderbird_regex,
     scan_thunderbird_promotions,
 )
@@ -499,6 +501,14 @@ def create_app() -> FastAPI:
             _cleaner_context(request=request, settings=settings, source="parsed_jobs"),
         )
 
+    @app.get("/cleaner/duplicates", response_class=HTMLResponse)
+    def cleaner_duplicates(request: Request):
+        return templates.TemplateResponse(
+            request,
+            "cleaner.html",
+            _cleaner_context(request=request, settings=settings, source="duplicates"),
+        )
+
     @app.post("/cleaner/scan", response_class=HTMLResponse)
     def cleaner_scan(
         request: Request,
@@ -522,6 +532,12 @@ def create_app() -> FastAPI:
                 )
             elif source == "parsed_jobs":
                 report = scan_parsed_job_mails(
+                    settings,
+                    min_age_days=min_age_days,
+                    max_mails=max_mails,
+                )
+            elif source == "duplicates":
+                report = scan_thunderbird_duplicates(
                     settings,
                     min_age_days=min_age_days,
                     max_mails=max_mails,
@@ -991,6 +1007,12 @@ def create_app() -> FastAPI:
                     uids=selected_uid,
                     min_age_days=min_age_days,
                     max_mails=max_mails,
+                )
+            elif source == "duplicates":
+                moved_count, report = move_thunderbird_duplicates_to_trash(
+                    settings,
+                    uids=selected_uid,
+                    min_age_days=min_age_days,
                 )
             elif source == "regex":
                 _save_regex_rules(settings, regex_rules)

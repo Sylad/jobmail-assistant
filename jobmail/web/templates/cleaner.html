@@ -25,6 +25,7 @@
         <option value="thunderbird" {% if source == 'thunderbird' %}selected{% endif %}>Thunderbird MBOX</option>
         <option value="regex" {% if source == 'regex' %}selected{% endif %}>Regex Thunderbird</option>
         <option value="parsed_jobs" {% if source == 'parsed_jobs' %}selected{% endif %}>Jobs deja parses</option>
+        <option value="duplicates" {% if source == 'duplicates' %}selected{% endif %}>Doublons Orange/Gmail</option>
         <option value="imap" {% if source == 'imap' %}selected{% endif %}>IMAP</option>
       </select>
     </label>
@@ -41,7 +42,7 @@
       <input type="number" name="scan_offset" min="0" value="{{ current_scan_offset }}">
     </label>
     <button type="submit" class="btn">
-      {% if source == 'parsed_jobs' %}Scanner jobs nettoyables{% elif source == 'regex' %}Scanner regex{% else %}Scanner pubs anciennes{% endif %}
+      {% if source == 'parsed_jobs' %}Scanner jobs nettoyables{% elif source == 'duplicates' %}Scanner doublons{% elif source == 'regex' %}Scanner regex{% else %}Scanner pubs anciennes{% endif %}
     </button>
     <button type="submit" name="export_csv" value="1" class="btn btn-ghost">Exporter rapport CSV</button>
   </form>
@@ -54,6 +55,11 @@
   <p class="muted small">
     Source SQLite : mails de jobs deja extraits. Seuls les mails associes a une offre <code>ignored</code>
     ou score <= 3 sont proposes. Les offres <code>interesting</code> et <code>replied</code> sont protegees.
+  </p>
+  {% elif source == 'duplicates' %}
+  <p class="muted small">
+    Source Thunderbird : propose uniquement les copies Orange dont le meme <code>Message-Id</code>
+    existe dans une boite Gmail. Dry-run uniquement avant confirmation.
   </p>
   {% endif %}
 </section>
@@ -312,6 +318,8 @@
           <th>Sujet</th>
           {% if source == 'parsed_jobs' %}
           <th>Offre</th>
+          {% elif source == 'duplicates' %}
+          <th>Doublon</th>
           {% endif %}
           <th>Raison</th>
         </tr>
@@ -343,6 +351,8 @@
               <span class="muted small">-</span>
             {% endif %}
           </td>
+          {% elif source == 'duplicates' %}
+          <td><span class="muted small">{{ candidate.duplicate_of }}</span></td>
           {% endif %}
           <td><span class="chip">{{ candidate.reason }}</span></td>
         </tr>
@@ -369,6 +379,8 @@
         {% if source == 'parsed_jobs' %}
         Seuls les mails d'offres ignorees ou tres faible score sont selectionnables ; interesting et replied sont exclus.
         Les messages sont retrouves dans le MBOX courant avant deplacement, meme si les anciens offsets SQLite ont bouge.
+        {% elif source == 'duplicates' %}
+        Seules les copies Orange selectionnees sont deplacees ; les copies Gmail detectees comme reference restent en place.
         {% elif source == 'regex' %}
         L'action reutilise le resultat du scan affiche, sans rescanner toute la mailbox.
         {% endif %}
@@ -382,7 +394,7 @@
         Je confirme avoir relu le rapport et veux deplacer la selection vers la corbeille Thunderbird.
       </label>
       <button type="submit" class="btn btn-danger">
-        {% if source == 'regex' %}Deplacer tous les resultats regex vers la corbeille Thunderbird{% else %}Deplacer la selection vers la corbeille Thunderbird{% endif %}
+        {% if source == 'regex' %}Deplacer tous les resultats regex vers la corbeille Thunderbird{% elif source == 'duplicates' %}Deplacer les doublons selectionnes vers la corbeille Thunderbird{% else %}Deplacer la selection vers la corbeille Thunderbird{% endif %}
       </button>
       {% if source == 'regex' %}
       <div class="scan-progress" data-move-progress hidden>

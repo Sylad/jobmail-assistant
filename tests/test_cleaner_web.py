@@ -326,6 +326,53 @@ def test_cleaner_jobs_page_selects_parsed_jobs_source(monkeypatch, tmp_path):
     assert "Scanner jobs nettoyables" in resp.text
 
 
+def test_cleaner_duplicates_page_selects_duplicates_source(monkeypatch, tmp_path):
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.get("/cleaner/duplicates")
+
+    assert resp.status_code == 200
+    assert 'value="duplicates" selected' in resp.text
+    assert "Scanner doublons" in resp.text
+    assert "Doublons Orange/Gmail" in resp.text
+
+
+def test_cleaner_duplicates_scan_uses_dedicated_source(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_scan(settings, *, min_age_days, max_mails):
+        calls["min_age_days"] = min_age_days
+        calls["max_mails"] = max_mails
+        return CleanerReport(
+            scanned_count=2,
+            candidates=[
+                CleanerCandidate(
+                    uid="mbox:pop.orange.fr:0",
+                    received_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                    sender="sender@example.com",
+                    subject="Doublon",
+                    reason="doublon Message-Id present dans pop.gmail.com",
+                    source="mbox",
+                    mailbox="pop.orange.fr",
+                    duplicate_of="pop.gmail.com:<dup@local>",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(web_app, "scan_thunderbird_duplicates", fake_scan)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post(
+        "/cleaner/scan",
+        data={"source": "duplicates", "min_age_days": "7", "max_mails": "1000"},
+    )
+
+    assert resp.status_code == 200
+    assert calls == {"min_age_days": 7, "max_mails": 1000}
+    assert "pop.gmail.com:&lt;dup@local&gt;" in resp.text
+    assert "Deplacer les doublons selectionnes" in resp.text
+
+
 def test_cleaner_move_requires_confirmation(monkeypatch, tmp_path):
     def fail_move(*args, **kwargs):
         raise AssertionError("move_to_delete must not run without confirmation")
@@ -436,6 +483,33 @@ def test_cleaner_parsed_jobs_move_calls_dedicated_service(monkeypatch, tmp_path)
 
     assert resp.status_code == 200
     assert calls == {"uids": ["mbox:pop.example:0"], "min_age_days": 9, "max_mails": 12}
+
+
+def test_cleaner_duplicates_move_calls_dedicated_service(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_move(settings, *, uids, min_age_days):
+        calls["uids"] = uids
+        calls["min_age_days"] = min_age_days
+        return 1, _report()
+
+    monkeypatch.setattr(web_app, "move_thunderbird_duplicates_to_trash", fake_move)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post(
+        "/cleaner/move-thunderbird-to-trash",
+        data={
+            "source": "duplicates",
+            "selected_uid": "mbox:pop.orange.fr:0",
+            "confirm_move": "yes",
+            "confirm_thunderbird_closed": "yes",
+            "min_age_days": "9",
+            "max_mails": "12",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert calls == {"uids": ["mbox:pop.orange.fr:0"], "min_age_days": 9}
 
 
 def test_cleaner_regex_move_reuses_finished_scan_job(monkeypatch, tmp_path):

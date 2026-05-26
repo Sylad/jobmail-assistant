@@ -10,9 +10,11 @@ from jobmail.cleaner.service import (
     list_cleaner_backups,
     move_orphan_cleaner_temp_files,
     move_parsed_jobs_to_trash,
+    move_thunderbird_duplicates_to_trash,
     move_thunderbird_regex_to_trash,
     move_thunderbird_to_trash,
     scan_parsed_job_mails,
+    scan_thunderbird_duplicates,
     scan_thunderbird_regex,
     scan_thunderbird_promotions,
 )
@@ -35,6 +37,10 @@ def _make_msg(idx: int, subject: str, body: str) -> str:
         f"{body}\n"
         f"\n"
     )
+
+
+def _make_msg_with_id(idx: int, subject: str, body: str, message_id: str) -> str:
+    return _make_msg(idx, subject, body).replace(f"<clean-{idx}@local>", message_id)
 
 
 def test_scan_thunderbird_promotions_reads_mbox_without_imap(tmp_path: Path):
@@ -203,6 +209,64 @@ def test_cleaner_temp_cleanup_moves_only_jobmail_temp_files(tmp_path: Path):
     assert not temp_file.exists()
     assert other_temp.exists()
     assert list((tmp_path / "orphan-temp").rglob("*jobmail-tmp-*"))
+
+
+def test_scan_thunderbird_duplicates_keeps_gmail_and_flags_orange_copy(tmp_path: Path):
+    gmail_dir = tmp_path / "Mail" / "pop.gmail.com"
+    orange_dir = tmp_path / "Mail" / "pop.orange.fr"
+    gmail_dir.mkdir(parents=True)
+    orange_dir.mkdir(parents=True)
+    gmail_inbox = gmail_dir / "Inbox"
+    orange_inbox = orange_dir / "Inbox"
+    gmail_inbox.write_text(
+        _make_msg_with_id(1, "Alerte securite", "Compte", "<dup-1@local>")
+        + _make_msg_with_id(2, "Gmail only", "Body", "<gmail-only@local>"),
+        encoding="utf-8",
+    )
+    orange_inbox.write_text(
+        _make_msg_with_id(3, "Alerte securite", "Compte", "<dup-1@local>")
+        + _make_msg_with_id(4, "Orange only", "Body", "<orange-only@local>"),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(tmp_path / "Mail" / "pop.*" / "Inbox"),
+    )
+
+    report = scan_thunderbird_duplicates(settings, min_age_days=7, max_mails=20)
+
+    assert report.scanned_count == 4
+    assert report.candidate_count == 1
+    assert report.candidates[0].mailbox == "pop.orange.fr"
+    assert report.candidates[0].duplicate_of.startswith("pop.gmail.com:")
+
+
+def test_move_thunderbird_duplicates_to_trash_moves_selected_orange_copy(tmp_path: Path):
+    gmail_dir = tmp_path / "Mail" / "pop.gmail.com"
+    orange_dir = tmp_path / "Mail" / "pop.orange.fr"
+    gmail_dir.mkdir(parents=True)
+    orange_dir.mkdir(parents=True)
+    gmail_inbox = gmail_dir / "Inbox"
+    orange_inbox = orange_dir / "Inbox"
+    gmail_inbox.write_text(_make_msg_with_id(1, "Alerte securite", "Compte", "<dup-1@local>"), encoding="utf-8")
+    orange_inbox.write_text(_make_msg_with_id(2, "Alerte securite", "Compte", "<dup-1@local>"), encoding="utf-8")
+    settings = Settings(
+        db_path=tmp_path / "test.db",
+        cleaner_mbox_globs=str(tmp_path / "Mail" / "pop.*" / "Inbox"),
+    )
+    report = scan_thunderbird_duplicates(settings, min_age_days=7, max_mails=20)
+
+    moved_count, _moved_report = move_thunderbird_duplicates_to_trash(
+        settings,
+        uids=[report.candidates[0].uid],
+        min_age_days=7,
+        require_thunderbird_closed=False,
+    )
+
+    assert moved_count == 1
+    assert "Alerte securite" in gmail_inbox.read_text(encoding="utf-8")
+    assert "Alerte securite" not in orange_inbox.read_text(encoding="utf-8")
+    assert "Alerte securite" in (orange_dir / "Trash").read_text(encoding="utf-8")
 
 
 def test_scan_thunderbird_regex_matches_sender_or_subject_and_keeps_safety(tmp_path: Path):
