@@ -126,6 +126,40 @@ select:focus-visible {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
+.reanalysis-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 12px 18px;
+  align-items: center;
+  margin-bottom: 26px;
+  padding: 16px;
+  background: rgba(24, 28, 35, 0.74);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.reanalysis-panel h2 {
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+}
+.reanalysis-panel p {
+  margin: 0;
+}
+.reanalysis-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.reanalysis-status {
+  grid-column: 1 / -1;
+  color: var(--fg-mute);
+  font-size: 0.9rem;
+}
+.reanalysis-progress {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
 .backup-details summary {
   display: flex;
   align-items: center;

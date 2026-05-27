@@ -42,8 +42,12 @@ from ..db import (
     init_db,
     list_offers,
     update_status,
+    upsert_offer,
 )
+from ..extraction import get_extractor
+from ..extraction.base import PrivacyError
 from ..models import OfferStatus
+from ..models import RawEmail
 from ..pipeline import run as run_pipeline
 from .links import build_preferred_offer_terms, extract_offer_links
 
@@ -184,10 +188,135 @@ class CleanerMoveJob:
     cancel_requested: bool = False
 
 
+@dataclass
+class ReanalysisJob:
+    id: str
+    status: str = "running"
+    total_count: int = 0
+    processed_count: int = 0
+    updated_count: int = 0
+    failed_count: int = 0
+    current_subject: str = ""
+    started_at: float = field(default_factory=time.time)
+    finished_at: float | None = None
+    error: str = ""
+    cancel_requested: bool = False
+
+
 _cleaner_jobs: dict[str, CleanerScanJob] = {}
 _cleaner_jobs_lock = threading.Lock()
 _cleaner_move_jobs: dict[str, CleanerMoveJob] = {}
 _cleaner_move_jobs_lock = threading.Lock()
+_reanalysis_job: ReanalysisJob | None = None
+_reanalysis_lock = threading.Lock()
+
+
+def _reanalysis_payload(job: ReanalysisJob | None) -> dict:
+    if job is None:
+        return {
+            "id": "",
+            "status": "idle",
+            "total_count": 0,
+            "processed_count": 0,
+            "updated_count": 0,
+            "failed_count": 0,
+            "current_subject": "",
+            "elapsed_seconds": 0,
+            "progress": None,
+            "error": "",
+        }
+    elapsed = int((job.finished_at or time.time()) - job.started_at)
+    progress = round(job.processed_count / job.total_count * 100) if job.total_count else None
+    return {
+        "id": job.id,
+        "status": job.status,
+        "total_count": job.total_count,
+        "processed_count": job.processed_count,
+        "updated_count": job.updated_count,
+        "failed_count": job.failed_count,
+        "current_subject": job.current_subject,
+        "elapsed_seconds": elapsed,
+        "progress": progress,
+        "error": job.error,
+    }
+
+
+def _llm_provider_available(settings) -> bool:
+    if settings.llm_provider != "ollama":
+        return True
+    import httpx
+
+    try:
+        resp = httpx.get(f"{settings.ollama_base_url.rstrip('/')}/api/tags", timeout=2)
+        resp.raise_for_status()
+    except httpx.HTTPError:
+        return False
+    return True
+
+
+def _empty_extraction(extraction) -> bool:
+    return (
+        not extraction.title
+        and not extraction.company
+        and not extraction.recruiter
+        and not extraction.location
+        and not extraction.technos
+        and not extraction.summary
+        and not extraction.offer_url
+        and extraction.relevance_score == 0
+    )
+
+
+def _run_reanalysis_job(settings, job: ReanalysisJob) -> None:
+    from datetime import datetime
+
+    try:
+        extractor = get_extractor(settings)
+        with connect(settings.db_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT e.uid, e.message_id, e.subject, e.sender, e.received_at, e.body_text, e.body_html
+                FROM emails e
+                WHERE e.job_related = 1
+                ORDER BY e.received_at DESC
+                """
+            ).fetchall()
+        job.total_count = len(rows)
+        for row in rows:
+            if job.cancel_requested:
+                job.status = "cancelled"
+                return
+            job.current_subject = row["subject"] or ""
+            email = RawEmail(
+                uid=row["uid"],
+                message_id=row["message_id"],
+                subject=row["subject"],
+                sender=row["sender"],
+                received_at=datetime.fromisoformat(row["received_at"]),
+                body_text=row["body_text"],
+                body_html=row["body_html"] or "",
+            )
+            try:
+                extraction = extractor.extract(email, settings.target_profile)
+            except PrivacyError:
+                job.failed_count += 1
+            except Exception:
+                job.failed_count += 1
+            else:
+                if _empty_extraction(extraction):
+                    job.failed_count += 1
+                else:
+                    with connect(settings.db_path) as conn:
+                        upsert_offer(conn, email.uid, extraction)
+                    job.updated_count += 1
+            finally:
+                job.processed_count += 1
+        job.status = "done"
+    except Exception as e:
+        job.status = "error"
+        job.error = str(e)
+    finally:
+        job.finished_at = time.time()
 
 
 def _load_saved_regex_rules(settings) -> list[tuple[str, str]]:
@@ -469,6 +598,7 @@ def create_app() -> FastAPI:
                 "provider": settings.llm_provider,
                 "imap_enabled": settings.imap_enabled,
                 "stats": stats,
+                "reanalysis_job": _reanalysis_payload(_reanalysis_job),
             },
         )
 
@@ -476,6 +606,35 @@ def create_app() -> FastAPI:
     def api_status():
         with connect(settings.db_path) as conn:
             return _compute_stats(conn)
+
+    @app.post("/offers/reanalyze/start")
+    def start_offer_reanalysis():
+        global _reanalysis_job
+        with _reanalysis_lock:
+            if _reanalysis_job is not None and _reanalysis_job.status == "running":
+                return _reanalysis_payload(_reanalysis_job)
+            if not _llm_provider_available(settings):
+                raise HTTPException(status_code=503, detail=f"Provider {settings.llm_provider!r} indisponible.")
+            _reanalysis_job = ReanalysisJob(id=uuid.uuid4().hex)
+            thread = threading.Thread(
+                target=_run_reanalysis_job,
+                args=(settings, _reanalysis_job),
+                daemon=True,
+            )
+            thread.start()
+            return _reanalysis_payload(_reanalysis_job)
+
+    @app.get("/offers/reanalyze/status")
+    def offer_reanalysis_status():
+        return _reanalysis_payload(_reanalysis_job)
+
+    @app.post("/offers/reanalyze/cancel")
+    def cancel_offer_reanalysis():
+        with _reanalysis_lock:
+            if _reanalysis_job is not None and _reanalysis_job.status == "running":
+                _reanalysis_job.cancel_requested = True
+                return _reanalysis_payload(_reanalysis_job)
+            return _reanalysis_payload(_reanalysis_job)
 
     @app.get("/cleaner", response_class=HTMLResponse)
     def cleaner(request: Request):

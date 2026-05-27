@@ -51,6 +51,25 @@
   </div>
 </section>
 
+<section class="reanalysis-panel" id="reanalysis-panel" data-initial='{{ reanalysis_job | tojson }}'>
+  <div>
+    <span class="label-title">Analyse Ollama</span>
+    <h2>Ré-analyser les offres</h2>
+    <p class="muted">
+      Recalcule titres, sociétés, technos et scores depuis les mails déjà en base.
+      Les liens d'offres extraits localement sont conservés.
+    </p>
+  </div>
+  <div class="reanalysis-actions">
+    <button type="button" class="btn btn-primary" id="reanalyze-start">Ré-analyser avec Ollama</button>
+    <button type="button" class="btn btn-ghost" id="reanalyze-cancel" hidden>Arrêter</button>
+  </div>
+  <div class="reanalysis-status" id="reanalyze-status" aria-live="polite"></div>
+  <div class="progress-bar reanalysis-progress" hidden>
+    <div class="progress-fill" id="reanalyze-progress"></div>
+  </div>
+</section>
+
 <section>
   <h1>Offres détectées <span class="muted">({{ offers | length }})</span></h1>
   {% if not offers %}
@@ -105,4 +124,79 @@
     </table>
   {% endif %}
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const panel = document.querySelector("#reanalysis-panel");
+  if (!panel) return;
+  const startBtn = document.querySelector("#reanalyze-start");
+  const cancelBtn = document.querySelector("#reanalyze-cancel");
+  const statusEl = document.querySelector("#reanalyze-status");
+  const progressWrap = panel.querySelector(".reanalysis-progress");
+  const progressFill = document.querySelector("#reanalyze-progress");
+  let polling = null;
+
+  function render(job) {
+    const running = job.status === "running";
+    startBtn.disabled = running;
+    cancelBtn.hidden = !running;
+    progressWrap.hidden = job.progress === null && !running;
+    progressFill.style.width = `${job.progress || 0}%`;
+    if (job.status === "idle") {
+      statusEl.textContent = "Aucune ré-analyse en cours.";
+    } else if (running) {
+      statusEl.textContent =
+        `${job.processed_count}/${job.total_count || "?"} traitées · ` +
+        `${job.updated_count} mises à jour · ${job.failed_count} ignorées · ${job.elapsed_seconds}s`;
+    } else if (job.status === "done") {
+      statusEl.textContent =
+        `Terminé : ${job.updated_count} mises à jour, ${job.failed_count} ignorées. Recharge la page pour voir le classement.`;
+    } else if (job.status === "cancelled") {
+      statusEl.textContent = `Arrêté : ${job.updated_count} mises à jour avant annulation.`;
+    } else {
+      statusEl.textContent = job.error || "Ré-analyse en erreur.";
+    }
+    if (!running && polling) {
+      window.clearInterval(polling);
+      polling = null;
+    }
+  }
+
+  async function poll() {
+    const response = await fetch("/offers/reanalyze/status");
+    render(await response.json());
+  }
+
+  function ensurePolling() {
+    if (!polling) polling = window.setInterval(poll, 1200);
+  }
+
+  startBtn.addEventListener("click", async () => {
+    startBtn.disabled = true;
+    statusEl.textContent = "Démarrage de la ré-analyse...";
+    const response = await fetch("/offers/reanalyze/start", { method: "POST" });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      statusEl.textContent = error.detail || "Impossible de démarrer la ré-analyse.";
+      startBtn.disabled = false;
+      return;
+    }
+    render(await response.json());
+    ensurePolling();
+  });
+
+  cancelBtn.addEventListener("click", async () => {
+    cancelBtn.disabled = true;
+    await fetch("/offers/reanalyze/cancel", { method: "POST" });
+    cancelBtn.disabled = false;
+    await poll();
+  });
+
+  const initial = JSON.parse(panel.dataset.initial || "{}");
+  render(initial);
+  if (initial.status === "running") ensurePolling();
+})();
+</script>
 {% endblock %}
