@@ -121,7 +121,7 @@ class OllamaProvider(LocalLLMProvider):
                     "keep_alive": "10m",      # keep model hot between calls
                     "options": {
                         "temperature": 0.1,
-                        "num_predict": 512,   # cap output, JSON is short
+                        "num_predict": 1536,  # keep enough room for URLs without truncating JSON
                     },
                 },
                 timeout=180,
