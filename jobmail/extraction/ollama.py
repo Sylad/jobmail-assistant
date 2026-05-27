@@ -12,6 +12,36 @@ from .base import LocalLLMProvider
 
 logger = logging.getLogger(__name__)
 
+OLLAMA_FORMAT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "company": {"type": "string"},
+        "recruiter": {"type": "string"},
+        "location": {"type": "string"},
+        "work_mode": {"type": "string", "enum": ["remote", "hybrid", "onsite", "unknown"]},
+        "technos": {"type": "array", "items": {"type": "string"}},
+        "english_required": {"type": "boolean"},
+        "contract_type": {"type": "string", "enum": ["cdi", "cdd", "freelance", "mission", "unknown"]},
+        "summary": {"type": "string"},
+        "offer_url": {"type": "string"},
+        "relevance_score": {"type": "integer", "minimum": 0, "maximum": 10},
+    },
+    "required": [
+        "title",
+        "company",
+        "recruiter",
+        "location",
+        "work_mode",
+        "technos",
+        "english_required",
+        "contract_type",
+        "summary",
+        "offer_url",
+        "relevance_score",
+    ],
+}
+
 PROMPT_TEMPLATE = """Tu es un assistant carrière local spécialisé dans l'analyse de mails de recrutement.
 
 Tu dois analyser UNIQUEMENT le mail fourni.
@@ -77,6 +107,7 @@ Schéma JSON attendu:
 Contraintes:
 - relevance_score doit être un entier entre 0 et 10.
 - offer_url doit être recopiée depuis les liens candidats ci-dessous, jamais inventée.
+- Si aucun lien candidat ne pointe clairement vers l'offre extraite, mets offer_url à "".
 - technos doit contenir uniquement des noms de technologies ou domaines détectés.
 - Si une information est absente, utilise "" ou "unknown".
 - Ne devine pas une société si elle n'est pas indiquée.
@@ -116,7 +147,7 @@ class OllamaProvider(LocalLLMProvider):
                     "model": self._model,
                     "prompt": prompt,
                     "stream": False,
-                    "format": "json",
+                    "format": OLLAMA_FORMAT_SCHEMA,
                     "think": False,           # qwen3 native disable-thinking
                     "keep_alive": "10m",      # keep model hot between calls
                     "options": {
@@ -198,7 +229,7 @@ def _link_context(email: RawEmail) -> str:
             continue
         seen.add(clean)
         lines.append(f"- {clean[:500]}")
-        if len(lines) >= 20:
+        if len(lines) >= 8:
             break
     return "\n".join(lines) if lines else "- aucun lien détecté"
 
