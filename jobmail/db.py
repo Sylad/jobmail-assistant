@@ -174,7 +174,10 @@ def upsert_offer(
             english_required = excluded.english_required,
             contract_type = excluded.contract_type,
             summary = excluded.summary,
-            offer_url = excluded.offer_url,
+            offer_url = CASE
+                WHEN excluded.offer_url != '' THEN excluded.offer_url
+                ELSE offers.offer_url
+            END,
             relevance_score = excluded.relevance_score,
             extracted_at = datetime('now')
         RETURNING id
