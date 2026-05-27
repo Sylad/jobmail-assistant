@@ -338,7 +338,10 @@ def _run_link_offers(settings, *, limit: int | None) -> int:
             missing += 1
             continue
         with connect(settings.db_path) as conn:
-            conn.execute("UPDATE offers SET offer_url = ? WHERE id = ?", (links[0].url, row["id"]))
+            conn.execute(
+                "UPDATE offers SET offer_url = ?, extracted_at = datetime('now') WHERE id = ?",
+                (links[0].url, row["id"]),
+            )
         updated += 1
         if processed % 50 == 0:
             print(f"  {processed}/{len(rows)} updated={updated} missing={missing}")

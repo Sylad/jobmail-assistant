@@ -175,7 +175,8 @@ def upsert_offer(
             contract_type = excluded.contract_type,
             summary = excluded.summary,
             offer_url = excluded.offer_url,
-            relevance_score = excluded.relevance_score
+            relevance_score = excluded.relevance_score,
+            extracted_at = datetime('now')
         RETURNING id
         """,
         (
