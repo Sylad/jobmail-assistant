@@ -17,7 +17,13 @@ class OfferLink:
     label: str
 
 
-def extract_offer_links(body_text: str = "", body_html: str = "", *, max_links: int = 5) -> list[OfferLink]:
+def extract_offer_links(
+    body_text: str = "",
+    body_html: str = "",
+    *,
+    max_links: int = 5,
+    preferred_terms: list[str] | None = None,
+) -> list[OfferLink]:
     links: list[OfferLink] = []
 
     if body_html:
@@ -25,17 +31,16 @@ def extract_offer_links(body_text: str = "", body_html: str = "", *, max_links: 
     if body_text:
         links.extend(OfferLink(url=url, label="Lien du mail") for url in URL_RE.findall(body_text))
 
-    deduped: list[OfferLink] = []
-    seen: set[str] = set()
+    deduped_by_url: dict[str, OfferLink] = {}
     for link in links:
-        url = _clean_url(_unwrap_tracking_url(link.url))
-        if not _is_http_url(url) or url in seen:
+        url = _normalize_offer_url(_clean_url(_unwrap_tracking_url(link.url)))
+        if not _is_http_url(url):
             continue
-        seen.add(url)
-        deduped.append(OfferLink(url=url, label=_clean_label(link.label, url)))
-        if len(deduped) >= max_links:
-            break
-    return deduped
+        clean_link = OfferLink(url=url, label=_clean_label(link.label, url))
+        previous = deduped_by_url.get(url)
+        if previous is None or _label_quality(clean_link.label, url) > _label_quality(previous.label, url):
+            deduped_by_url[url] = clean_link
+    return sorted(deduped_by_url.values(), key=lambda link: _offer_link_rank(link, preferred_terms or []))[:max_links]
 
 
 def _links_from_html(body_html: str) -> list[OfferLink]:
@@ -76,3 +81,36 @@ def _clean_label(label: str, url: str) -> str:
         host = urlparse(url).netloc.removeprefix("www.")
         return host or "Voir l'offre"
     return label
+
+
+def _normalize_offer_url(url: str) -> str:
+    parsed = urlparse(url)
+    host = parsed.netloc.lower().removeprefix("www.")
+    if host.endswith("linkedin.com") and parsed.path.startswith("/comm/jobs/view/"):
+        return parsed._replace(path=parsed.path.removeprefix("/comm"), query="").geturl()
+    return url
+
+
+def _offer_link_rank(link: OfferLink, preferred_terms: list[str]) -> tuple[int, str]:
+    parsed = urlparse(link.url)
+    host = parsed.netloc.lower().removeprefix("www.")
+    path = parsed.path.lower()
+    label = link.label.lower()
+    preferred_score = sum(1 for term in preferred_terms if term and term.lower() in label)
+
+    if host.endswith("linkedin.com") and "/jobs/view/" in path:
+        return (0, -preferred_score, link.url)
+    if any(part in path for part in ("/jobs/", "/job/", "/careers/", "/career/", "/offres/", "/offer")):
+        return (1, -preferred_score, link.url)
+    if any(word in label for word in ("offre", "poste", "emploi", "job", "candidater", "apply")):
+        return (2, -preferred_score, link.url)
+    if any(part in path for part in ("/feed", "/messaging", "/mynetwork", "/notifications", "/premium", "/help", "unsubscribe")):
+        return (8, -preferred_score, link.url)
+    return (5, -preferred_score, link.url)
+
+
+def _label_quality(label: str, url: str) -> int:
+    host = urlparse(url).netloc.removeprefix("www.")
+    if not label or label == host:
+        return 0
+    return min(len(label), 120)

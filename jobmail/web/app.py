@@ -1309,7 +1309,11 @@ def create_app() -> FastAPI:
             {
                 "offer": offer,
                 "recruiter_email": _extract_email(offer.extraction.recruiter or offer.sender),
-                "offer_links": extract_offer_links(offer.body_text, offer.body_html),
+                "offer_links": extract_offer_links(
+                    offer.body_text,
+                    offer.body_html,
+                    preferred_terms=[offer.extraction.title, offer.extraction.company],
+                ),
                 "all_statuses": [s.value for s in OfferStatus],
                 "provider": settings.llm_provider,
                 "imap_enabled": settings.imap_enabled,

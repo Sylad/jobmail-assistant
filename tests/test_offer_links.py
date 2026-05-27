@@ -30,3 +30,35 @@ def test_extract_offer_links_unwraps_common_tracking_url():
 
     assert len(links) == 1
     assert links[0].url == "https://jobs.example.com/offer"
+
+
+def test_extract_offer_links_prefers_linkedin_job_view_over_nav_links():
+    links = extract_offer_links(
+        body_html=(
+            '<a href="https://www.linkedin.com/comm/feed/?trk=header"></a>'
+            '<a href="https://www.linkedin.com/comm/messaging/?trk=header"></a>'
+            '<a href="https://www.linkedin.com/comm/jobs/search?keywords=Java">Votre alerte Emploi</a>'
+            '<a href="https://www.linkedin.com/comm/jobs/view/4388799424/?trackingId=abc">'
+            "Full Stack Engineer - VP (Java)</a>"
+        ),
+    )
+
+    assert links[0].url == "https://www.linkedin.com/jobs/view/4388799424/"
+    assert links[0].label == "Full Stack Engineer - VP (Java)"
+
+
+def test_extract_offer_links_prefers_matching_linkedin_job_when_digest_has_many_jobs():
+    links = extract_offer_links(
+        body_html=(
+            '<a href="https://www.linkedin.com/comm/jobs/view/4329264165/?trackingId=abc"></a>'
+            '<a href="https://www.linkedin.com/comm/jobs/view/4329264165/?trackingId=abc">'
+            "Développeur Java F/H</a>"
+            '<a href="https://www.linkedin.com/comm/jobs/view/4388799424/?trackingId=def"></a>'
+            '<a href="https://www.linkedin.com/comm/jobs/view/4388799424/?trackingId=def">'
+            "Full Stack Engineer - VP (Java) BlackRock · Paris</a>"
+        ),
+        preferred_terms=["Full Stack Engineer - VP (Java)", "BlackRock"],
+    )
+
+    assert links[0].url == "https://www.linkedin.com/jobs/view/4388799424/"
+    assert links[0].label == "Full Stack Engineer - VP (Java) BlackRock · Paris"
