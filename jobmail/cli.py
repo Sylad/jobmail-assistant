@@ -227,7 +227,14 @@ def _run_extract(settings, *, limit: int | None, re_extract: bool) -> int:
     from .db import connect, upsert_offer
     from .extraction import get_extractor
     from .extraction.base import PrivacyError
-    from .models import OfferExtraction, RawEmail
+    from .models import RawEmail
+
+    if not _provider_available(settings):
+        print(
+            f"LLM provider {settings.llm_provider!r} is not reachable. "
+            "Aborting before touching existing offers."
+        )
+        return 2
 
     extractor = get_extractor(settings)
     sql = """
@@ -270,8 +277,12 @@ def _run_extract(settings, *, limit: int | None, re_extract: bool) -> int:
             continue
         except Exception:
             logging.exception("Extraction failed uid=%s", email.uid)
-            extraction = OfferExtraction()
             failed += 1
+            continue
+        if _empty_extraction(extraction):
+            logging.warning("Empty extraction uid=%s — preserving existing offer.", email.uid)
+            failed += 1
+            continue
         with connect(settings.db_path) as conn:
             upsert_offer(conn, email.uid, extraction)
         done += 1
@@ -279,6 +290,32 @@ def _run_extract(settings, *, limit: int | None, re_extract: bool) -> int:
             print(f"  {done}/{len(rows)}")
     print(f"Done. extracted={done} failed={failed}")
     return 0
+
+
+def _provider_available(settings) -> bool:
+    if settings.llm_provider != "ollama":
+        return True
+    import httpx
+
+    try:
+        resp = httpx.get(f"{settings.ollama_base_url.rstrip('/')}/api/tags", timeout=2)
+        resp.raise_for_status()
+    except httpx.HTTPError:
+        return False
+    return True
+
+
+def _empty_extraction(extraction) -> bool:
+    return (
+        not extraction.title
+        and not extraction.company
+        and not extraction.recruiter
+        and not extraction.location
+        and not extraction.technos
+        and not extraction.summary
+        and not extraction.offer_url
+        and extraction.relevance_score == 0
+    )
 
 
 def _build_mbox_source(

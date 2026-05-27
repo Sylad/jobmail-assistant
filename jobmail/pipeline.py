@@ -88,6 +88,10 @@ def run(
 
             stats.sent_to_llm += 1
             extraction = _safe_extract(extractor, email, settings.target_profile)
+            if _empty_extraction(extraction):
+                _persist_mbox_cursor(conn, email)
+                logger.warning("Empty extraction uid=%s — not creating an offer row.", email.uid)
+                continue
             upsert_offer(conn, email.uid, extraction)
             stats.extracted += 1
             _persist_mbox_cursor(conn, email)
@@ -127,3 +131,16 @@ def _safe_extract(extractor: ExtractorProvider, email: RawEmail, profile: str):
         logger.exception("Extractor failed on uid=%s", email.uid)
         from .models import OfferExtraction
         return OfferExtraction()
+
+
+def _empty_extraction(extraction) -> bool:
+    return (
+        not extraction.title
+        and not extraction.company
+        and not extraction.recruiter
+        and not extraction.location
+        and not extraction.technos
+        and not extraction.summary
+        and not extraction.offer_url
+        and extraction.relevance_score == 0
+    )
