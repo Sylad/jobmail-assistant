@@ -1,4 +1,4 @@
-from jobmail.web.links import extract_offer_links
+from jobmail.web.links import build_preferred_offer_terms, extract_offer_links
 
 
 def test_extract_offer_links_from_html_href():
@@ -62,6 +62,20 @@ def test_extract_offer_links_prefers_matching_linkedin_job_when_digest_has_many_
 
     assert links[0].url == "https://www.linkedin.com/jobs/view/4388799424/"
     assert links[0].label == "Full Stack Engineer - VP (Java) BlackRock · Paris"
+
+
+def test_extract_offer_links_uses_subject_terms_for_linkedin_alerts():
+    links = extract_offer_links(
+        body_html=(
+            '<a href="https://www.linkedin.com/comm/jobs/view/4329264165/?trackingId=abc">'
+            "Développeur Java F/H Onepoint · Paris</a>"
+            '<a href="https://www.linkedin.com/comm/jobs/view/4388799424/?trackingId=def">'
+            "Full Stack Engineer - VP (Java) BlackRock · Paris</a>"
+        ),
+        preferred_terms=build_preferred_offer_terms("Full Stack Engineer - VP (Java) chez BlackRock"),
+    )
+
+    assert links[0].url == "https://www.linkedin.com/jobs/view/4388799424/"
 
 
 def test_extract_offer_links_prefers_valid_model_url_present_in_mail():

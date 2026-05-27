@@ -39,6 +39,14 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("serve", help="Run the local web dashboard.")
     sub.add_parser("seed", help="Seed the DB with mock offers for demo.")
     sub.add_parser("classify", help="Re-classify cached emails (no LLM call unless new).")
+    link_parser = sub.add_parser(
+        "link-offers",
+        help="Fill offer_url from cached mail links without calling the LLM.",
+    )
+    link_parser.add_argument(
+        "--limit", type=int, default=None, metavar="N",
+        help="Process at most N offers.",
+    )
     watch_parser = sub.add_parser(
         "watch",
         help="Watch MBOX file(s) for changes and trigger incremental fetch on each new mail.",
@@ -112,6 +120,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "extract":
         return _run_extract(settings, limit=args.limit, re_extract=args.re_extract)
+
+    if args.cmd == "link-offers":
+        return _run_link_offers(settings, limit=args.limit)
 
     if args.cmd == "classify":
         # Lightweight re-classify on cached body — useful when rules.py changes.
@@ -289,6 +300,50 @@ def _run_extract(settings, *, limit: int | None, re_extract: bool) -> int:
         if done % 5 == 0:
             print(f"  {done}/{len(rows)}")
     print(f"Done. extracted={done} failed={failed}")
+    return 0
+
+
+def _run_link_offers(settings, *, limit: int | None) -> int:
+    from .db import connect
+    from .web.links import build_preferred_offer_terms, extract_offer_links
+
+    sql = """
+        SELECT
+            o.id, o.title, o.company, e.subject, e.body_text, e.body_html
+        FROM offers o
+        JOIN emails e ON e.uid = o.email_uid
+        ORDER BY e.received_at DESC
+        {limit}
+    """.format(limit=f"LIMIT {int(limit)}" if limit else "")
+
+    with connect(settings.db_path) as conn:
+        rows = conn.execute(sql).fetchall()
+
+    processed = 0
+    updated = 0
+    missing = 0
+    for row in rows:
+        links = extract_offer_links(
+            row["body_text"] or "",
+            row["body_html"] or "",
+            preferred_terms=build_preferred_offer_terms(
+                row["title"] or "",
+                row["company"] or "",
+                row["subject"] or "",
+            ),
+            max_links=1,
+        )
+        processed += 1
+        if not links:
+            missing += 1
+            continue
+        with connect(settings.db_path) as conn:
+            conn.execute("UPDATE offers SET offer_url = ? WHERE id = ?", (links[0].url, row["id"]))
+        updated += 1
+        if processed % 50 == 0:
+            print(f"  {processed}/{len(rows)} updated={updated} missing={missing}")
+
+    print(f"Done. processed={processed} updated={updated} missing={missing}")
     return 0
 
 

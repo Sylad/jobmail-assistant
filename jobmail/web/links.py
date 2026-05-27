@@ -50,6 +50,33 @@ def extract_offer_links(
     )[:max_links]
 
 
+def build_preferred_offer_terms(*values: str) -> list[str]:
+    terms: list[str] = []
+    for value in values:
+        text = " ".join((value or "").replace("\xa0", " ").split())
+        if not text:
+            continue
+        terms.append(text)
+        if " chez " in text.lower():
+            left, right = re.split(r"\s+chez\s+", text, maxsplit=1, flags=re.IGNORECASE)
+            terms.extend([left.strip(), right.strip()])
+        if " recherche " in text.lower():
+            left, right = re.split(r"\s+recherche\s+", text, maxsplit=1, flags=re.IGNORECASE)
+            terms.extend([left.strip(), right.strip()])
+    clean_terms: list[str] = []
+    seen: set[str] = set()
+    for term in terms:
+        cleaned = re.sub(r"\s+-\s+Jobs\s*:.*$", "", term, flags=re.IGNORECASE).strip(" -")
+        if len(cleaned) < 4:
+            continue
+        key = cleaned.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        clean_terms.append(cleaned)
+    return clean_terms
+
+
 def _links_from_html(body_html: str) -> list[OfferLink]:
     soup = BeautifulSoup(body_html, "html.parser")
     links: list[OfferLink] = []
@@ -103,7 +130,7 @@ def _offer_link_rank(link: OfferLink, preferred_terms: list[str], preferred_url:
     host = parsed.netloc.lower().removeprefix("www.")
     path = parsed.path.lower()
     label = link.label.lower()
-    preferred_score = sum(1 for term in preferred_terms if term and term.lower() in label)
+    preferred_score = _preferred_score(label, preferred_terms)
 
     if preferred_url and link.url == preferred_url:
         return (-1, -preferred_score, link.url)
@@ -116,6 +143,18 @@ def _offer_link_rank(link: OfferLink, preferred_terms: list[str], preferred_url:
     if any(part in path for part in ("/feed", "/messaging", "/mynetwork", "/notifications", "/premium", "/help", "unsubscribe")):
         return (8, -preferred_score, link.url)
     return (5, -preferred_score, link.url)
+
+
+def _preferred_score(label: str, preferred_terms: list[str]) -> int:
+    score = 0
+    for term in build_preferred_offer_terms(*preferred_terms):
+        term_l = term.lower()
+        if term_l in label:
+            score += 20
+            continue
+        words = [word for word in re.findall(r"[\wÀ-ÿ+#.-]+", term_l) if len(word) >= 4]
+        score += sum(1 for word in words if word in label)
+    return score
 
 
 def _label_quality(label: str, url: str) -> int:

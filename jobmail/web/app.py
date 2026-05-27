@@ -45,7 +45,7 @@ from ..db import (
 )
 from ..models import OfferStatus
 from ..pipeline import run as run_pipeline
-from .links import extract_offer_links
+from .links import build_preferred_offer_terms, extract_offer_links
 
 
 def _pipeline_process_active() -> tuple[bool, int | None]:
@@ -1312,7 +1312,11 @@ def create_app() -> FastAPI:
                 "offer_links": extract_offer_links(
                     offer.body_text,
                     offer.body_html,
-                    preferred_terms=[offer.extraction.title, offer.extraction.company],
+                    preferred_terms=build_preferred_offer_terms(
+                        offer.extraction.title,
+                        offer.extraction.company,
+                        offer.subject,
+                    ),
                     preferred_url=offer.extraction.offer_url,
                 ),
                 "all_statuses": [s.value for s in OfferStatus],
