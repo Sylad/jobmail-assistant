@@ -1313,6 +1313,7 @@ def create_app() -> FastAPI:
                     offer.body_text,
                     offer.body_html,
                     preferred_terms=[offer.extraction.title, offer.extraction.company],
+                    preferred_url=offer.extraction.offer_url,
                 ),
                 "all_statuses": [s.value for s in OfferStatus],
                 "provider": settings.llm_provider,

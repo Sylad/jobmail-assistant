@@ -31,6 +31,10 @@ TOOL_SCHEMA = {
                 "enum": ["cdi", "cdd", "freelance", "mission", "unknown"],
             },
             "summary": {"type": "string", "maxLength": 400},
+            "offer_url": {
+                "type": "string",
+                "description": "URL directe de l'offre si elle est présente dans le mail, sinon chaîne vide.",
+            },
             "relevance_score": {
                 "type": "integer", "minimum": 0, "maximum": 10,
                 "description": "Pertinence pour le profil cible, 0 = hors-sujet, 10 = match parfait.",
@@ -100,6 +104,7 @@ def _from_tool_input(data: dict) -> OfferExtraction:
         english_required=bool(data.get("english_required", False)),
         contract_type=ContractType(data.get("contract_type", "unknown")),
         summary=data.get("summary", ""),
+        offer_url=str(data.get("offer_url", "") or ""),
         relevance_score=int(data.get("relevance_score", 0)),
     )
 

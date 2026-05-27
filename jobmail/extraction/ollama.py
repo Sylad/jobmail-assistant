@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 import httpx
 
@@ -69,11 +70,13 @@ Schéma JSON attendu:
   "english_required": true,
   "contract_type": "cdi|cdd|freelance|mission|unknown",
   "summary": "string <= 400 caractères",
+  "offer_url": "URL directe de l'offre présente dans les liens candidats; sinon chaîne vide",
   "relevance_score": 0
 }}
 
 Contraintes:
 - relevance_score doit être un entier entre 0 et 10.
+- offer_url doit être recopiée depuis les liens candidats ci-dessous, jamais inventée.
 - technos doit contenir uniquement des noms de technologies ou domaines détectés.
 - Si une information est absente, utilise "" ou "unknown".
 - Ne devine pas une société si elle n'est pas indiquée.
@@ -84,6 +87,9 @@ De: {sender}
 Sujet: {subject}
 ---
 {body}
+
+Liens candidats présents dans le mail:
+{links}
 
 /no_think
 """
@@ -100,6 +106,7 @@ class OllamaProvider(LocalLLMProvider):
             sender=email.sender,
             subject=email.subject,
             body=email.body_text[:4000],
+            links=_link_context(email),
         )
 
         try:
@@ -140,6 +147,7 @@ class OllamaProvider(LocalLLMProvider):
             english_required=bool(payload.get("english_required", False)),
             contract_type=_safe_enum(ContractType, payload.get("contract_type")),
             summary=str(payload.get("summary", "") or "")[:400],
+            offer_url=_safe_url(payload.get("offer_url", "")),
             relevance_score=score,
         )
 
@@ -160,11 +168,39 @@ def _safe_technos(value) -> list[str]:
     return [str(item).strip().lower() for item in value if str(item).strip()]
 
 
+def _safe_url(value) -> str:
+    url = str(value or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return ""
+    return url[:2000]
+
+
 def _safe_enum(enum_cls, value):
     try:
         return enum_cls(value)
     except (ValueError, TypeError):
         return enum_cls("unknown")
+
+
+def _link_context(email: RawEmail) -> str:
+    urls: list[str] = []
+    for text in (email.body_text, email.body_html):
+        urls.extend(re.findall(r"https?://[^\s<>'\")]+", text or "", flags=re.IGNORECASE))
+    urls.extend(
+        match.group(1)
+        for match in re.finditer(r"""href=["']([^"']+)["']""", email.body_html or "", flags=re.IGNORECASE)
+    )
+    seen: set[str] = set()
+    lines: list[str] = []
+    for url in urls:
+        clean = url.strip()
+        if not clean or clean in seen:
+            continue
+        seen.add(clean)
+        lines.append(f"- {clean[:500]}")
+        if len(lines) >= 20:
+            break
+    return "\n".join(lines) if lines else "- aucun lien détecté"
 
 
 OllamaExtractor = OllamaProvider

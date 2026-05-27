@@ -63,6 +63,7 @@ class OfferExtraction:
     english_required: bool = False
     contract_type: ContractType = ContractType.UNKNOWN
     summary: str = ""
+    offer_url: str = ""
     relevance_score: int = 0  # 0..10
 
 

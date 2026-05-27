@@ -28,6 +28,7 @@ def test_sqlite_saves_email_classification_and_offer(tmp_path):
         english_required=False,
         contract_type=ContractType.CDI,
         summary="Mission GIS Java.",
+        offer_url="https://jobs.example.com/42",
         relevance_score=9,
     )
 
@@ -48,5 +49,38 @@ def test_sqlite_saves_email_classification_and_offer(tmp_path):
     assert len(offers) == 1
     assert offers[0].extraction is not None
     assert offers[0].extraction.technos == ["java", "geoserver", "postgis"]
+    assert offers[0].extraction.offer_url == "https://jobs.example.com/42"
     assert detail is not None
     assert detail.body_html == '<a href="https://jobs.example.com/42">Voir</a>'
+
+
+def test_init_db_migrates_offer_url_column(tmp_path):
+    db_path = tmp_path / "jobmail.db"
+    with connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE offers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email_uid TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL DEFAULT '',
+                company TEXT NOT NULL DEFAULT '',
+                recruiter TEXT NOT NULL DEFAULT '',
+                location TEXT NOT NULL DEFAULT '',
+                work_mode TEXT NOT NULL DEFAULT 'unknown',
+                technos TEXT NOT NULL DEFAULT '[]',
+                english_required INTEGER NOT NULL DEFAULT 0,
+                contract_type TEXT NOT NULL DEFAULT 'unknown',
+                summary TEXT NOT NULL DEFAULT '',
+                relevance_score INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'new',
+                extracted_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+
+    init_db(db_path)
+
+    with connect(db_path) as conn:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
+
+    assert "offer_url" in columns

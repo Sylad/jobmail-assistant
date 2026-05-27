@@ -39,6 +39,7 @@ class MockProvider(LocalLLMProvider):
             english_required=english,
             contract_type=contract,
             summary=summary,
+            offer_url=_first_url(email.body_text),
             relevance_score=score,
         )
 
@@ -119,6 +120,11 @@ def _summary(subject: str, technos: list[str], wm: WorkMode, ct: ContractType) -
         parts.append(f"Contrat: {ct.value}")
     head = "; ".join(parts) if parts else "Pas de détails clairs."
     return f"{subject[:80]} — {head}".strip()
+
+
+def _first_url(text: str) -> str:
+    match = re.search(r"https?://[^\s<>'\")]+", text)
+    return match.group(0).rstrip(".,;:)]}") if match else ""
 
 
 # Deterministic hash used by tests to assert idempotency.

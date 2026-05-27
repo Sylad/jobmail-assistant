@@ -62,3 +62,24 @@ def test_extract_offer_links_prefers_matching_linkedin_job_when_digest_has_many_
 
     assert links[0].url == "https://www.linkedin.com/jobs/view/4388799424/"
     assert links[0].label == "Full Stack Engineer - VP (Java) BlackRock · Paris"
+
+
+def test_extract_offer_links_prefers_valid_model_url_present_in_mail():
+    links = extract_offer_links(
+        body_html=(
+            '<a href="https://jobs.example.com/offers/one">Offre Java</a>'
+            '<a href="https://jobs.example.com/offers/two">Offre GeoServer</a>'
+        ),
+        preferred_url="https://jobs.example.com/offers/two",
+    )
+
+    assert links[0].url == "https://jobs.example.com/offers/two"
+
+
+def test_extract_offer_links_ignores_model_url_absent_from_mail():
+    links = extract_offer_links(
+        body_html='<a href="https://jobs.example.com/offers/one">Offre Java</a>',
+        preferred_url="https://evil.example.com/fake",
+    )
+
+    assert links[0].url == "https://jobs.example.com/offers/one"

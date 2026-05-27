@@ -23,6 +23,7 @@ def extract_offer_links(
     *,
     max_links: int = 5,
     preferred_terms: list[str] | None = None,
+    preferred_url: str = "",
 ) -> list[OfferLink]:
     links: list[OfferLink] = []
 
@@ -40,7 +41,13 @@ def extract_offer_links(
         previous = deduped_by_url.get(url)
         if previous is None or _label_quality(clean_link.label, url) > _label_quality(previous.label, url):
             deduped_by_url[url] = clean_link
-    return sorted(deduped_by_url.values(), key=lambda link: _offer_link_rank(link, preferred_terms or []))[:max_links]
+    normalized_preferred_url = _normalize_offer_url(_clean_url(_unwrap_tracking_url(preferred_url)))
+    if normalized_preferred_url not in deduped_by_url:
+        normalized_preferred_url = ""
+    return sorted(
+        deduped_by_url.values(),
+        key=lambda link: _offer_link_rank(link, preferred_terms or [], normalized_preferred_url),
+    )[:max_links]
 
 
 def _links_from_html(body_html: str) -> list[OfferLink]:
@@ -91,13 +98,15 @@ def _normalize_offer_url(url: str) -> str:
     return url
 
 
-def _offer_link_rank(link: OfferLink, preferred_terms: list[str]) -> tuple[int, str]:
+def _offer_link_rank(link: OfferLink, preferred_terms: list[str], preferred_url: str = "") -> tuple[int, int, str]:
     parsed = urlparse(link.url)
     host = parsed.netloc.lower().removeprefix("www.")
     path = parsed.path.lower()
     label = link.label.lower()
     preferred_score = sum(1 for term in preferred_terms if term and term.lower() in label)
 
+    if preferred_url and link.url == preferred_url:
+        return (-1, -preferred_score, link.url)
     if host.endswith("linkedin.com") and "/jobs/view/" in path:
         return (0, -preferred_score, link.url)
     if any(part in path for part in ("/jobs/", "/job/", "/careers/", "/career/", "/offres/", "/offer")):

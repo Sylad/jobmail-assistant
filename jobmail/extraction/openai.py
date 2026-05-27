@@ -59,6 +59,7 @@ def _from_json(data: dict) -> OfferExtraction:
         english_required=bool(data.get("english_required", False)),
         contract_type=_safe_enum(ContractType, data.get("contract_type")),
         summary=str(data.get("summary", "") or "")[:400],
+        offer_url=str(data.get("offer_url", "") or "")[:2000],
         relevance_score=_safe_score(data.get("relevance_score", 0)),
     )
 

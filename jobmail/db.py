@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS offers (
     english_required INTEGER NOT NULL DEFAULT 0,
     contract_type TEXT NOT NULL DEFAULT 'unknown',
     summary TEXT NOT NULL DEFAULT '',
+    offer_url TEXT NOT NULL DEFAULT '',
     relevance_score INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'new',
     extracted_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -65,6 +66,14 @@ def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with connect(db_path) as conn:
         conn.executescript(SCHEMA)
+        _ensure_column(conn, "offers", "offer_url", "TEXT NOT NULL DEFAULT ''")
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    if any(row["name"] == column for row in rows):
+        return
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 @contextmanager
@@ -153,8 +162,8 @@ def upsert_offer(
         """
         INSERT INTO offers
             (email_uid, title, company, recruiter, location, work_mode, technos,
-             english_required, contract_type, summary, relevance_score)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             english_required, contract_type, summary, offer_url, relevance_score)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(email_uid) DO UPDATE SET
             title = excluded.title,
             company = excluded.company,
@@ -165,6 +174,7 @@ def upsert_offer(
             english_required = excluded.english_required,
             contract_type = excluded.contract_type,
             summary = excluded.summary,
+            offer_url = excluded.offer_url,
             relevance_score = excluded.relevance_score
         RETURNING id
         """,
@@ -179,6 +189,7 @@ def upsert_offer(
             int(extraction.english_required),
             extraction.contract_type.value,
             extraction.summary,
+            extraction.offer_url,
             extraction.relevance_score,
         ),
     )
@@ -285,6 +296,7 @@ def _row_to_offer(row: sqlite3.Row) -> StoredOffer:
         english_required=bool(row["english_required"]),
         contract_type=ContractType(row["contract_type"]),
         summary=row["summary"],
+        offer_url=row["offer_url"],
         relevance_score=row["relevance_score"],
     )
     return StoredOffer(
