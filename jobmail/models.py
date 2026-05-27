@@ -81,3 +81,5 @@ class StoredOffer:
     status: OfferStatus = OfferStatus.NEW
     body_text: str = ""
     body_html: str = ""
+    is_esn: bool = False
+    esn_match: str = ""

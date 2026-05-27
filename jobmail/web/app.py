@@ -568,6 +568,7 @@ def create_app() -> FastAPI:
         sender: str | None = Query(None),
         since_days: int | None = Query(None, ge=0, le=365),
         min_score: int = Query(0, ge=0, le=10),
+        esn: str = Query("all", pattern="^(all|hide|only)$"),
     ):
         with connect(settings.db_path) as conn:
             status_filter = OfferStatus(status) if status else None
@@ -578,6 +579,7 @@ def create_app() -> FastAPI:
                 min_score=min_score,
                 sender_contains=sender,
                 since_days=since_days,
+                esn_mode=esn,
             )
             technos = all_known_technos(conn)
             senders = all_sender_domains(conn)
@@ -595,6 +597,7 @@ def create_app() -> FastAPI:
                 "current_sender": sender or "",
                 "current_since_days": since_days or 0,
                 "current_min_score": min_score,
+                "current_esn": esn,
                 "provider": settings.llm_provider,
                 "imap_enabled": settings.imap_enabled,
                 "stats": stats,

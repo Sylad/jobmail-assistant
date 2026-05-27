@@ -26,6 +26,7 @@ def test_dashboard_renders_reanalysis_panel(tmp_path):
     assert resp.status_code == 200
     assert "Ré-analyser avec Ollama" in resp.text
     assert "/offers/reanalyze/start" in resp.text
+    assert "Masquer ESN" in resp.text
 
 
 def test_reanalysis_job_updates_cached_job_offer(tmp_path):

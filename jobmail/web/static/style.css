@@ -360,6 +360,11 @@ table.offers tr:hover { background: rgba(124, 183, 255, 0.07); }
   background: rgba(98, 214, 197, 0.08); border-radius: 999px; font-size: 0.75rem; color: #b9d7d3;
   border: 1px solid rgba(98, 214, 197, 0.16);
 }
+.chip-esn {
+  background: rgba(247, 200, 95, 0.12);
+  border-color: rgba(247, 200, 95, 0.42);
+  color: var(--warn);
+}
 .technos { max-width: 280px; }
 
 .status {

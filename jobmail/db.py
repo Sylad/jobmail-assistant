@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 
+from .esn import detect_esn
 from .models import (
     ContractType,
     OfferExtraction,
@@ -212,6 +213,7 @@ def list_offers(
     min_score: int = 0,
     sender_contains: str | None = None,
     since_days: int | None = None,
+    esn_mode: str = "all",
 ) -> list[StoredOffer]:
     sql = """
     SELECT o.*, e.subject, e.sender, e.received_at
@@ -238,6 +240,10 @@ def list_offers(
         offers = [o for o in offers if o.extraction and any(
             techno_lc in t.lower() for t in o.extraction.technos
         )]
+    if esn_mode == "hide":
+        offers = [o for o in offers if not o.is_esn]
+    elif esn_mode == "only":
+        offers = [o for o in offers if o.is_esn]
     return offers
 
 
@@ -303,6 +309,7 @@ def _row_to_offer(row: sqlite3.Row) -> StoredOffer:
         offer_url=row["offer_url"],
         relevance_score=row["relevance_score"],
     )
+    esn_match = detect_esn(extraction.company, extraction.recruiter, row["sender"], row["subject"])
     return StoredOffer(
         id=row["id"],
         email_uid=row["email_uid"],
@@ -312,4 +319,6 @@ def _row_to_offer(row: sqlite3.Row) -> StoredOffer:
         job_related=True,
         extraction=extraction,
         status=OfferStatus(row["status"]),
+        is_esn=bool(esn_match),
+        esn_match=esn_match,
     )

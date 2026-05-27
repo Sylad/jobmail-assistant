@@ -84,3 +84,38 @@ def test_init_db_migrates_offer_url_column(tmp_path):
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(offers)").fetchall()}
 
     assert "offer_url" in columns
+
+
+def test_list_offers_can_filter_esn(tmp_path):
+    db_path = tmp_path / "jobmail.db"
+    init_db(db_path)
+    esn_email = RawEmail(
+        uid="esn-1",
+        message_id="<esn-1@local>",
+        subject="Mission Java chez CGI",
+        sender="recruiter@example.com",
+        received_at=datetime(2026, 5, 25, 9, 30),
+        body_text="Mission Java.",
+    )
+    direct_email = RawEmail(
+        uid="direct-1",
+        message_id="<direct-1@local>",
+        subject="Backend Java",
+        sender="jobs@example.com",
+        received_at=datetime(2026, 5, 25, 10, 30),
+        body_text="CDI Java.",
+    )
+    with connect(db_path) as conn:
+        insert_email(conn, esn_email, job_related=True, matched_keywords=["mission"])
+        insert_email(conn, direct_email, job_related=True, matched_keywords=["java"])
+        upsert_offer(conn, esn_email.uid, OfferExtraction(title="Dev Java", company="CGI", relevance_score=8))
+        upsert_offer(conn, direct_email.uid, OfferExtraction(title="Backend Java", company="Example", relevance_score=8))
+
+    with connect(db_path) as conn:
+        all_offers = list_offers(conn)
+        hidden = list_offers(conn, esn_mode="hide")
+        only = list_offers(conn, esn_mode="only")
+
+    assert len(all_offers) == 2
+    assert [offer.extraction.company for offer in hidden] == ["Example"]
+    assert [offer.esn_match for offer in only] == ["CGI"]

@@ -38,6 +38,14 @@
       Score min
       <input type="number" name="min_score" min="0" max="10" value="{{ current_min_score }}">
     </label>
+    <label>
+      ESN / presta
+      <select name="esn">
+        <option value="all" {% if current_esn == 'all' %}selected{% endif %}>— toutes —</option>
+        <option value="hide" {% if current_esn == 'hide' %}selected{% endif %}>Masquer ESN</option>
+        <option value="only" {% if current_esn == 'only' %}selected{% endif %}>ESN seulement</option>
+      </select>
+    </label>
     <button type="submit" class="btn">Filtrer</button>
     <a href="/" class="btn btn-ghost">Reset</a>
   </form>
@@ -48,6 +56,8 @@
     <a class="chip-link" href="?since_days=7&amp;min_score=5">7 derniers jours</a>
     <a class="chip-link" href="?status=new">Nouvelles uniquement</a>
     <a class="chip-link" href="?status=interesting">Intéressantes</a>
+    <a class="chip-link" href="?esn=hide">Masquer ESN</a>
+    <a class="chip-link" href="?esn=only">ESN seulement</a>
   </div>
 </section>
 
@@ -102,6 +112,7 @@
           <td>{{ o.extraction.work_mode.value }}</td>
           <td>{{ o.extraction.contract_type.value }}</td>
           <td class="technos">
+            {% if o.is_esn %}<span class="chip chip-esn" title="Détecté ESN/presta : {{ o.esn_match }}">ESN</span>{% endif %}
             {% for t in o.extraction.technos[:5] %}<span class="chip">{{ t }}</span>{% endfor %}
             {% if o.extraction.technos | length > 5 %}<span class="chip">+{{ o.extraction.technos|length - 5 }}</span>{% endif %}
           </td>
