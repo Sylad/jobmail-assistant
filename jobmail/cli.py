@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import logging
+import shutil
 import sys
+import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 import uvicorn
 
@@ -97,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "serve":
+        _ensure_ollama_started(settings)
         uvicorn.run(
             "jobmail.web.app:app",
             host=settings.web_host,
@@ -362,6 +367,71 @@ def _provider_available(settings) -> bool:
     except httpx.HTTPError:
         return False
     return True
+
+
+def _ensure_ollama_started(settings) -> None:
+    if settings.llm_provider != "ollama" or not settings.ollama_auto_start:
+        return
+    if _provider_available(settings):
+        logging.info("Ollama already reachable at %s", settings.ollama_base_url)
+        return
+
+    binary = _resolve_ollama_binary(settings)
+    if binary is None:
+        logging.warning(
+            "Ollama is configured but no ollama binary was found. "
+            "Set OLLAMA_BINARY or start Ollama manually."
+        )
+        return
+
+    env = os.environ.copy()
+    host = _ollama_host(settings.ollama_base_url)
+    if host:
+        env["OLLAMA_HOST"] = host
+
+    logging.info("Starting Ollama from %s", binary)
+    try:
+        import subprocess
+
+        subprocess.Popen(
+            [binary, "serve"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+            start_new_session=True,
+        )
+    except OSError:
+        logging.exception("Failed to start Ollama")
+        return
+
+    for _ in range(20):
+        time.sleep(0.25)
+        if _provider_available(settings):
+            logging.info("Ollama is reachable at %s", settings.ollama_base_url)
+            return
+    logging.warning("Ollama was started but did not answer at %s yet", settings.ollama_base_url)
+
+
+def _resolve_ollama_binary(settings) -> str | None:
+    candidates = [
+        settings.ollama_binary,
+        shutil.which("ollama") or "",
+        str(Path.home() / ".local" / "ollama" / "bin" / "ollama"),
+        "/usr/local/bin/ollama",
+        "/usr/bin/ollama",
+    ]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file():
+            return candidate
+    return None
+
+
+def _ollama_host(base_url: str) -> str:
+    parsed = urlparse(base_url)
+    if parsed.netloc:
+        return parsed.netloc
+    return base_url.removeprefix("http://").removeprefix("https://")
 
 
 def _empty_extraction(extraction) -> bool:

@@ -35,6 +35,8 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"
+    ollama_auto_start: bool = True
+    ollama_binary: str = ""
 
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
