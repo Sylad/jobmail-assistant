@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -204,12 +204,81 @@ class ReanalysisJob:
     cancel_requested: bool = False
 
 
+@dataclass
+class RefreshJob:
+    id: str
+    status: str = "running"
+    fetched_count: int = 0
+    new_count: int = 0
+    job_related_count: int = 0
+    sent_to_llm_count: int = 0
+    started_at: float = field(default_factory=time.time)
+    finished_at: float | None = None
+    error: str = ""
+
+
 _cleaner_jobs: dict[str, CleanerScanJob] = {}
 _cleaner_jobs_lock = threading.Lock()
 _cleaner_move_jobs: dict[str, CleanerMoveJob] = {}
 _cleaner_move_jobs_lock = threading.Lock()
 _reanalysis_job: ReanalysisJob | None = None
 _reanalysis_lock = threading.Lock()
+_refresh_job: RefreshJob | None = None
+_refresh_lock = threading.Lock()
+
+
+def _refresh_payload(job: RefreshJob | None) -> dict:
+    if job is None:
+        return {
+            "id": "",
+            "status": "idle",
+            "fetched_count": 0,
+            "new_count": 0,
+            "job_related_count": 0,
+            "sent_to_llm_count": 0,
+            "elapsed_seconds": 0,
+            "error": "",
+        }
+    elapsed = int((job.finished_at or time.time()) - job.started_at)
+    return {
+        "id": job.id,
+        "status": job.status,
+        "fetched_count": job.fetched_count,
+        "new_count": job.new_count,
+        "job_related_count": job.job_related_count,
+        "sent_to_llm_count": job.sent_to_llm_count,
+        "elapsed_seconds": elapsed,
+        "error": job.error,
+    }
+
+
+def _run_refresh_job(settings, job: RefreshJob) -> None:
+    try:
+        mbox_paths = resolve_mbox_paths(settings.cleaner_mbox_patterns)
+        source = build_mbox_source(mbox_paths, settings=settings) if mbox_paths else None
+        stats = run_pipeline(source=source, settings=settings)
+        job.fetched_count = stats.fetched
+        job.new_count = stats.new
+        job.job_related_count = stats.job_related
+        job.sent_to_llm_count = stats.sent_to_llm
+        job.status = "done"
+    except Exception as e:
+        job.status = "error"
+        job.error = str(e)
+    finally:
+        job.finished_at = time.time()
+
+
+def _start_refresh_job(settings) -> RefreshJob:
+    global _refresh_job
+    with _refresh_lock:
+        if _refresh_job is not None and _refresh_job.status == "running":
+            return _refresh_job
+        _refresh_job = RefreshJob(id=uuid.uuid4().hex)
+        job = _refresh_job
+    thread = threading.Thread(target=_run_refresh_job, args=(settings, job), daemon=True)
+    thread.start()
+    return job
 
 
 def _reanalysis_payload(job: ReanalysisJob | None) -> dict:
@@ -1509,13 +1578,17 @@ def create_app() -> FastAPI:
 
     @app.post("/refresh")
     def refresh():
-        mbox_paths = resolve_mbox_paths(settings.cleaner_mbox_patterns)
-        source = build_mbox_source(mbox_paths, settings=settings) if mbox_paths else None
-        stats = run_pipeline(source=source, settings=settings)
-        return RedirectResponse(
-            url=f"/?refreshed=1&new={stats.new}&jobs={stats.job_related}",
-            status_code=303,
-        )
+        _start_refresh_job(settings)
+        return RedirectResponse(url="/?refreshing=1", status_code=303)
+
+    @app.post("/refresh/start")
+    def refresh_start():
+        job = _start_refresh_job(settings)
+        return JSONResponse(_refresh_payload(job))
+
+    @app.get("/refresh/status")
+    def refresh_status():
+        return JSONResponse(_refresh_payload(_refresh_job))
 
     return app
 

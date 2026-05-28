@@ -21,9 +21,10 @@
           IMAP: {{ 'on' if imap_enabled else 'off' }}
         </span>
       {% endif %}
-      <form method="post" action="/refresh" style="display:inline">
+      <form method="post" action="/refresh" style="display:inline" data-refresh-form>
         <button type="submit" class="btn" title="Analyse les nouveaux mails Thunderbird">↻ Nouveaux mails</button>
       </form>
+      <span class="refresh-status" data-refresh-status></span>
     </nav>
   </header>
   {% if stats is defined %}
@@ -39,7 +40,7 @@
         <span class="muted">· auto-refresh 8s</span>
       {% else %}
         <span class="live-dot live-dot-idle"></span> Idle
-        · <strong>{{ stats.emails }}</strong> mails
+        · <strong>{{ stats.emails }}</strong> mails ingérés
         · <strong>{{ stats.jobs }}</strong> job-related
         · <strong>{{ stats.offers }}</strong> offres
         {% if stats.last_activity %}<span class="muted">· dernière activité {{ stats.last_activity }}</span>{% endif %}
@@ -56,6 +57,71 @@
   <footer class="footer">
     <small>Privacy-first · all filtering runs locally · only job-related mails reach the LLM.</small>
   </footer>
+  <script>
+    (() => {
+      const form = document.querySelector("[data-refresh-form]");
+      const status = document.querySelector("[data-refresh-status]");
+      if (!form || !status || !window.fetch) return;
+
+      const button = form.querySelector("button");
+      let pollTimer = null;
+
+      function setRunning(message) {
+        button.disabled = true;
+        button.textContent = "↻ Analyse...";
+        status.classList.add("refresh-status-running");
+        status.textContent = message;
+      }
+
+      function clearRunning() {
+        button.disabled = false;
+        button.textContent = "↻ Nouveaux mails";
+        status.classList.remove("refresh-status-running");
+      }
+
+      async function pollRefresh() {
+        const response = await fetch("/refresh/status", { headers: { "Accept": "application/json" } });
+        const payload = await response.json();
+        if (payload.status === "running") {
+          setRunning(`Analyse Thunderbird en cours · ${payload.elapsed_seconds}s`);
+          pollTimer = window.setTimeout(pollRefresh, 1000);
+          return;
+        }
+        if (payload.status === "done") {
+          setRunning(`Termine · ${payload.new_count} nouveau(x), ${payload.job_related_count} job`);
+          window.setTimeout(() => {
+            window.location.href = `/?refreshed=1&new=${payload.new_count}&jobs=${payload.job_related_count}`;
+          }, 650);
+          return;
+        }
+        if (payload.status === "error") {
+          clearRunning();
+          status.textContent = `Erreur refresh: ${payload.error || "inconnue"}`;
+          return;
+        }
+        clearRunning();
+        status.textContent = "";
+      }
+
+      if (new URLSearchParams(window.location.search).has("refreshing")) {
+        setRunning("Analyse Thunderbird lancee...");
+        pollRefresh();
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (pollTimer) window.clearTimeout(pollTimer);
+        setRunning("Demarrage de l'analyse Thunderbird...");
+        try {
+          await fetch("/refresh/start", { method: "POST", headers: { "Accept": "application/json" } });
+          await pollRefresh();
+        } catch (_error) {
+          clearRunning();
+          status.textContent = "Refresh indisponible, recharge la page puis reessaie.";
+        }
+      });
+    })();
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

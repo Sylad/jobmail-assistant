@@ -107,6 +107,11 @@ code { background: var(--bg-elev-2); padding: 2px 6px; border-radius: 4px; }
 }
 .btn:hover { border-color: var(--accent); color: var(--accent); background: #252f3f; text-decoration: none; }
 .btn:active { transform: translateY(1px); }
+.btn:disabled {
+  cursor: progress;
+  opacity: 0.68;
+  color: var(--fg-mute);
+}
 .btn:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -117,6 +122,15 @@ select:focus-visible {
 .btn-sm { min-height: 28px; padding: 5px 10px; font-size: 0.8rem; }
 .btn-ghost { background: transparent; }
 .btn-primary { border-color: rgba(124, 183, 255, 0.72); color: var(--accent); background: rgba(124, 183, 255, 0.09); }
+.refresh-status {
+  min-width: 0;
+  color: var(--fg-mute);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.refresh-status-running {
+  color: var(--accent);
+}
 
 .filters {
   margin-bottom: 26px;
