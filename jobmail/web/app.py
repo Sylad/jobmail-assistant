@@ -46,6 +46,7 @@ from ..db import (
 )
 from ..extraction import get_extractor
 from ..extraction.base import PrivacyError
+from ..mail.sources import build_mbox_source, resolve_mbox_paths
 from ..models import OfferStatus
 from ..models import RawEmail
 from ..pipeline import run as run_pipeline
@@ -1508,7 +1509,9 @@ def create_app() -> FastAPI:
 
     @app.post("/refresh")
     def refresh():
-        stats = run_pipeline(settings=settings)
+        mbox_paths = resolve_mbox_paths(settings.cleaner_mbox_patterns)
+        source = build_mbox_source(mbox_paths, settings=settings) if mbox_paths else None
+        stats = run_pipeline(source=source, settings=settings)
         return RedirectResponse(
             url=f"/?refreshed=1&new={stats.new}&jobs={stats.job_related}",
             status_code=303,
