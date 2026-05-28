@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request
@@ -211,6 +212,7 @@ class RefreshJob:
     fetched_count: int = 0
     new_count: int = 0
     job_related_count: int = 0
+    extracted_count: int = 0
     sent_to_llm_count: int = 0
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
@@ -235,7 +237,9 @@ def _refresh_payload(job: RefreshJob | None) -> dict:
             "fetched_count": 0,
             "new_count": 0,
             "job_related_count": 0,
+            "extracted_count": 0,
             "sent_to_llm_count": 0,
+            "extraction_failed_count": 0,
             "elapsed_seconds": 0,
             "error": "",
         }
@@ -246,7 +250,9 @@ def _refresh_payload(job: RefreshJob | None) -> dict:
         "fetched_count": job.fetched_count,
         "new_count": job.new_count,
         "job_related_count": job.job_related_count,
+        "extracted_count": job.extracted_count,
         "sent_to_llm_count": job.sent_to_llm_count,
+        "extraction_failed_count": max(0, job.sent_to_llm_count - job.extracted_count),
         "elapsed_seconds": elapsed,
         "error": job.error,
     }
@@ -260,7 +266,11 @@ def _run_refresh_job(settings, job: RefreshJob) -> None:
         job.fetched_count = stats.fetched
         job.new_count = stats.new
         job.job_related_count = stats.job_related
+        job.extracted_count = stats.extracted
         job.sent_to_llm_count = stats.sent_to_llm
+        pending_attempted, pending_extracted = _extract_pending_job_offers(settings, limit=25)
+        job.sent_to_llm_count += pending_attempted
+        job.extracted_count += pending_extracted
         job.status = "done"
     except Exception as e:
         job.status = "error"
@@ -279,6 +289,58 @@ def _start_refresh_job(settings) -> RefreshJob:
     thread = threading.Thread(target=_run_refresh_job, args=(settings, job), daemon=True)
     thread.start()
     return job
+
+
+def _extract_pending_job_offers(settings, *, limit: int) -> tuple[int, int]:
+    """Retry recent job-related emails that were ingested while extraction failed."""
+    if limit <= 0 or not _llm_provider_available(settings):
+        return 0, 0
+
+    with connect(settings.db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT e.uid, e.message_id, e.subject, e.sender, e.received_at, e.body_text, e.body_html
+            FROM emails e
+            LEFT JOIN offers o ON o.email_uid = e.uid
+            WHERE e.job_related = 1
+              AND o.id IS NULL
+              AND e.subject != ''
+              AND e.sender != ''
+            ORDER BY e.created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    if not rows:
+        return 0, 0
+
+    extractor = get_extractor(settings)
+    attempted = 0
+    extracted = 0
+    for row in rows:
+        attempted += 1
+        email = RawEmail(
+            uid=row["uid"],
+            message_id=row["message_id"],
+            subject=row["subject"],
+            sender=row["sender"],
+            received_at=datetime.fromisoformat(row["received_at"]),
+            body_text=row["body_text"],
+            body_html=row["body_html"] or "",
+        )
+        try:
+            extraction = extractor.extract(email, settings.target_profile)
+        except PrivacyError:
+            continue
+        except Exception:
+            continue
+        if _empty_extraction(extraction):
+            continue
+        with connect(settings.db_path) as conn:
+            upsert_offer(conn, email.uid, extraction)
+        extracted += 1
+    return attempted, extracted
 
 
 def _reanalysis_payload(job: ReanalysisJob | None) -> dict:

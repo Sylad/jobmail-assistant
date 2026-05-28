@@ -88,10 +88,16 @@
           return;
         }
         if (payload.status === "done") {
-          setRunning(`Termine · ${payload.new_count} nouveau(x), ${payload.job_related_count} job`);
+          const failures = payload.extraction_failed_count || 0;
+          const suffix = failures
+            ? ` · ${failures} extraction(s) LLM echouee(s)`
+            : "";
+          setRunning(
+            `Termine · ${payload.new_count} nouveau(x), ${payload.job_related_count} job · ${payload.extracted_count} offre(s) creee(s)${suffix}`
+          );
           window.setTimeout(() => {
             window.location.href = `/?refreshed=1&new=${payload.new_count}&jobs=${payload.job_related_count}`;
-          }, 650);
+          }, failures ? 2500 : 900);
           return;
         }
         if (payload.status === "error") {

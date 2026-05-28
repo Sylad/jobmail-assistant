@@ -43,6 +43,7 @@ def test_refresh_uses_thunderbird_mbox_source(monkeypatch, tmp_path):
     monkeypatch.setattr(web_app, "resolve_mbox_paths", fake_resolve)
     monkeypatch.setattr(web_app, "build_mbox_source", fake_build)
     monkeypatch.setattr(web_app, "run_pipeline", fake_run_pipeline)
+    monkeypatch.setattr(web_app, "_extract_pending_job_offers", lambda _settings, *, limit: (0, 0))
 
     client = _client(monkeypatch, tmp_path)
     resp = client.post("/refresh/start")
@@ -56,6 +57,8 @@ def test_refresh_uses_thunderbird_mbox_source(monkeypatch, tmp_path):
     assert payload["status"] == "done"
     assert payload["new_count"] == 2
     assert payload["job_related_count"] == 1
+    assert payload["extracted_count"] == 0
+    assert payload["extraction_failed_count"] == 0
     assert captured["patterns"] == ["/fake/Thunderbird/Profile/Mail/pop.gmail.com/Inbox"]
     assert captured["paths"] == ["/fake/Thunderbird/Profile/Mail/pop.gmail.com/Inbox"]
     assert captured["source"] is expected_source
@@ -88,6 +91,7 @@ def test_refresh_status_falls_back_to_default_pipeline_when_no_mbox(monkeypatch,
 
     monkeypatch.setattr(web_app, "resolve_mbox_paths", lambda _patterns: [])
     monkeypatch.setattr(web_app, "run_pipeline", fake_run_pipeline)
+    monkeypatch.setattr(web_app, "_extract_pending_job_offers", lambda _settings, *, limit: (0, 0))
 
     settings = web_app.get_settings()
     job = web_app.RefreshJob(id="job-1")
@@ -103,6 +107,7 @@ def test_refresh_start_reports_background_status(monkeypatch, tmp_path):
         job.fetched_count = 3
         job.new_count = 2
         job.job_related_count = 1
+        job.extracted_count = 1
         job.sent_to_llm_count = 1
         job.status = "done"
         job.finished_at = time.time()
@@ -122,3 +127,47 @@ def test_refresh_start_reports_background_status(monkeypatch, tmp_path):
     assert status["status"] == "done"
     assert status["new_count"] == 2
     assert status["job_related_count"] == 1
+    assert status["extracted_count"] == 1
+    assert status["extraction_failed_count"] == 0
+
+
+def test_refresh_status_reports_llm_extraction_failures(monkeypatch, tmp_path):
+    def fake_run_refresh_job(_settings, job):
+        job.new_count = 4
+        job.job_related_count = 3
+        job.sent_to_llm_count = 3
+        job.extracted_count = 1
+        job.status = "done"
+        job.finished_at = time.time()
+
+    monkeypatch.setattr(web_app, "_run_refresh_job", fake_run_refresh_job)
+
+    client = _client(monkeypatch, tmp_path)
+    client.post("/refresh/start")
+    status = client.get("/refresh/status").json()
+
+    assert status["status"] == "done"
+    assert status["extraction_failed_count"] == 2
+
+
+def test_refresh_status_includes_pending_extraction_retry(monkeypatch, tmp_path):
+    def fake_run_pipeline(source=None, *, settings=None, dry_run=None):
+        return PipelineStats(new=0, job_related=0, extracted=0, sent_to_llm=0)
+
+    monkeypatch.setattr(web_app, "resolve_mbox_paths", lambda _patterns: [])
+    monkeypatch.setattr(web_app, "run_pipeline", fake_run_pipeline)
+    monkeypatch.setattr(web_app, "_extract_pending_job_offers", lambda _settings, *, limit: (4, 3))
+
+    client = _client(monkeypatch, tmp_path)
+    client.post("/refresh/start")
+
+    for _ in range(20):
+        status = client.get("/refresh/status").json()
+        if status["status"] == "done":
+            break
+        time.sleep(0.01)
+
+    assert status["status"] == "done"
+    assert status["sent_to_llm_count"] == 4
+    assert status["extracted_count"] == 3
+    assert status["extraction_failed_count"] == 1
