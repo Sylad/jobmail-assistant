@@ -1,0 +1,127 @@
+body {
+  width: 280px;
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #172033;
+  background: #f6f7fb;
+}
+
+main {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+p {
+  margin: 0;
+  color: #566175;
+}
+
+button,
+input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  border-radius: 6px;
+  font: inherit;
+}
+
+button {
+  border: 0;
+  color: white;
+  background: #3157d5;
+  cursor: pointer;
+}
+
+button.secondary {
+  color: #26324d;
+  background: #e2e7f4;
+}
+
+button.danger {
+  color: white;
+  background: #bd2f42;
+}
+
+hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid #d9deea;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #566175;
+}
+
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+input {
+  border: 1px solid #cbd3e1;
+  padding: 0 8px;
+  color: #172033;
+  background: white;
+}
+
+label.check input {
+  width: 16px;
+  min-height: 16px;
+}
+
+.candidate-list {
+  display: grid;
+  gap: 6px;
+  max-height: 150px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.candidate-list li {
+  padding: 8px;
+  border: 1px solid #d9deea;
+  border-radius: 6px;
+  background: white;
+}
+
+.candidate-list strong,
+.candidate-list span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candidate-list strong {
+  color: #172033;
+  font-size: 12px;
+}
+
+.candidate-list span {
+  color: #647087;
+  font-size: 11px;
+}
+
+.small-status {
+  margin: 0;
+  color: #566175;
+  font-size: 12px;
+}

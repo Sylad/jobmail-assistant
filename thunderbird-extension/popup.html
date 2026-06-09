@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <title>JobMail</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>JobMail</h1>
+      <p id="status">Serveur local non verifie.</p>
+      <button id="import">Envoyer la selection</button>
+      <button id="import-unread" class="secondary">Importer les non lus</button>
+      <label>
+        Serveur local
+        <input id="endpoint" type="url" spellcheck="false">
+      </label>
+      <div class="settings-grid">
+        <label>
+          Jours
+          <input id="since-days" type="number" min="1" max="90">
+        </label>
+        <label>
+          Max mails
+          <input id="max-messages" type="number" min="1" max="200">
+        </label>
+      </div>
+      <label class="check">
+        <input id="auto-import" type="checkbox">
+        Import auto
+      </label>
+      <label>
+        Import toutes les minutes
+        <input id="auto-minutes" type="number" min="5" max="240">
+      </label>
+      <hr>
+      <p id="cleaner-status">Nettoyage manuel uniquement, jamais automatique.</p>
+      <div class="settings-grid">
+        <label>
+          Age min (jours)
+          <input id="cleaner-age-days" type="number" readonly>
+        </label>
+        <label>
+          Max scan
+          <input id="cleaner-max-messages" type="number" readonly>
+        </label>
+      </div>
+      <button id="scan-cleaner" class="secondary">Scanner nettoyage</button>
+      <ul id="cleaner-candidates" class="candidate-list"></ul>
+      <p id="jobmail-cleaner-status" class="small-status"></p>
+      <ul id="jobmail-cleaner-missing" class="candidate-list"></ul>
+      <button id="trash-cleaner" class="danger">Corbeille candidats</button>
+      <button id="trash-jobmail-cleaner" class="danger">Corbeille scan JobMail</button>
+      <button id="save" class="secondary">Enregistrer</button>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

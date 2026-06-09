@@ -1,95 +1,198 @@
 {% extends "base.html" %}
 {% block title %}{{ offer.extraction.title or offer.subject }} — JobMail{% endblock %}
 {% block content %}
-<a href="/" class="back">&larr; Retour au dashboard</a>
-<article class="offer-detail">
-  <header>
-    <h1>{{ offer.extraction.title or offer.subject }}</h1>
-    <p class="meta">
-      <strong>{{ offer.extraction.company }}</strong>
-      {% if offer.extraction.location %}· {{ offer.extraction.location }}{% endif %}
-      · score <strong>{{ offer.extraction.relevance_score }}/10</strong>
-      · <span class="status status-{{ offer.status.value }}">{{ offer.status.value }}</span>
-    </p>
-    {% if recruiter_email or offer_links %}
-    <p class="meta">
-      {% if offer_links %}
-      <a class="btn btn-sm btn-primary" href="{{ offer_links[0].url }}" target="_blank" rel="noopener noreferrer">
-        Voir l'offre
-      </a>
-      {% endif %}
-      {% if recruiter_email %}
-      <a class="btn btn-sm" href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}">
-        ✉ Répondre par mail
-      </a>
-      <a class="btn btn-sm btn-ghost"
-         href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}&body={{ 'Bonjour,%0A%0AVotre offre m%27int%C3%A9resse. Je suis disponible pour un %C3%A9change.%0A%0ACordialement,%0ASylvain Ladoire' | safe }}">
-        ✉ Réponse template
-      </a>
-      <button type="button" class="btn btn-sm btn-ghost" onclick="navigator.clipboard.writeText('{{ recruiter_email }}'); this.textContent='✓ copié'">
-        📋 Copier l'email
-      </button>
-      {% endif %}
-    </p>
-    {% endif %}
-  </header>
 
-  {% if offer_links %}
-  <section>
-    <h2>Liens de l'offre</h2>
-    <div class="link-actions">
-      {% for link in offer_links %}
-      <a class="btn btn-sm btn-ghost offer-link" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
-        {{ link.label }}
-      </a>
-      {% endfor %}
-    </div>
-  </section>
+<a href="/" class="back">Retour au dashboard</a>
+
+{# ── Page title & meta ── #}
+<h1 class="offer-page-title">{{ offer.extraction.title or offer.subject }}</h1>
+
+<div class="offer-meta-row">
+  <span class="offer-meta-company">{{ offer.extraction.company }}</span>
+  {% if offer.is_esn %}<span class="chip chip-esn company-chip" title="ESN/presta : {{ offer.esn_match }}">ESN</span>{% endif %}
+  {% if offer.extraction.location %}
+  <span class="offer-meta-sep">·</span>
+  <span class="offer-meta-loc"><i class="ti ti-map-pin" style="font-size:12px; vertical-align:-1px"></i> {{ offer.extraction.location }}</span>
   {% endif %}
+  <span class="offer-meta-sep">·</span>
+  <span class="status status-{{ offer.status.value }}">
+    {% if offer.status.value == 'interesting' %}★ {% endif %}{{ offer.status.value }}
+  </span>
+</div>
 
-  <dl class="grid">
-    <dt>Recruteur</dt><dd>{{ offer.extraction.recruiter or offer.sender }}</dd>
-    <dt>Mode</dt><dd>{{ offer.extraction.work_mode.value }}</dd>
-    <dt>Contrat</dt><dd>{{ offer.extraction.contract_type.value }}</dd>
-    <dt>Anglais requis</dt><dd>{{ 'oui' if offer.extraction.english_required else 'non' }}</dd>
-    <dt>Reçu le</dt><dd>{{ offer.received_at.strftime('%Y-%m-%d %H:%M') }}</dd>
-    <dt>Sujet</dt><dd>{{ offer.subject }}</dd>
-  </dl>
+{# ── Action buttons ── #}
+<div class="offer-actions-row">
+  {% if offer_links %}
+  <a class="btn btn-primary btn-sm" href="{{ offer_links[0].url }}" target="_blank" rel="noopener noreferrer">
+    <i class="ti ti-external-link" style="font-size:13px"></i> Voir l'offre
+  </a>
+  {% endif %}
+  {% if recruiter_email %}
+  <a class="btn btn-sm" href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}">
+    <i class="ti ti-mail-forward" style="font-size:13px"></i> Répondre par mail
+  </a>
+  <a class="btn btn-sm btn-ghost"
+     href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}&body={{ 'Bonjour,%0A%0AVotre offre m%27int%C3%A9resse. Je suis disponible pour un %C3%A9change.%0A%0ACordialement,%0ASylvain Ladoire' | safe }}">
+    <i class="ti ti-template" style="font-size:13px"></i> Réponse template
+  </a>
+  <button type="button" class="btn btn-sm btn-ghost"
+          onclick="navigator.clipboard.writeText('{{ recruiter_email }}'); this.innerHTML='<i class=\'ti ti-check\' style=\'font-size:13px\'></i> Copié'">
+    <i class="ti ti-copy" style="font-size:13px"></i> Copier l'email
+  </button>
+  {% endif %}
+</div>
 
-  <section>
-    <h2>Technos détectées</h2>
-    {% for t in offer.extraction.technos %}<span class="chip">{{ t }}</span>{% endfor %}
-    {% if not offer.extraction.technos %}<p class="muted">Aucune.</p>{% endif %}
-  </section>
+{# ── Two-column layout ── #}
+<div class="offer-detail-layout offer-detail">
 
-  <section>
-    <h2>Résumé LLM</h2>
-    <p>{{ offer.extraction.summary or '(rien)' }}</p>
-  </section>
+  {# ── Left: main content ── #}
+  <div class="offer-main">
 
-  {% if offer.body_text %}
-  <section>
-    <h2>Extrait du mail</h2>
-    <details {% if offer.extraction.relevance_score >= 7 %}open{% endif %}>
-      <summary class="muted">Cliquer pour {{ 'masquer' if offer.extraction.relevance_score >= 7 else 'afficher' }} ({{ offer.body_text | length }} caractères)</summary>
-      <pre class="mail-body">{{ offer.body_text[:3000] }}{% if offer.body_text | length > 3000 %}
+    {# Liens de l'offre #}
+    {% if offer_links %}
+    <div class="offer-card">
+      <div class="offer-card-header">
+        <h2>Liens de l'offre</h2>
+      </div>
+      <div class="offer-card-body">
+        <div class="link-actions">
+          {% for link in offer_links %}
+          <a class="btn btn-sm btn-ghost offer-link" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
+            <i class="ti ti-external-link" style="font-size:12px"></i> {{ link.label }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Informations #}
+    <div class="offer-card">
+      <div class="offer-card-header">
+        <h2>Informations</h2>
+      </div>
+      <div class="offer-card-body">
+        <dl class="grid">
+          <dt>Recruteur</dt><dd>{{ offer.extraction.recruiter or offer.sender }}</dd>
+          <dt>Mode</dt><dd>{{ offer.extraction.work_mode.value }}</dd>
+          <dt>Contrat</dt><dd>{{ offer.extraction.contract_type.value }}</dd>
+          <dt>Anglais requis</dt><dd>{{ 'oui' if offer.extraction.english_required else 'non' }}</dd>
+          <dt>Reçu le</dt><dd>{{ offer.received_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+          <dt>Sujet</dt><dd>{{ offer.subject }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {# Résumé LLM #}
+    <div class="offer-card offer-card-llm">
+      <div class="offer-card-header">
+        <h2><i class="ti ti-robot" style="color:var(--accent-light); margin-right:6px; vertical-align:-2px"></i>Résumé LLM</h2>
+      </div>
+      <div class="offer-card-body" style="position:relative; z-index:1">
+        <p style="margin:0; font-size:14px; line-height:1.7; color:var(--fg-2)">
+          {{ offer.extraction.summary or '(aucun résumé)' }}
+        </p>
+      </div>
+    </div>
+
+    {# Extrait du mail #}
+    {% if offer.body_text %}
+    <div class="offer-card">
+      <div class="offer-card-header">
+        <h2>Extrait du mail</h2>
+      </div>
+      <div class="offer-card-body">
+        <details {% if offer.extraction.relevance_score >= 7 %}open{% endif %}>
+          <summary>
+            {{ 'Masquer' if offer.extraction.relevance_score >= 7 else 'Afficher' }}
+            ({{ offer.body_text | length }} caractères)
+          </summary>
+          <pre class="mail-body" style="margin-top:10px">{{ offer.body_text[:3000] }}{% if offer.body_text | length > 3000 %}
 
 […tronqué à 3000 chars…]{% endif %}</pre>
-    </details>
-  </section>
-  {% endif %}
+        </details>
+      </div>
+    </div>
+    {% endif %}
 
-  <section class="actions">
-    <h2>Statut</h2>
-    <form method="post" action="/offers/{{ offer.id }}/status" class="status-form">
-      <input type="hidden" name="return_to" value="/offers/{{ offer.id }}">
-      {% for s in all_statuses %}
-      <button type="submit" name="status" value="{{ s }}"
-              class="btn status-btn status-{{ s }} {% if s == offer.status.value %}active{% endif %}">
-        {{ s }}
-      </button>
-      {% endfor %}
-    </form>
-  </section>
-</article>
+    {# Statut #}
+    <div class="offer-card">
+      <div class="offer-card-header">
+        <h2>Statut</h2>
+      </div>
+      <div class="offer-card-body">
+        <form method="post" action="/offers/{{ offer.id }}/status" class="status-form">
+          <input type="hidden" name="return_to" value="/offers/{{ offer.id }}">
+          {% for s in all_statuses %}
+          <button type="submit" name="status" value="{{ s }}"
+                  class="btn status-btn status-{{ s }} {% if s == offer.status.value %}active{% endif %}">
+            {% if s == 'interesting' %}★ {% endif %}{{ s }}
+          </button>
+          {% endfor %}
+        </form>
+      </div>
+    </div>
+
+  </div>{# /offer-main #}
+
+  {# ── Right: sidebar ── #}
+  <aside class="offer-sidebar-sticky">
+
+    {# Score card #}
+    <div class="offer-card">
+      <div class="score-display {% if offer.extraction.relevance_score < 7 %}score-warn{% endif %}">
+        <div>
+          <span class="score-number">{{ offer.extraction.relevance_score }}</span>
+          <span class="score-denom">/10</span>
+        </div>
+        <div class="score-bars" style="margin-top:12px">
+          {% for i in range(10) %}
+          <div class="score-bar
+            {% if i < offer.extraction.relevance_score %}
+              {% if offer.extraction.relevance_score >= 7 %}score-bar-ok{% else %}score-bar-warn{% endif %}
+            {% endif %}
+          "></div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:10px">
+          {% if offer.extraction.relevance_score >= 8 %}
+          <span class="score-badge score-badge-ok">Haute pertinence</span>
+          {% elif offer.extraction.relevance_score >= 6 %}
+          <span class="score-badge score-badge-warn">Pertinence moyenne</span>
+          {% else %}
+          <span class="score-badge" style="background:var(--surface-hover);color:var(--fg-faint);border:1px solid var(--border)">Faible pertinence</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Technos #}
+    {% if offer.extraction.technos %}
+    <div class="offer-card">
+      <div class="offer-card-header">
+        <h2><i class="ti ti-cpu" style="color:var(--accent-light); margin-right:6px; vertical-align:-2px"></i>Technos détectées</h2>
+      </div>
+      <div class="techno-tags" style="padding:14px 18px">
+        {% for t in offer.extraction.technos %}
+        <span class="techno-tag">{{ t }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Navigation #}
+    <div class="offer-card">
+      <div class="offer-card-body">
+        <div class="offer-nav">
+          <a href="/" class="btn btn-sm btn-ghost" style="flex:1; justify-content:center">
+            <i class="ti ti-arrow-left" style="font-size:13px"></i> Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+</div>{# /offer-detail-layout #}
+
 {% endblock %}

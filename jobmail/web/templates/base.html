@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}JobMail Assistant{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/tabler-icons.min.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css?v={{ static_version }}">
   {% block head_extra %}{% endblock %}
   {% if stats is defined and stats.is_running %}
@@ -11,55 +16,125 @@
   {% endif %}
 </head>
 <body>
-  <header class="topbar">
-    <a href="/" class="brand">📨 JobMail Assistant</a>
-    <nav>
-      <a href="/cleaner" class="btn btn-ghost">Mailbox cleaner</a>
-      <span class="badge">Provider: <strong>{{ provider | default('mock') }}</strong></span>
-      {% if imap_enabled is defined %}
-        <span class="badge {% if imap_enabled %}badge-ok{% else %}badge-warn{% endif %}">
-          IMAP: {{ 'on' if imap_enabled else 'off' }}
-        </span>
-      {% endif %}
-      <form method="post" action="/refresh" style="display:inline" data-refresh-form>
-        <button type="submit" class="btn" title="Analyse les nouveaux mails Thunderbird">↻ Nouveaux mails</button>
-      </form>
-      <span class="refresh-status" data-refresh-status></span>
-    </nav>
-  </header>
-  {% if stats is defined %}
-  <div class="live-strip {% if stats.is_running %}live-strip-running{% endif %}">
-    <div class="live-strip-row">
-      {% if stats.is_running %}
-        <span class="live-dot"></span>
-        <strong>{{ stats.phase or 'Pipeline en cours' }}</strong>
-        {% if stats.uptime %}<span class="muted">· {{ stats.uptime }}</span>{% endif %}
-        {% if stats.progress is not none %}
-          <strong>· {{ stats.offers }}/{{ stats.jobs }} ({{ stats.progress }}%)</strong>
+  <div class="app-shell">
+
+    {# ── Sidebar ────────────────────────────── #}
+    {% set _path = request.url.path %}
+    {% set _is_dashboard = _path == '/' or _path.startswith('/offers/') %}
+    {% set _is_cleaner   = _path.startswith('/cleaner') %}
+
+    <aside class="sidebar">
+
+      {# Logo #}
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">
+          <i class="ti ti-mail-spark"></i>
+        </div>
+        <div>
+          <div class="sidebar-logo-name">JobMail</div>
+          <div class="sidebar-logo-sub">ASSISTANT</div>
+        </div>
+      </div>
+
+      {# Navigation #}
+      <nav class="sidebar-nav">
+        <div class="sidebar-nav-label">Navigation</div>
+
+        <a href="/" class="sidebar-nav-item {% if _is_dashboard %}active{% endif %}">
+          <i class="ti ti-layout-dashboard"></i>
+          <span>Dashboard</span>
+        </a>
+
+        <a href="/cleaner" class="sidebar-nav-item {% if _is_cleaner %}active{% endif %}">
+          <i class="ti ti-inbox"></i>
+          <span>Mailbox Cleaner</span>
+        </a>
+
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-nav-label">Connexions</div>
+
+        <div class="sidebar-connection">
+          <i class="ti ti-brain" style="color: var(--warn)"></i>
+          <div>
+            <div class="sidebar-connection-label">Ollama</div>
+            <div class="sidebar-connection-sub">{{ provider | default('–') }}</div>
+          </div>
+        </div>
+
+        {% if imap_enabled is defined %}
+        <div class="sidebar-connection">
+          <i class="ti ti-mail{% if not imap_enabled %}-off{% endif %}"
+             style="color: {% if imap_enabled %}var(--ok){% else %}var(--fg-faint){% endif %}"></i>
+          <div>
+            <div class="sidebar-connection-label" style="color: {% if imap_enabled %}var(--fg-2){% else %}var(--fg-faint){% endif %}">IMAP</div>
+            <div class="sidebar-connection-sub">{{ 'Activé' if imap_enabled else 'Désactivé' }}</div>
+          </div>
+        </div>
         {% endif %}
-        <span class="muted">· auto-refresh 8s</span>
-      {% else %}
-        <span class="live-dot live-dot-idle"></span> Idle
-        · <strong>{{ stats.emails }}</strong> mails ingérés
-        · <strong>{{ stats.jobs }}</strong> job-related
-        · <strong>{{ stats.offers }}</strong> offres
-        {% if stats.last_activity %}<span class="muted">· dernière activité {{ stats.last_activity }}</span>{% endif %}
+      </nav>
+
+      {# Footer — status indicator #}
+      <div class="sidebar-footer">
+        {% if stats is defined %}
+          {% if stats.is_running %}
+            <div class="sidebar-status">
+              <div class="live-dot"></div>
+              <div>
+                <div class="sidebar-status-label" style="color: var(--ok)">En cours</div>
+                <div class="sidebar-status-detail">{{ stats.phase or 'Pipeline actif' }}</div>
+              </div>
+            </div>
+            {% if stats.uptime %}
+            <div class="sidebar-footer-meta">{{ stats.uptime }} écoulé</div>
+            {% endif %}
+          {% else %}
+            <div class="sidebar-status">
+              <div class="live-dot live-dot-idle"></div>
+              <div>
+                <div class="sidebar-status-label" style="color: var(--ok)">Idle</div>
+                <div class="sidebar-status-detail">{{ stats.emails }} mails ingérés</div>
+              </div>
+            </div>
+            {% if stats.last_activity %}
+            <div class="sidebar-footer-meta">{{ stats.last_activity }}</div>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          <div class="sidebar-status">
+            <div class="live-dot live-dot-idle"></div>
+            <div>
+              <div class="sidebar-status-label" style="color: var(--fg-faint)">Idle</div>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+    </aside>
+
+    {# ── Main content ────────────────────────── #}
+    <div class="main-content">
+
+      {# Pipeline progress bar #}
+      {% if stats is defined and stats.is_running and stats.progress is not none %}
+      <div class="pipeline-progress">
+        <div class="pipeline-progress-fill" style="width: {{ stats.progress }}%"></div>
+      </div>
       {% endif %}
+
+      <main class="container">
+        {% block content %}{% endblock %}
+      </main>
+
+      <footer class="footer">
+        <small>Privacy-first · all filtering runs locally · only job-related mails reach the LLM.</small>
+      </footer>
+
     </div>
-    {% if stats.is_running and stats.progress is not none %}
-    <div class="progress-bar"><div class="progress-fill" style="width: {{ stats.progress }}%"></div></div>
-    {% endif %}
   </div>
-  {% endif %}
-  <main class="container">
-    {% block content %}{% endblock %}
-  </main>
-  <footer class="footer">
-    <small>Privacy-first · all filtering runs locally · only job-related mails reach the LLM.</small>
-  </footer>
+
   <script>
     (() => {
-      const form = document.querySelector("[data-refresh-form]");
+      const form   = document.querySelector("[data-refresh-form]");
       const status = document.querySelector("[data-refresh-status]");
       if (!form || !status || !window.fetch) return;
 
@@ -68,7 +143,7 @@
 
       function setRunning(message) {
         button.disabled = true;
-        button.textContent = "↻ Analyse...";
+        button.textContent = "↻ Analyse…";
         status.classList.add("refresh-status-running");
         status.textContent = message;
       }
@@ -81,20 +156,16 @@
 
       async function pollRefresh() {
         const response = await fetch("/refresh/status", { headers: { "Accept": "application/json" } });
-        const payload = await response.json();
+        const payload  = await response.json();
         if (payload.status === "running") {
-          setRunning(`Analyse Thunderbird en cours · ${payload.elapsed_seconds}s`);
+          setRunning(`Analyse Thunderbird · ${payload.elapsed_seconds}s`);
           pollTimer = window.setTimeout(pollRefresh, 1000);
           return;
         }
         if (payload.status === "done") {
           const failures = payload.extraction_failed_count || 0;
-          const suffix = failures
-            ? ` · ${failures} extraction(s) LLM echouee(s)`
-            : "";
-          setRunning(
-            `Termine · ${payload.new_count} nouveau(x), ${payload.job_related_count} job · ${payload.extracted_count} offre(s) creee(s)${suffix}`
-          );
+          const suffix   = failures ? ` · ${failures} extraction(s) LLM échouée(s)` : "";
+          setRunning(`Terminé · ${payload.new_count} nouveau(x), ${payload.job_related_count} job · ${payload.extracted_count} offre(s) créée(s)${suffix}`);
           window.setTimeout(() => {
             window.location.href = `/?refreshed=1&new=${payload.new_count}&jobs=${payload.job_related_count}`;
           }, failures ? 2500 : 900);
@@ -102,7 +173,7 @@
         }
         if (payload.status === "error") {
           clearRunning();
-          status.textContent = `Erreur refresh: ${payload.error || "inconnue"}`;
+          status.textContent = `Erreur refresh : ${payload.error || "inconnue"}`;
           return;
         }
         clearRunning();
@@ -110,24 +181,25 @@
       }
 
       if (new URLSearchParams(window.location.search).has("refreshing")) {
-        setRunning("Analyse Thunderbird lancee...");
+        setRunning("Analyse Thunderbird lancée…");
         pollRefresh();
       }
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         if (pollTimer) window.clearTimeout(pollTimer);
-        setRunning("Demarrage de l'analyse Thunderbird...");
+        setRunning("Démarrage de l'analyse…");
         try {
           await fetch("/refresh/start", { method: "POST", headers: { "Accept": "application/json" } });
           await pollRefresh();
         } catch (_error) {
           clearRunning();
-          status.textContent = "Refresh indisponible, recharge la page puis reessaie.";
+          status.textContent = "Refresh indisponible — recharge la page et réessaie.";
         }
       });
     })();
   </script>
+
   {% block scripts %}{% endblock %}
 </body>
 </html>

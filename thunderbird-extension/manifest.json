@@ -1,0 +1,30 @@
+{
+  "manifest_version": 2,
+  "name": "JobMail Assistant",
+  "version": "0.1.0",
+  "description": "Envoie les messages selectionnes de Thunderbird vers JobMail local.",
+  "applications": {
+    "gecko": {
+      "id": "jobmail-assistant@sylad.local",
+      "strict_min_version": "115.0"
+    }
+  },
+  "permissions": [
+    "accountsRead",
+    "alarms",
+    "messagesRead",
+    "messagesDelete",
+    "menus",
+    "notifications",
+    "storage",
+    "http://127.0.0.1:8765/*",
+    "http://localhost:8765/*"
+  ],
+  "browser_action": {
+    "default_title": "JobMail",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "scripts": ["background.js"]
+  }
+}

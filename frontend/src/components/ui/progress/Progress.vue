@@ -17,10 +17,10 @@ const safeValue = computed(() => Math.max(0, Math.min(100, props.modelValue)));
 <template>
   <ProgressRoot
     :model-value="safeValue"
-    :class="cn('relative h-2 w-full overflow-hidden rounded-full bg-slate-900', props.class)"
+    :class="cn('relative h-1.5 w-full overflow-hidden rounded-full bg-white/8', props.class)"
   >
     <ProgressIndicator
-      class="vue-progress-indicator h-full w-full flex-1 bg-gradient-to-r from-sky-400 to-emerald-400 transition-transform"
+      class="vue-progress-indicator h-full w-full flex-1 bg-gradient-to-r from-violet-500 to-emerald-500 transition-transform"
       :style="{ transform: `translateX(-${100 - safeValue}%)` }"
     />
   </ProgressRoot>

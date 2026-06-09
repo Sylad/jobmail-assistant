@@ -243,6 +243,7 @@ def scan_thunderbird_promotions(
                     sender=mail.sender,
                     subject=mail.subject,
                     reason=decision.reason,
+                    message_id=mail.message_id,
                     source="mbox",
                     mailbox=mailbox_name,
                     source_path=str(path),
@@ -321,6 +322,7 @@ def scan_thunderbird_regex(
                     sender=mail.sender,
                     subject=mail.subject,
                     reason=regex_reason,
+                    message_id=mail.message_id,
                     source="mbox",
                     mailbox=mailbox_name,
                     source_path=str(path),
@@ -346,7 +348,7 @@ def scan_parsed_job_mails(
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=min_age)
     sql = """
-        SELECT e.uid, e.subject, e.sender, e.received_at, o.id AS offer_id,
+        SELECT e.uid, e.message_id, e.subject, e.sender, e.received_at, o.id AS offer_id,
                o.title, o.company, o.status, o.relevance_score
         FROM emails e
         JOIN offers o ON o.email_uid = e.uid
@@ -397,6 +399,7 @@ def scan_parsed_job_mails(
                 sender=row["sender"],
                 subject=title,
                 reason=reason,
+                message_id=row["message_id"] or "",
                 source="job",
                 mailbox=mailbox,
                 source_path=str(paths_by_mailbox.get(mailbox, "")),
@@ -460,6 +463,7 @@ def scan_thunderbird_duplicates(
                     sender=mail.sender,
                     subject=mail.subject,
                     reason="doublon Message-Id",
+                    message_id=mail.message_id,
                     source="mbox",
                     mailbox=mailbox,
                     source_path=str(path),
@@ -485,6 +489,7 @@ def scan_thunderbird_duplicates(
                     sender=source.sender,
                     subject=source.subject,
                     reason=f"doublon Message-Id present dans {keeper.mailbox}",
+                    message_id=source.message_id,
                     source="mbox",
                     mailbox=source.mailbox,
                     source_path=source.source_path,
@@ -1132,6 +1137,7 @@ def _move_offsets_to_trash(
                 sender=mail.sender,
                 subject=mail.subject,
                 reason=reason,
+                message_id=mail.message_id,
                 source=source,
                 mailbox=mailbox,
                 source_path=str(inbox_path),

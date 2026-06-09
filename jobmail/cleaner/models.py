@@ -11,6 +11,7 @@ class CleanerCandidate:
     sender: str
     subject: str
     reason: str
+    message_id: str = ""
     source: str = "imap"
     mailbox: str = ""
     source_path: str = ""

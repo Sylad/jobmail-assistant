@@ -10,6 +10,7 @@ data/
 htmlcov/
 dist/
 build/
+*.xpi
 frontend/node_modules/
 .idea/
 .vscode/

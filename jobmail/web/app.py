@@ -2,16 +2,19 @@ from __future__ import annotations
 
 import sqlite3
 import csv
+import hashlib
 import io
 import json
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -47,6 +50,8 @@ from ..db import (
 )
 from ..extraction import get_extractor
 from ..extraction.base import PrivacyError
+from ..cleaner.rules import classify_cleaner_candidate
+from ..mail.parser import html_to_text, normalize_body
 from ..mail.sources import build_mbox_source, resolve_mbox_paths
 from ..models import OfferStatus
 from ..models import RawEmail
@@ -126,7 +131,7 @@ def _compute_stats(conn: sqlite3.Connection) -> dict:
             if n_jobs:
                 progress = min(100, n_offers * 100 // n_jobs)
 
-    return {
+    payload = {
         "emails": n_emails,
         "jobs": n_jobs,
         "offers": n_offers,
@@ -136,6 +141,93 @@ def _compute_stats(conn: sqlite3.Connection) -> dict:
         "phase": phase,
         "progress": progress,
         "last_activity": last_extract or last,
+    }
+    payload["thunderbird"] = _thunderbird_bridge_payload()
+    return payload
+
+
+def _parse_thunderbird_date(value: object) -> datetime:
+    if isinstance(value, int | float):
+        timestamp = float(value) / 1000 if value > 10_000_000_000 else float(value)
+        return datetime.fromtimestamp(timestamp, tz=timezone.utc).replace(tzinfo=None)
+    if isinstance(value, str) and value.strip():
+        raw = value.strip()
+        try:
+            try:
+                parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            except ValueError:
+                parsed = parsedate_to_datetime(raw)
+        except (TypeError, ValueError):
+            return datetime.now(timezone.utc).replace(tzinfo=None)
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _thunderbird_message_to_raw_email(message: dict) -> RawEmail:
+    subject = str(message.get("subject") or "")
+    sender = str(message.get("author") or message.get("sender") or "")
+    body_html = str(message.get("bodyHtml") or "")
+    body_text = str(message.get("bodyPlain") or "")
+    if not body_text and body_html:
+        body_text = html_to_text(body_html)
+    body_text = normalize_body(body_text)
+
+    seed = str(
+        message.get("messageId")
+        or message.get("id")
+        or f"{sender}:{subject}:{message.get('date') or ''}"
+    )
+    digest = hashlib.sha256(seed.encode("utf-8", "ignore")).hexdigest()[:24]
+    message_id = str(message.get("messageId") or f"<jobmail-thunderbird-{digest}@local>")
+
+    return RawEmail(
+        uid=f"thunderbird:{digest}",
+        message_id=message_id,
+        subject=subject,
+        sender=sender,
+        received_at=_parse_thunderbird_date(message.get("date")),
+        body_text=body_text,
+        body_html=body_html,
+        has_attachment=bool(message.get("hasAttachment")),
+    )
+
+
+def _thunderbird_cleaner_candidate(message: dict, *, min_age_days: int) -> dict | None:
+    received_at = _parse_thunderbird_date(message.get("date"))
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=min_age_days)
+    if received_at >= cutoff:
+        return None
+
+    subject = str(message.get("subject") or "")
+    sender = str(message.get("author") or message.get("sender") or "")
+    body_html = str(message.get("bodyHtml") or "")
+    body_text = str(message.get("bodyPlain") or "")
+    if not body_text and body_html:
+        body_text = html_to_text(body_html)
+    body_text = normalize_body(body_text)
+    has_attachment = bool(message.get("hasAttachment"))
+    decision = classify_cleaner_candidate(subject, body_text, sender, has_attachment=has_attachment)
+    if decision.safety_hit:
+        return {
+            "candidate": False,
+            "skip_reason": f"safety:{decision.safety_hit}",
+        }
+    if not decision.is_candidate:
+        return None
+    return {
+        "candidate": True,
+        "id": message.get("id"),
+        "message_id": str(message.get("messageId") or ""),
+        "subject": subject,
+        "sender": sender,
+        "received_at": received_at.isoformat(),
+        "reason": decision.reason,
+        "has_attachment": has_attachment,
+        "folder_account": str(message.get("folderAccount") or ""),
+        "folder_path": str(message.get("folderPath") or ""),
+        "folder_name": str(message.get("folderName") or ""),
     }
 
 BASE_DIR = Path(__file__).parent
@@ -219,6 +311,23 @@ class RefreshJob:
     error: str = ""
 
 
+@dataclass
+class ThunderbirdBridgeState:
+    last_seen_at: str = ""
+    last_import_at: str = ""
+    last_import_new_count: int = 0
+    last_import_job_count: int = 0
+    last_import_fetched_count: int = 0
+    last_cleaner_scan_at: str = ""
+    last_cleaner_scanned_count: int = 0
+    last_cleaner_candidate_count: int = 0
+    last_cleaner_move_at: str = ""
+    last_cleaner_moved_count: int = 0
+    last_cleaner_requested_count: int = 0
+    last_cleaner_resolved_count: int = 0
+    last_error: str = ""
+
+
 _cleaner_jobs: dict[str, CleanerScanJob] = {}
 _cleaner_jobs_lock = threading.Lock()
 _cleaner_move_jobs: dict[str, CleanerMoveJob] = {}
@@ -227,6 +336,92 @@ _reanalysis_job: ReanalysisJob | None = None
 _reanalysis_lock = threading.Lock()
 _refresh_job: RefreshJob | None = None
 _refresh_lock = threading.Lock()
+_thunderbird_bridge_state = ThunderbirdBridgeState()
+_thunderbird_bridge_lock = threading.Lock()
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _thunderbird_bridge_payload() -> dict:
+    with _thunderbird_bridge_lock:
+        return {
+            "last_seen_at": _thunderbird_bridge_state.last_seen_at,
+            "last_import_at": _thunderbird_bridge_state.last_import_at,
+            "last_import_new_count": _thunderbird_bridge_state.last_import_new_count,
+            "last_import_job_count": _thunderbird_bridge_state.last_import_job_count,
+            "last_import_fetched_count": _thunderbird_bridge_state.last_import_fetched_count,
+            "last_cleaner_scan_at": _thunderbird_bridge_state.last_cleaner_scan_at,
+            "last_cleaner_scanned_count": _thunderbird_bridge_state.last_cleaner_scanned_count,
+            "last_cleaner_candidate_count": _thunderbird_bridge_state.last_cleaner_candidate_count,
+            "last_cleaner_move_at": _thunderbird_bridge_state.last_cleaner_move_at,
+            "last_cleaner_moved_count": _thunderbird_bridge_state.last_cleaner_moved_count,
+            "last_cleaner_requested_count": _thunderbird_bridge_state.last_cleaner_requested_count,
+            "last_cleaner_resolved_count": _thunderbird_bridge_state.last_cleaner_resolved_count,
+            "last_error": _thunderbird_bridge_state.last_error,
+        }
+
+
+def _record_thunderbird_bridge_event(event: str, payload: dict) -> dict:
+    now = _now_iso()
+    with _thunderbird_bridge_lock:
+        _thunderbird_bridge_state.last_seen_at = now
+        if event == "import":
+            _thunderbird_bridge_state.last_import_at = now
+            _thunderbird_bridge_state.last_import_fetched_count = int(payload.get("fetched_count") or 0)
+            _thunderbird_bridge_state.last_import_new_count = int(payload.get("new_count") or 0)
+            _thunderbird_bridge_state.last_import_job_count = int(payload.get("job_related_count") or 0)
+            _thunderbird_bridge_state.last_error = ""
+        elif event == "cleaner_scan":
+            _thunderbird_bridge_state.last_cleaner_scan_at = now
+            _thunderbird_bridge_state.last_cleaner_scanned_count = int(payload.get("scanned_count") or 0)
+            _thunderbird_bridge_state.last_cleaner_candidate_count = int(payload.get("candidate_count") or 0)
+            _thunderbird_bridge_state.last_error = ""
+        elif event == "cleaner_move":
+            _thunderbird_bridge_state.last_cleaner_move_at = now
+            _thunderbird_bridge_state.last_cleaner_moved_count = int(payload.get("moved_count") or 0)
+            _thunderbird_bridge_state.last_cleaner_requested_count = int(payload.get("requested_count") or 0)
+            _thunderbird_bridge_state.last_cleaner_resolved_count = int(payload.get("resolved_count") or 0)
+            _thunderbird_bridge_state.last_error = ""
+        elif event == "error":
+            _thunderbird_bridge_state.last_error = str(payload.get("message") or "")
+        else:
+            raise HTTPException(status_code=400, detail="Evenement Thunderbird inconnu.")
+    return _thunderbird_bridge_payload()
+
+
+def _latest_thunderbird_cleaner_request() -> dict:
+    jobs: list[CleanerScanJob]
+    with _cleaner_jobs_lock:
+        jobs = [
+            job
+            for job in _cleaner_jobs.values()
+            if job.status == "done" and job.report is not None and job.source != "imap"
+        ]
+    jobs.sort(key=lambda job: job.finished_at or job.started_at, reverse=True)
+
+    deduped: dict[str, dict] = {}
+    for job in jobs:
+        if len(deduped) >= 1000:
+            break
+        assert job.report is not None
+        for candidate in job.report.candidates:
+            if not candidate.can_move:
+                continue
+            payload = _candidate_payload(candidate)
+            key = payload["message_id"] or f"{payload['sender']}::{payload['subject']}::{payload['received_at']}"
+            deduped.setdefault(key, payload)
+
+    latest = jobs[0] if jobs else None
+    return {
+        "request_id": uuid.uuid4().hex,
+        "source": "latest_cleaner_scan",
+        "created_at": _now_iso(),
+        "latest_scan_at": datetime.fromtimestamp(latest.finished_at, tz=timezone.utc).isoformat() if latest and latest.finished_at else "",
+        "candidate_count": len(deduped),
+        "candidates": list(deduped.values()),
+    }
 
 
 def _refresh_payload(job: RefreshJob | None) -> dict:
@@ -601,6 +796,7 @@ def _candidate_payload(candidate) -> dict:
         "sender": candidate.sender,
         "subject": candidate.subject,
         "reason": candidate.reason,
+        "message_id": candidate.message_id,
         "source": candidate.source,
         "mailbox": candidate.mailbox,
         "source_path": candidate.source_path,
@@ -690,6 +886,12 @@ def create_app() -> FastAPI:
     init_db(settings.db_path)
 
     app = FastAPI(title="JobMail Assistant", version="0.1.0")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^(moz-extension://.*|chrome-extension://.*|http://127\.0\.0\.1(?::\d+)?|http://localhost(?::\d+)?)$",
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "X-JobMail-Client"],
+    )
     app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
     @app.get("/", response_class=HTMLResponse)
@@ -701,7 +903,9 @@ def create_app() -> FastAPI:
         since_days: int | None = Query(None, ge=0, le=365),
         min_score: int = Query(0, ge=0, le=10),
         esn: str = Query("all", pattern="^(all|hide|only)$"),
+        page: int = Query(1, ge=1),
     ):
+        _per_page = 50
         with connect(settings.db_path) as conn:
             status_filter = OfferStatus(status) if status else None
             offers = list_offers(
@@ -716,11 +920,46 @@ def create_app() -> FastAPI:
             technos = all_known_technos(conn)
             senders = all_sender_domains(conn)
             stats = _compute_stats(conn)
+
+        # Server-side KPI counts from all (unfiltered) offers
+        kpi_high = sum(1 for o in offers if o.extraction.relevance_score >= 8)
+        kpi_new  = sum(1 for o in offers if o.status.value == "new")
+
+        # Pagination
+        total_offers = len(offers)
+        total_pages  = max(1, (total_offers + _per_page - 1) // _per_page)
+        page         = min(max(1, page), total_pages)
+        start        = (page - 1) * _per_page
+        paginated    = offers[start : start + _per_page]
+
+        # Filter query string for pagination links (excludes 'page')
+        _parts = []
+        if status:
+            _parts.append(f"status={status}")
+        if techno:
+            _parts.append(f"techno={techno}")
+        if sender:
+            _parts.append(f"sender={sender}")
+        if since_days:
+            _parts.append(f"since_days={since_days}")
+        if min_score:
+            _parts.append(f"min_score={min_score}")
+        if esn != "all":
+            _parts.append(f"esn={esn}")
+        filter_query = "&".join(_parts)
+
         return templates.TemplateResponse(
             request,
             "dashboard.html",
             {
-                "offers": offers,
+                "offers": paginated,
+                "all_offers_count": total_offers,
+                "kpi_high": kpi_high,
+                "kpi_new": kpi_new,
+                "page": page,
+                "total_pages": total_pages,
+                "per_page": _per_page,
+                "filter_query": filter_query,
                 "technos": technos,
                 "senders": senders,
                 "all_statuses": [s.value for s in OfferStatus],
@@ -741,6 +980,95 @@ def create_app() -> FastAPI:
     def api_status():
         with connect(settings.db_path) as conn:
             return _compute_stats(conn)
+
+    @app.get("/api/thunderbird/bridge")
+    def api_thunderbird_bridge():
+        return _thunderbird_bridge_payload()
+
+    @app.post("/api/thunderbird/bridge/event")
+    def api_thunderbird_bridge_event(payload: dict):
+        event = str(payload.get("event") or "")
+        data = payload.get("payload") if isinstance(payload.get("payload"), dict) else {}
+        return _record_thunderbird_bridge_event(event, data)
+
+    @app.post("/api/thunderbird/import")
+    def api_thunderbird_import(payload: dict):
+        messages = payload.get("messages")
+        if not isinstance(messages, list):
+            raise HTTPException(status_code=400, detail="Le champ messages doit etre une liste.")
+        if not messages:
+            return {
+                "fetched_count": 0,
+                "new_count": 0,
+                "job_related_count": 0,
+                "extracted_count": 0,
+                "sent_to_llm_count": 0,
+                "skipped_non_job_count": 0,
+            }
+
+        raw_emails = []
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            raw_email = _thunderbird_message_to_raw_email(message)
+            if raw_email.subject or raw_email.body_text:
+                raw_emails.append(raw_email)
+
+        stats = run_pipeline(source=raw_emails, settings=settings, dry_run=False)
+        result = {
+            "fetched_count": stats.fetched,
+            "new_count": stats.new,
+            "job_related_count": stats.job_related,
+            "extracted_count": stats.extracted,
+            "sent_to_llm_count": stats.sent_to_llm,
+            "skipped_non_job_count": stats.skipped_non_job,
+        }
+        _record_thunderbird_bridge_event("import", result)
+        return result
+
+    @app.post("/api/thunderbird/cleaner/scan")
+    def api_thunderbird_cleaner_scan(payload: dict):
+        messages = payload.get("messages")
+        if not isinstance(messages, list):
+            raise HTTPException(status_code=400, detail="Le champ messages doit etre une liste.")
+        min_age_days = int(payload.get("minAgeDays") or settings.cleaner_min_age_days)
+        min_age_days = max(1, min(365, min_age_days))
+
+        candidates = []
+        skipped_safety = 0
+        skipped_too_recent = 0
+        skipped_no_match = 0
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            candidate = _thunderbird_cleaner_candidate(message, min_age_days=min_age_days)
+            if candidate is None:
+                received_at = _parse_thunderbird_date(message.get("date"))
+                cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=min_age_days)
+                if received_at >= cutoff:
+                    skipped_too_recent += 1
+                else:
+                    skipped_no_match += 1
+                continue
+            if not candidate.get("candidate"):
+                skipped_safety += 1
+                continue
+            candidates.append(candidate)
+
+        result = {
+            "scanned_count": len(messages),
+            "candidate_count": len(candidates),
+            "skipped_too_recent": skipped_too_recent,
+            "skipped_safety": skipped_safety,
+            "skipped_no_match": skipped_no_match,
+            "candidates": candidates,
+        }
+        _record_thunderbird_bridge_event("cleaner_scan", result)
+        return result
+
+    @app.get("/api/thunderbird/cleaner/latest-request")
+    def api_thunderbird_cleaner_latest_request():
+        return _latest_thunderbird_cleaner_request()
 
     @app.post("/offers/reanalyze/start")
     def start_offer_reanalysis():

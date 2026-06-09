@@ -1,6 +1,147 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — JobMail{% endblock %}
 {% block content %}
+
+{# ── Page header ── #}
+<div class="page-header">
+  <div>
+    <h1 class="page-header-title">Dashboard</h1>
+    <p class="page-header-sub">
+      {% if stats is defined and stats.last_activity %}
+        {{ stats.last_activity }} · {{ all_offers_count }} offres détectées
+      {% else %}
+        Suivi des offres d'emploi
+      {% endif %}
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <form method="post" action="/refresh" style="display:inline" data-refresh-form>
+      <button type="submit" class="btn btn-primary">
+        <i class="ti ti-refresh" style="font-size:15px"></i>
+        Nouveaux mails
+      </button>
+    </form>
+    <span class="refresh-status" data-refresh-status></span>
+  </div>
+</div>
+
+{# ── KPI cards (server-side counts) ── #}
+{% if stats is defined %}
+<div class="kpi-grid">
+
+  <div class="kpi-card kpi-violet">
+    <div class="kpi-card-glow"></div>
+    <div class="kpi-card-top">
+      <div class="kpi-icon"><i class="ti ti-briefcase"></i></div>
+      <span class="kpi-tag">
+        {% if kpi_new > 0 %}+{{ kpi_new }} nouvelles{% else %}toutes{% endif %}
+      </span>
+    </div>
+    <div class="kpi-number">{{ all_offers_count }}</div>
+    <div class="kpi-label">Offres détectées</div>
+  </div>
+
+  <div class="kpi-card kpi-green">
+    <div class="kpi-card-top">
+      <div class="kpi-icon"><i class="ti ti-star"></i></div>
+      <span class="kpi-tag">score ≥ 8</span>
+    </div>
+    <div class="kpi-number">{{ kpi_high }}</div>
+    <div class="kpi-label">Haute pertinence</div>
+  </div>
+
+  <div class="kpi-card kpi-amber">
+    <div class="kpi-card-top">
+      <div class="kpi-icon"><i class="ti ti-bell-ringing"></i></div>
+      <span class="kpi-tag">non lues</span>
+    </div>
+    <div class="kpi-number">{{ kpi_new }}</div>
+    <div class="kpi-label">Nouvelles offres</div>
+  </div>
+
+  <div class="kpi-card kpi-blue">
+    <div class="kpi-card-top">
+      <div class="kpi-icon"><i class="ti ti-mail"></i></div>
+      <span class="kpi-tag">total</span>
+    </div>
+    <div class="kpi-number">{{ stats.emails }}</div>
+    <div class="kpi-label">Mails ingérés</div>
+  </div>
+
+</div>
+{% endif %}
+
+{% if stats is defined and stats.thunderbird is defined %}
+<section class="reanalysis-panel">
+  <div class="reanalysis-panel-body">
+    <div class="reanalysis-icon">
+      <i class="ti ti-plug-connected"></i>
+    </div>
+    <div>
+      <div class="reanalysis-title">Pont Thunderbird</div>
+      <p>
+        {% if stats.thunderbird.last_seen_at %}
+          Dernier contact {{ stats.thunderbird.last_seen_at }}.
+        {% else %}
+          Extension non vue depuis le demarrage de JobMail.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  <div class="reanalysis-status" aria-live="polite">
+    Import :
+    {{ stats.thunderbird.last_import_new_count }} nouveau(x),
+    {{ stats.thunderbird.last_import_job_count }} offre(s)
+    {% if stats.thunderbird.last_import_at %}· {{ stats.thunderbird.last_import_at }}{% endif %}
+    <br>
+    Cleaner :
+    {{ stats.thunderbird.last_cleaner_candidate_count }} candidat(s)
+    sur {{ stats.thunderbird.last_cleaner_scanned_count }} mail(s)
+    {% if stats.thunderbird.last_cleaner_scan_at %}· {{ stats.thunderbird.last_cleaner_scan_at }}{% endif %}
+    {% if stats.thunderbird.last_cleaner_move_at %}
+      <br>
+      Corbeille :
+      {{ stats.thunderbird.last_cleaner_moved_count }} déplacé(s)
+      {% if stats.thunderbird.last_cleaner_requested_count %}
+        · {{ stats.thunderbird.last_cleaner_resolved_count }}/{{ stats.thunderbird.last_cleaner_requested_count }} retrouvé(s)
+      {% endif %}
+      · {{ stats.thunderbird.last_cleaner_move_at }}
+    {% endif %}
+    {% if stats.thunderbird.last_error %}
+      <br>Erreur extension : {{ stats.thunderbird.last_error }}
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{# ── Reanalysis panel ── #}
+<section class="reanalysis-panel" id="reanalysis-panel" data-initial='{{ reanalysis_job | tojson }}'>
+  <div class="reanalysis-panel-body">
+    <div class="reanalysis-icon">
+      <i class="ti ti-robot"></i>
+    </div>
+    <div>
+      <div class="reanalysis-title">Analyse Ollama</div>
+      <p>
+        Recalcule titres, sociétés, technos et scores depuis les mails déjà en base.
+        Les liens d'offres extraits localement sont conservés.
+      </p>
+    </div>
+  </div>
+  <div class="reanalysis-actions">
+    <button type="button" class="btn btn-primary" id="reanalyze-start">
+      <i class="ti ti-sparkles" style="font-size:14px"></i>
+      Ré-analyser avec Ollama
+    </button>
+    <button type="button" class="btn btn-ghost" id="reanalyze-cancel" hidden>Arrêter</button>
+  </div>
+  <div class="reanalysis-status" id="reanalyze-status" aria-live="polite"></div>
+  <div class="progress-bar reanalysis-progress" hidden>
+    <div class="progress-fill" id="reanalyze-progress"></div>
+  </div>
+</section>
+
+{# ── Filters ── #}
 <section class="filters">
   <form method="get" class="filter-form">
     <label>
@@ -46,44 +187,46 @@
         <option value="only" {% if current_esn == 'only' %}selected{% endif %}>ESN seulement</option>
       </select>
     </label>
-    <button type="submit" class="btn">Filtrer</button>
+    <button type="submit" class="btn">
+      <i class="ti ti-filter" style="font-size:13px"></i> Filtrer
+    </button>
     <a href="/" class="btn btn-ghost">Reset</a>
   </form>
 
   <div class="quick-filters">
-    <a class="chip-link" href="?min_score=7">★ Score ≥ 7</a>
-    <a class="chip-link" href="?min_score=8">★★ Score ≥ 8</a>
-    <a class="chip-link" href="?since_days=7&amp;min_score=5">7 derniers jours</a>
-    <a class="chip-link" href="?status=new">Nouvelles uniquement</a>
-    <a class="chip-link" href="?status=interesting">Intéressantes</a>
-    <a class="chip-link" href="?esn=hide">Masquer ESN</a>
-    <a class="chip-link" href="?esn=only">ESN seulement</a>
+    <span class="quick-filters-label">Raccourcis :</span>
+    <a class="chip-link {% if current_min_score == 7 and not current_status %}chip-link-active{% endif %}"
+       href="?min_score=7">★ Score ≥ 7</a>
+    <a class="chip-link {% if current_min_score >= 8 %}chip-link-active{% endif %}"
+       href="?min_score=8">★★ Score ≥ 8</a>
+    <a class="chip-link {% if current_since_days == 7 %}chip-link-active{% endif %}"
+       href="?since_days=7&amp;min_score=5">7 derniers jours</a>
+    <a class="chip-link {% if current_status == 'new' %}chip-link-active{% endif %}"
+       href="?status=new">Nouvelles uniquement</a>
+    <a class="chip-link {% if current_status == 'interesting' %}chip-link-active{% endif %}"
+       href="?status=interesting">★ Intéressantes</a>
+    <a class="chip-link {% if current_esn == 'hide' %}chip-link-active{% endif %}"
+       href="?esn=hide">Masquer ESN</a>
+    <a class="chip-link {% if current_esn == 'only' %}chip-link-active{% endif %}"
+       href="?esn=only">ESN seulement</a>
   </div>
 </section>
 
-<section class="reanalysis-panel" id="reanalysis-panel" data-initial='{{ reanalysis_job | tojson }}'>
-  <div>
-    <span class="label-title">Analyse Ollama</span>
-    <h2>Ré-analyser les offres</h2>
-    <p class="muted">
-      Recalcule titres, sociétés, technos et scores depuis les mails déjà en base.
-      Les liens d'offres extraits localement sont conservés.
-    </p>
+{# ── Offers table ── #}
+<div class="offers-wrap">
+  <div class="section-header">
+    <h2 class="section-header-title">
+      Offres détectées <span class="section-header-accent">{{ all_offers_count }}</span>
+    </h2>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="section-header-meta">triées par score · desc</span>
+    </div>
   </div>
-  <div class="reanalysis-actions">
-    <button type="button" class="btn btn-primary" id="reanalyze-start">Ré-analyser avec Ollama</button>
-    <button type="button" class="btn btn-ghost" id="reanalyze-cancel" hidden>Arrêter</button>
-  </div>
-  <div class="reanalysis-status" id="reanalyze-status" aria-live="polite"></div>
-  <div class="progress-bar reanalysis-progress" hidden>
-    <div class="progress-fill" id="reanalyze-progress"></div>
-  </div>
-</section>
 
-<section>
-  <h1>Offres détectées <span class="muted">({{ offers | length }})</span></h1>
   {% if not offers %}
-    <p class="empty">Aucune offre ne matche ce filtre. <a href="/">Tout afficher</a></p>
+    <div style="padding:32px; text-align:center;">
+      <p class="muted">Aucune offre ne matche ce filtre. <a href="/">Tout afficher</a></p>
+    </div>
   {% else %}
     {% set current_query = request.url.query %}
     <table class="offers">
@@ -109,16 +252,24 @@
           <td>{{ o.extraction.title or o.subject }}</td>
           <td>
             {{ o.extraction.company }}
-            {% if o.is_esn %}<span class="chip chip-esn company-chip" title="Détecté ESN/presta : {{ o.esn_match }}">ESN</span>{% endif %}
+            {% if o.is_esn %}<span class="chip chip-esn company-chip" title="ESN/presta : {{ o.esn_match }}">ESN</span>{% endif %}
           </td>
           <td>{{ o.extraction.location }}</td>
-          <td>{{ o.extraction.work_mode.value }}</td>
-          <td>{{ o.extraction.contract_type.value }}</td>
-          <td class="technos">
-            {% for t in o.extraction.technos[:5] %}<span class="chip">{{ t }}</span>{% endfor %}
-            {% if o.extraction.technos | length > 5 %}<span class="chip">+{{ o.extraction.technos|length - 5 }}</span>{% endif %}
+          <td style="color: var(--fg-faint); font-size:12px">{{ o.extraction.work_mode.value }}</td>
+          <td>
+            <span style="font-size:11px; background:var(--surface-hover); color:var(--fg-mute); padding:2px 7px; border-radius:5px">
+              {{ o.extraction.contract_type.value }}
+            </span>
           </td>
-          <td><span class="status status-{{ o.status.value }}">{{ o.status.value }}</span></td>
+          <td class="technos">
+            {% for t in o.extraction.technos[:4] %}<span class="chip">{{ t }}</span>{% endfor %}
+            {% if o.extraction.technos | length > 4 %}<span class="chip">+{{ o.extraction.technos|length - 4 }}</span>{% endif %}
+          </td>
+          <td>
+            <span class="status status-{{ o.status.value }}">
+              {% if o.status.value == 'interesting' %}★ {% endif %}{{ o.status.value }}
+            </span>
+          </td>
           <td class="row-actions">
             <form method="post" action="/offers/{{ o.id }}/status" class="inline-actions">
               <input type="hidden" name="return_to" value="/?{{ current_query }}">
@@ -129,14 +280,65 @@
               <button type="submit" name="status" value="ignored" title="Ignorer"
                       class="btn btn-icon {% if o.status.value == 'ignored' %}active-ignored{% endif %}">⊘</button>
             </form>
-            <a class="btn btn-sm btn-ghost" href="/offers/{{ o.id }}">Voir</a>
+            <a class="btn btn-sm btn-ghost" href="/offers/{{ o.id }}" title="Voir le détail">
+              <i class="ti ti-eye" style="font-size:14px"></i>
+            </a>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+
+    {# ── Pagination ── #}
+    {% if total_pages > 1 %}
+    <div class="pagination">
+      <span class="pagination-meta">
+        Affichage {{ (page - 1) * per_page + 1 }}–{{ [(page * per_page), all_offers_count] | min }}
+        sur {{ all_offers_count }} offres
+      </span>
+
+      <div class="pagination-pages">
+        {# Prev #}
+        {% if page > 1 %}
+        <a class="page-btn" href="/?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ page - 1 }}">←</a>
+        {% else %}
+        <button class="page-btn" disabled>←</button>
+        {% endif %}
+
+        {# Page numbers with ellipsis logic #}
+        {% set ns = namespace(show_dots_left=false, show_dots_right=false) %}
+        {% for p in range(1, total_pages + 1) %}
+          {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+            <a class="page-btn {% if p == page %}active{% endif %}"
+               href="/?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ p }}">{{ p }}</a>
+            {% set ns.show_dots_left = false %}
+            {% set ns.show_dots_right = false %}
+          {% elif p < page - 2 and not ns.show_dots_left %}
+            <span class="page-ellipsis">…</span>
+            {% set ns.show_dots_left = true %}
+          {% elif p > page + 2 and not ns.show_dots_right %}
+            <span class="page-ellipsis">…</span>
+            {% set ns.show_dots_right = true %}
+          {% endif %}
+        {% endfor %}
+
+        {# Next #}
+        {% if page < total_pages %}
+        <a class="page-btn" href="/?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ page + 1 }}">→</a>
+        {% else %}
+        <button class="page-btn" disabled>→</button>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="pagination">
+      <span class="pagination-meta">{{ all_offers_count }} offres</span>
+    </div>
+    {% endif %}
+
   {% endif %}
-</section>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -144,9 +346,9 @@
 (() => {
   const panel = document.querySelector("#reanalysis-panel");
   if (!panel) return;
-  const startBtn = document.querySelector("#reanalyze-start");
-  const cancelBtn = document.querySelector("#reanalyze-cancel");
-  const statusEl = document.querySelector("#reanalyze-status");
+  const startBtn    = document.querySelector("#reanalyze-start");
+  const cancelBtn   = document.querySelector("#reanalyze-cancel");
+  const statusEl    = document.querySelector("#reanalyze-status");
   const progressWrap = panel.querySelector(".reanalysis-progress");
   const progressFill = document.querySelector("#reanalyze-progress");
   let polling = null;
@@ -154,7 +356,7 @@
   function render(job) {
     const running = job.status === "running";
     startBtn.disabled = running;
-    cancelBtn.hidden = !running;
+    cancelBtn.hidden  = !running;
     progressWrap.hidden = job.progress === null && !running;
     progressFill.style.width = `${job.progress || 0}%`;
     if (job.status === "idle") {
@@ -188,7 +390,7 @@
 
   startBtn.addEventListener("click", async () => {
     startBtn.disabled = true;
-    statusEl.textContent = "Démarrage de la ré-analyse...";
+    statusEl.textContent = "Démarrage de la ré-analyse…";
     const response = await fetch("/offers/reanalyze/start", { method: "POST" });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
