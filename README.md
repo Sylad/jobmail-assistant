@@ -19,6 +19,10 @@ Local, privacy-first triage of job-recruitment emails.
 Reads your mailbox (IMAP or Thunderbird MBOX), filters **locally**, and only sends
 **job-related** emails to an LLM (Ollama / Claude / OpenAI) for structured extraction.
 
+Since 2026-06-09, JobMail can also talk to Thunderbird through a local
+WebExtension bridge. Thunderbird reads and moves messages through its own API;
+JobMail keeps the local filtering, extraction and cleaner decisions.
+
 **Prompts and feature framing generated with [ChatGPT](https://chat.openai.com);
 implementation pair-programmed with [Claude Code](https://claude.com/claude-code)
 and [OpenAI Codex](https://openai.com/codex).**
@@ -87,6 +91,30 @@ explicit confirmation
           ▼
 move to Thunderbird Trash or IMAP ToDelete, never permanent delete
 ```
+
+Preferred Thunderbird bridge path:
+
+```
+Thunderbird WebExtension
+          │
+          ├── selected / unread mails
+          │        ▼
+          │   POST /api/thunderbird/import
+          │        ▼
+          │   local JobMail pipeline + SQLite
+          │
+          └── cleaner move request
+                   ▲
+                   │ GET /api/thunderbird/cleaner/latest-request
+                   │
+JobMail cleaner dry-run report ───────► extension resolves Message-Id
+                                           │
+                                           ▼
+                                   Thunderbird API trash move
+```
+
+The bridge exists because rewriting Thunderbird MBOX files while Thunderbird is
+open is fragile. The safer split is: JobMail decides, Thunderbird executes.
 
 ## Web UI
 
@@ -249,6 +277,34 @@ Safety rules:
   regex scan/export/move is launched, then reloaded on the next `/cleaner` visit.
 - A report is shown before any move, and confirmation checkboxes are required.
 - Logs never include the full mail content.
+
+### Thunderbird extension bridge
+
+The `thunderbird-extension/` folder contains a small WebExtension packaged as a
+local `.xpi` during development. It is deliberately thin:
+
+- imports selected mails into JobMail;
+- imports unread recent mails manually or on a timer;
+- reads cleaner configuration from `/cleaner/state`;
+- can run a lightweight cleaner scan from Thunderbird Inbox folders;
+- can execute the latest JobMail cleaner report through
+  `/api/thunderbird/cleaner/latest-request`;
+- moves messages via Thunderbird's `messages.delete(..., deletePermanently:
+  false)` API, so the account's trash behavior is honored.
+
+The extension should be treated as the preferred execution path for Thunderbird
+moves whenever Thunderbird is open. The older MBOX rewrite path remains useful
+for full dry-run scans and fallback maintenance, but it still requires closing
+Thunderbird before moving candidates.
+
+Build/install artifact:
+
+```powershell
+Compress-Archive -Path .\thunderbird-extension\* -DestinationPath .\jobmail-assistant-thunderbird.xpi -Force
+```
+
+The generated `.xpi` is ignored by git; commit the extension sources, not the
+package.
 
 Progress and cancellation:
 
