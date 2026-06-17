@@ -201,6 +201,24 @@ python -m jobmail serve
 # → http://127.0.0.1:8765/
 ```
 
+## Lancer comme une appli de bureau (Windows)
+
+JobMail tourne dans WSL mais peut se lancer comme une appli Windows.
+
+**Installer (une seule fois)** — depuis l'Explorateur Windows, aller dans
+`\\wsl.localhost\Ubuntu\home\sylvain_ladoire\projects\developpeur\jobmail-assistant\scripts\desktop\windows\`,
+clic droit sur `install.ps1` → « Exécuter avec PowerShell ».
+Crée un raccourci **JobMail** sur le Bureau et dans le menu Démarrer.
+
+**Utiliser** — double-clic sur l'icône **JobMail** :
+1. ollama démarre (seulement s'il ne tourne pas déjà) + le serveur démarre dans WSL ;
+2. une fenêtre dédiée s'ouvre sur le dashboard (Edge en mode app, sans barre d'URL) ;
+3. **fermer la fenêtre éteint tout** — le serveur, et ollama uniquement si JobMail l'avait démarré.
+
+Re-double-cliquer alors que l'app tourne déjà ouvre simplement une seconde fenêtre.
+Si le serveur ne démarre pas en 30 s, une boîte de dialogue affiche les dernières
+lignes du log (`~/.jobmail/jobmail.log`).
+
 ## Frontend assets
 
 The dashboard is server-rendered with Jinja, and the Mailbox cleaner is a
