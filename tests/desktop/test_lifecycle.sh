@@ -29,6 +29,7 @@ run_start() {
   PATH="$BIN:$PATH" JOBMAIL_STATE_DIR="$STATE" OLLAMA_BIN="$BIN/ollama" \
     OLLAMA_URL="http://localhost:11434" JOBMAIL_REPO="$REPO" \
     JOBMAIL_SERVE_CMD="sleep 120" FAKE_OLLAMA_UP="$1" \
+    JOBMAIL_OLLAMA_WAIT=1 \
     bash "$REPO/scripts/desktop/start.sh" >/dev/null 2>&1
 }
 run_stop() {

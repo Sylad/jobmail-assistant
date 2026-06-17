@@ -27,6 +27,13 @@ function Show-Error([string]$msg) {
     [System.Windows.Forms.MessageBox]::Show($msg, "JobMail") | Out-Null
 }
 
+# Fix 4: aucun navigateur disponible → ne pas démarrer le backend.
+if (-not (Test-Path $Edge)) {
+    wsl.exe -d $Distro -e bash -lc "'$RepoLinux/scripts/desktop/stop.sh'" | Out-Null
+    Show-Error "Aucun navigateur Edge ou Chrome trouve."
+    return
+}
+
 # 1. Déjà lancé ? On ouvre juste une nouvelle fenêtre, pas de 2e stack.
 if (Test-Up) { Open-Window | Out-Null; return }
 
