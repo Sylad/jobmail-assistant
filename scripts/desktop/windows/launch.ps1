@@ -37,7 +37,7 @@ wsl.exe -d $Distro -e bash -lc "'$RepoLinux/scripts/desktop/start.sh'" | Out-Nul
 $ready = $false
 for ($i = 0; $i -lt 30; $i++) { if (Test-Up) { $ready = $true; break }; Start-Sleep -Seconds 1 }
 if (-not $ready) {
-    $log = wsl.exe -d $Distro -e bash -lc "tail -n 20 ~/.jobmail/jobmail.log 2>/dev/null"
+    $log = (wsl.exe -d $Distro -e bash -lc "tail -n 20 ~/.jobmail/jobmail.log 2>/dev/null") -join "`n"
     wsl.exe -d $Distro -e bash -lc "'$RepoLinux/scripts/desktop/stop.sh'" | Out-Null
     Show-Error "JobMail n'a pas demarre en 30s.`n`n$log"
     return
