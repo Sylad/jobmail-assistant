@@ -9,10 +9,11 @@ uxSince: 2026-09-28
 lots:
   - id: L1
     title: "Adoption de cadence : plan, rituels de session, revue UX"
-    status: doing
+    status: done
     estimate: 0.25
     created: 2026-09-28
     started: 2026-09-28
+    finished: 2026-09-28
   - id: L2
     title: Revue UX — Tableau de bord des offres (/)
     status: todo
