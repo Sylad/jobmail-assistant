@@ -34,3 +34,9 @@ lots:
     status: todo
     estimate: 0.25
     created: 2026-09-28
+  - id: L6
+    title: Page Nouveautés branchée sur cadence news (raf news → page), signature commune des apps
+    status: todo
+    estimate: 0.5
+    visible: true
+    created: 2026-09-28
