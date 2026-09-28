@@ -1,0 +1,35 @@
+# Plan « reste à faire » tenu par raf (https://github.com/Sylad/cadence).
+# Édité par le CLI, mais les modifications à la main et les commentaires sont préservés.
+# Un commit appartient à un lot quand son message cite l'identifiant (L3, L3/t1).
+version: 1
+project: "jobmail-assistant"
+prefix: L
+since: 2026-09-28 # raf check ignore les commits antérieurs à l'adoption
+uxSince: 2026-09-28
+lots:
+  - id: L1
+    title: "Adoption de cadence : plan, rituels de session, revue UX"
+    status: doing
+    estimate: 0.25
+    created: 2026-09-28
+    started: 2026-09-28
+  - id: L2
+    title: Revue UX — Tableau de bord des offres (/)
+    status: todo
+    estimate: 0.25
+    created: 2026-09-28
+  - id: L3
+    title: Revue UX — Fiche offre
+    status: todo
+    estimate: 0.25
+    created: 2026-09-28
+  - id: L4
+    title: "Revue UX — Nettoyeur de boîte : scan, phases, déplacement"
+    status: todo
+    estimate: 0.25
+    created: 2026-09-28
+  - id: L5
+    title: "Revue UX — Gabarit commun : navigation, en-tête, pied, rendu téléphone"
+    status: todo
+    estimate: 0.25
+    created: 2026-09-28
