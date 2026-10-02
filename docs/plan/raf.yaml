@@ -37,18 +37,27 @@ lots:
   - id: L6
     title: Page Nouveautés branchée sur cadence news (raf news → page), signature commune des apps
     public: Une page Nouveautés raconte ce qui change dans l'application
-    status: doing
+    status: done
     estimate: 0.5
     visible: true
     created: 2026-09-28
     notes:
       - { date: 2026-09-28, text: "Sylvain 28-09 : ordre DÉCROISSANT, la nouveauté la plus récente en haut (départage à date égale corrigé dans cadence news)" }
     started: 2026-10-02
+    ux: { date: 2026-10-02, verdict: "Revue ux-reviewer 02-10 (1440 à 320 px, Chromium, instance de démo vide) : conforme avec réserves, levées — « depuis ta première visite » pour la mémoire de base, lien vers le Plan depuis le journal vide. Pastille sans décalage et annoncée, Copier le lien 44 px au toucher, arrivée sur l'ancre à 16 px du haut (dimensions des captures réservées), visionneuse correcte au clavier. Non vérifié : lecteur d'écran réel, appareil tactile réel, copie en http sur le réseau local." }
+    finished: 2026-10-02
   - id: L7
     title: "Page « Plan de travail » : ce qui est prévu, en cours et récemment livré, lue de docs/plan/raf.yaml (titres publics et états seulement, jamais les notes) ; liens Nouveautés et Plan de travail dans la navigation et depuis l'accueil — signature commune des apps"
     public: Une page Plan de travail montre ce qui se prépare
-    status: doing
+    status: done
     estimate: 0.5
     visible: true
     created: 2026-10-02
     started: 2026-10-02
+    ux: { date: 2026-10-02, verdict: "Revue ux-reviewer 02-10 : conforme après correction, réserves levées — « Nouveautés » ne se coupe plus dans la barre du haut (balayage 300–899 px, 0 défaut), logo réel, état du groupe non répété, pied de page et intitulés ≥ 4,5:1. Liens Nouveautés et Plan à 1 clic de l'accueil à toute largeur ; Plan sans identifiant, 0 débordement à 320 px. Reste (lot à part) : tailles en px, hauteur de la barre du haut." }
+    finished: 2026-10-02
+  - id: L8
+    title: "Tailles de texte en rem avec une racine à 100 % (la racine est fixée à 14 px : la taille de police choisie dans le navigateur est ignorée) ; barre du haut au téléphone sur une seule rangée (169 px de haut à 390 px) ; tableau de bord qui déborde de 2 à 14 px entre 300 et 310 px (revue UX des pages Nouveautés et Plan)"
+    status: todo
+    estimate: 0.5
+    created: 2026-10-02

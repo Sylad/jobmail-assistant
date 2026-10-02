@@ -1,5 +1,30 @@
 {
   "project": "jobmail-assistant",
-  "generated": "2026-10-02 16:09",
-  "entries": []
+  "generated": "2026-10-02 16:50",
+  "entries": [
+    {
+      "slug": "2026-10-02-une-page-plan-de-travail-et-un-menu-au-telephone",
+      "title": "Une page Plan de travail, et un menu au téléphone",
+      "date": "2026-10-02",
+      "lots": [
+        "L7"
+      ],
+      "captures": [
+        "captures/L7-plan-de-travail-telephone.png"
+      ],
+      "html": "<p>Une nouvelle page, <strong>Plan de travail</strong>, montre où en est l'application : ce qui est en cours, ce qui est prévu et ce qui vient d'être livré.</p>\n<ul><li>Tu la trouves dans le menu, juste après <strong>Nouveautés</strong>.</li><li>Au téléphone, l'application a maintenant une barre de navigation en haut de chaque page : jusqu'ici, le menu disparaissait sur les petits écrans.</li><li>Le pied de page et les intitulés du menu sont plus lisibles, et le pied de page est en français.</li></ul>"
+    },
+    {
+      "slug": "2026-10-02-une-page-nouveautes-raconte-ce-qui-change-dans-l-application",
+      "title": "Une page Nouveautés raconte ce qui change dans l'application",
+      "date": "2026-10-02",
+      "lots": [
+        "L6"
+      ],
+      "captures": [
+        "captures/L6-menu-nouveautes-pastille.png"
+      ],
+      "html": "<p>JobMail a maintenant sa page <strong>Nouveautés</strong> : chaque évolution visible y est décrite en quelques lignes, avec une capture d'écran, la plus récente en haut.</p>\n<ul><li>Tu la trouves dans le menu, sous <strong>Mailbox Cleaner</strong>.</li><li>Une <strong>pastille</strong> sur le lien compte les nouveautés parues depuis ta première visite ; elle s'éteint quand tu ouvres la page.</li><li>Sur la page, les entrées que tu n'as pas encore vues portent la mention <strong>Nouveau</strong>.</li><li>Chaque nouveauté a un bouton <strong>Copier le lien</strong>, qui mène directement à elle.</li><li>Une capture s'agrandit au clic ou avec Entrée ; Échap la referme.</li><li>Rien ne sort de ta machine : la trace de ta dernière visite reste dans ton navigateur.</li></ul>"
+    }
+  ]
 }
