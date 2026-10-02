@@ -40,6 +40,10 @@ IMAP_HOST= IMAP_USER= IMAP_PASSWORD= LLM_PROVIDER=mock \
   --app-dir ~/projects/developpeur/jobmail-assistant --host 127.0.0.1 --port 8799
 ```
 
+Pour montrer des entrées synthétiques (jamais commitées) sans toucher au dépôt, ajouter
+`JOBMAIL_NEWS_DATA_DIR=<dossier>` : un dossier compilé par
+`cadence news build --dir <sources synthétiques> -o <dossier>` (servi sous `/static/nouveautes-data/`).
+
 **Tests et vie privée** : `tests/conftest.py` pose ces mêmes variables vers un dossier temporaire
 AVANT l'import de l'application (`jobmail.web.app` crée l'app à l'import) : la suite ne touche
 jamais `data/jobmail.db` ni le profil Thunderbird.
