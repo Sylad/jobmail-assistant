@@ -22,6 +22,37 @@
     {% set _path = request.url.path %}
     {% set _is_dashboard = _path == '/' or _path.startswith('/offers/') %}
     {% set _is_cleaner   = _path.startswith('/cleaner') %}
+    {% set _is_news      = _path.startswith('/nouveautes') %}
+    {% set _is_plan      = _path.startswith('/plan-de-travail') %}
+
+    {#
+      Liens de navigation, partagés par la barre latérale (bureau) et la barre du haut
+      (téléphone, sous 900 px). L6/L7 : Nouveautés (avec pastille du nombre d'entrées non
+      vues, posée par static/news.js) et Plan de travail.
+    #}
+    {% macro nav_links(item_class) %}
+        <a href="/" class="{{ item_class }} {% if _is_dashboard %}active{% endif %}"{% if _is_dashboard %} aria-current="page"{% endif %}>
+          <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
+          <span class="nav-label">Dashboard</span>
+        </a>
+
+        <a href="/cleaner" class="{{ item_class }} {% if _is_cleaner %}active{% endif %}"{% if _is_cleaner %} aria-current="page"{% endif %}>
+          <i class="ti ti-inbox" aria-hidden="true"></i>
+          <span class="nav-label">Mailbox Cleaner</span>
+        </a>
+
+        <a href="/nouveautes" class="{{ item_class }} {% if _is_news %}active{% endif %}" data-news-link{% if _is_news %} aria-current="page"{% endif %}>
+          <i class="ti ti-sparkles" aria-hidden="true"></i>
+          <span class="nav-label">Nouveautés</span>
+          <span class="news-badge" data-news-badge aria-hidden="true"></span>
+          <span class="sr-only" data-news-badge-sr></span>
+        </a>
+
+        <a href="/plan-de-travail" class="{{ item_class }} {% if _is_plan %}active{% endif %}"{% if _is_plan %} aria-current="page"{% endif %}>
+          <i class="ti ti-list-check" aria-hidden="true"></i>
+          <span class="nav-label">Plan de travail</span>
+        </a>
+    {% endmacro %}
 
     <aside class="sidebar">
 
@@ -37,18 +68,10 @@
       </div>
 
       {# Navigation #}
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav" aria-label="Navigation principale">
         <div class="sidebar-nav-label">Navigation</div>
 
-        <a href="/" class="sidebar-nav-item {% if _is_dashboard %}active{% endif %}">
-          <i class="ti ti-layout-dashboard"></i>
-          <span>Dashboard</span>
-        </a>
-
-        <a href="/cleaner" class="sidebar-nav-item {% if _is_cleaner %}active{% endif %}">
-          <i class="ti ti-inbox"></i>
-          <span>Mailbox Cleaner</span>
-        </a>
+{{ nav_links('sidebar-nav-item') }}
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-nav-label">Connexions</div>
@@ -113,6 +136,17 @@
 
     {# ── Main content ────────────────────────── #}
     <div class="main-content">
+
+      {# Barre du haut au téléphone : la barre latérale est masquée sous 900 px. #}
+      <header class="mobile-bar">
+        <a href="/" class="mobile-bar-brand">
+          <span class="sidebar-logo-icon" aria-hidden="true"><i class="ti ti-mail-spark"></i></span>
+          <span class="sidebar-logo-name">JobMail</span>
+        </a>
+        <nav class="mobile-nav" aria-label="Navigation principale">
+{{ nav_links('mobile-nav-item') }}
+        </nav>
+      </header>
 
       {# Pipeline progress bar #}
       {% if stats is defined and stats.is_running and stats.progress is not none %}
@@ -199,6 +233,11 @@
       });
     })();
   </script>
+
+  {# L6 — slugs et dates des Nouveautés pour la pastille (mémoire dans localStorage). #}
+  <script type="application/json" id="jm-news-index">{{ news_index() | tojson }}</script>
+  <script src="/static/news-core.js?v={{ static_version }}"></script>
+  <script src="/static/news.js?v={{ static_version }}"></script>
 
   {% block scripts %}{% endblock %}
 </body>

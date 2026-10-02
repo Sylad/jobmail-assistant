@@ -1,0 +1,15 @@
+{
+  "_comment": "Cas partagés par le formateur Python (jobmail/web/dates.py, pages rendues au serveur) et le formateur JavaScript (static/news-core.js, séparateur « Déjà vu … »). Espaces insécables : une date ne se coupe jamais au milieu.",
+  "days": [
+    ["2026-10-01", "1er octobre 2026"],
+    ["2026-10-02", "2 octobre 2026"],
+    ["2026-02-28", "28 février 2026"],
+    ["2026-08-01", "1er août 2026"],
+    ["2026-12-31", "31 décembre 2026"]
+  ],
+  "times": [
+    ["2026-10-02T20:42:00Z", "20 h 42"],
+    ["2026-10-02T09:05:00Z", "9 h 05"],
+    ["2026-10-02T00:00:00Z", "0 h 00"]
+  ]
+}

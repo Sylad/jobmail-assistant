@@ -56,6 +56,8 @@ from ..mail.sources import build_mbox_source, resolve_mbox_paths
 from ..models import OfferStatus
 from ..models import RawEmail
 from ..pipeline import run as run_pipeline
+from . import news as news_mod
+from .dates import format_day
 from .links import build_preferred_offer_terms, extract_offer_links
 
 
@@ -238,9 +240,14 @@ templates.env.globals["static_version"] = str(
             (BASE_DIR / "static" / "style.css").stat().st_mtime,
             (BASE_DIR / "static" / "assets" / "cleaner.css").stat().st_mtime,
             (BASE_DIR / "static" / "assets" / "cleaner.js").stat().st_mtime,
+            (BASE_DIR / "static" / "news-core.js").stat().st_mtime,
+            (BASE_DIR / "static" / "news.js").stat().st_mtime,
         )
     )
 )
+templates.env.filters["format_day"] = format_day
+# L6 — la pastille du lien Nouveautés a besoin des slugs et dates sur chaque page.
+templates.env.globals["news_index"] = lambda: news_mod.news_index()
 
 
 @dataclass
@@ -974,6 +981,14 @@ def create_app() -> FastAPI:
                 "stats": stats,
                 "reanalysis_job": _reanalysis_payload(_reanalysis_job),
             },
+        )
+
+    @app.get("/nouveautes", response_class=HTMLResponse)
+    def nouveautes(request: Request):
+        return templates.TemplateResponse(
+            request,
+            "nouveautes.html",
+            {"news": news_mod.load_news(), "provider": settings.llm_provider},
         )
 
     @app.get("/api/status")

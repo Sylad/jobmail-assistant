@@ -1523,3 +1523,306 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
   .cleaner-action-controls .confirm-line { white-space: normal; }
   .sender-actions { justify-content: flex-start; flex-wrap: wrap; }
 }
+
+/* ═══════════════════════════════════════════
+   NAVIGATION — Nouveautés, Plan de travail, téléphone (L6/L7)
+   ═══════════════════════════════════════════ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sidebar-nav-item:focus-visible,
+.mobile-nav-item:focus-visible,
+.mobile-bar-brand:focus-visible {
+  outline: 2px solid var(--accent-pale);
+  outline-offset: 2px;
+}
+
+.nav-label { min-width: 0; overflow-wrap: anywhere; }
+
+/* Pastille : nombre d'entrées non vues (« 9+ » au-delà). Place toujours réservée (pas de
+   décalage quand elle apparaît) ; texte sombre sur violet pâle, 9,7:1. Le nombre est aussi
+   dans le nom accessible du lien (texte masqué voisin), pas seulement une couleur. */
+.news-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  min-width: 2.1em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-pale);
+  color: #0F172A;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+  visibility: hidden;
+}
+.news-badge.is-on { visibility: visible; }
+
+/* Barre du haut : seule navigation sous 900 px (la barre latérale y est masquée). */
+.mobile-bar { display: none; }
+
+@media (max-width: 900px) {
+  .mobile-bar {
+    display: block;
+    padding: 10px 14px 12px;
+    background: var(--sidebar-bg);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .mobile-bar-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 4px;
+    border-radius: var(--radius);
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .mobile-bar-brand:hover { text-decoration: none; }
+  .mobile-bar-brand .sidebar-logo-icon { width: 30px; height: 30px; border-radius: 8px; }
+  .mobile-nav {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .mobile-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    min-width: 0;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-alt);
+    color: var(--fg-2);
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.25;
+    text-decoration: none;
+  }
+  .mobile-nav-item:hover { background: var(--surface-hover); text-decoration: none; color: var(--fg); }
+  .mobile-nav-item.active {
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+    color: var(--accent-pale);
+  }
+  .mobile-nav-item i { font-size: 17px; flex-shrink: 0; }
+}
+
+/* ═══════════════════════════════════════════
+   NOUVEAUTÉS (L6)
+   ═══════════════════════════════════════════ */
+
+.news-page { max-width: 72ch; }
+.news-header { margin-bottom: 16px; }
+.news-lede { margin: 0; color: var(--fg-mute); font-size: 14px; line-height: 1.6; }
+
+.news-since {
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent-light);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+  color: var(--fg);
+  font-weight: 500;
+}
+.news-since:empty { display: none; }
+
+.news-empty, .news-error {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--fg-mute);
+}
+.news-error { border-color: var(--warn-border); background: var(--warn-bg); color: var(--fg); }
+.news-error i { color: var(--warn); }
+
+.news-feed { display: flex; flex-direction: column; gap: 18px; }
+
+.news-entry {
+  padding: 18px clamp(14px, 4vw, 22px) 20px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  scroll-margin-top: 16px;
+}
+.news-entry:focus { outline: none; }
+.news-entry.is-target {
+  border-color: var(--accent-pale);
+  box-shadow: 0 0 0 1px var(--accent-pale);
+}
+
+.news-date {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 0 0 8px;
+  color: var(--fg-mute);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.news-date time { white-space: nowrap; }
+
+.news-new {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-pale);
+  color: #0F172A;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* « Copier le lien » : visible sans survol, ≥ 24 px au bureau, ≥ 44 px au toucher ; les
+   trois libellés partagent une case de la largeur du plus long (aucun décalage). */
+.news-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--accent-pale);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.news-copy:hover { background: var(--accent-bg); }
+.news-copy:focus-visible { outline: 2px solid var(--accent-pale); outline-offset: 2px; }
+.news-copy i { font-size: 15px; }
+.news-copy-labels { display: inline-grid; }
+.news-copy-label { grid-area: 1 / 1; white-space: nowrap; }
+.news-copy-label.is-hidden { visibility: hidden; }
+@media (pointer: coarse) {
+  .news-copy { min-height: 44px; min-width: 44px; }
+}
+
+.news-title {
+  margin: 0 0 12px;
+  color: var(--fg);
+  font-size: 17px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.news-permalink {
+  margin: -4px 0 12px;
+  font-size: 12.5px;
+  color: var(--fg-mute);
+}
+.news-permalink-url {
+  display: block;
+  margin-top: 2px;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.news-body { color: var(--fg-2); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.news-body p { margin: 0 0 10px; }
+.news-body ul, .news-body ol { margin: 0 0 10px; padding-left: 1.3em; }
+.news-body li { margin-bottom: 4px; }
+.news-body a { text-decoration: underline; text-underline-offset: 3px; }
+
+.news-captures { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+.news-capture {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: var(--radius);
+  line-height: 0;
+  cursor: zoom-in;
+}
+.news-capture:focus-visible { outline: 2px solid var(--accent-pale); outline-offset: 3px; }
+.news-capture img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* Séparateur « Déjà vu … » entre les entrées (hors de toute liste). */
+.news-seen-sep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--fg-mute);
+  font-size: 12.5px;
+  text-align: center;
+}
+.news-seen-sep::before, .news-seen-sep::after {
+  content: "";
+  flex: 1;
+  min-width: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.news-lightbox {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+}
+.news-lightbox[open] { display: flex; align-items: center; justify-content: center; }
+.news-lightbox::backdrop { background: rgba(2, 6, 23, 0.92); }
+.news-lightbox-figure {
+  margin: 0;
+  max-width: min(96vw, 1600px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.news-lightbox-img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(92vh - 3rem);
+  object-fit: contain;
+  border-radius: var(--radius);
+}
+.news-lightbox-caption { color: var(--fg-2); font-size: 13px; text-align: center; padding: 0 12px; }
+.news-lightbox-close {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--sidebar-bg);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.news-lightbox-close:focus-visible { outline: 2px solid var(--accent-pale); outline-offset: 2px; }

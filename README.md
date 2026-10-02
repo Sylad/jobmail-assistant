@@ -127,6 +127,26 @@ open is fragile. The safer split is: JobMail decides, Thunderbird executes.
   after review.
 - `/cleaner/duplicates` detects Orange-to-Gmail forwarded duplicates by
   `Message-Id` and proposes only the redundant Orange copies.
+- `/nouveautes` (Nouveautés) is the changelog of what changed on screen, most
+  recent first, with captures. A badge on the « Nouveautés » link counts the
+  entries not seen yet (memory in the browser's `localStorage`, key
+  `jobmail.news.seen-v1`); each entry has a « Copier le lien » button
+  (`/nouveautes#<slug>`).
+
+### Adding a Nouveautés entry
+
+Entries live in `docs/nouveautes/*.md` (captures in `docs/nouveautes/captures/`),
+written with [cadence](https://github.com/Sylad/cadence): `cadence news new L6`.
+Captures must show no real e-mail, sender, company or offer (empty demo instance
+or synthetic data only). Then compile and **commit** the result:
+
+```bash
+scripts/build-news.sh   # cadence news build → jobmail/web/static/nouveautes-data/
+```
+
+The compiled JSON and captures are versioned, so a fresh clone runs without the
+cadence CLI. `pytest` fails when the committed build no longer matches
+`docs/nouveautes/` (the exact comparison is skipped when cadence is not installed).
 
 The dashboard keeps FastAPI/Jinja for simple server-rendered pages. The cleaner
 is now a focused Vue 3 + TypeScript mini-app mounted inside that shell: source
@@ -394,8 +414,9 @@ Operational notes:
 ## Tests
 
 ```powershell
-pytest
+pytest                                   # also runs node --test tests/js/ when Node is installed
 pytest -q tests/test_pipeline_privacy.py  # privacy invariants only
+node --test tests/js/                    # Nouveautés client logic (plain JS, no dependency)
 cd frontend
 npm run build                            # includes vue-tsc typecheck
 ```

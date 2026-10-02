@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{#
+  L6 — Nouveautés : journal des évolutions visibles de l'application (signature commune des
+  apps). Données : static/nouveautes-data/nouveautes.json, compilé par `cadence news build`
+  depuis docs/nouveautes/*.md (scripts/build-news.sh), déjà trié du plus récent au plus ancien.
+  La mémoire « vu / pas vu » (pastille, marque « Nouveau », séparateur) est posée par
+  static/news.js dans le navigateur ; sans JavaScript la page reste complète.
+#}
+{% block title %}Nouveautés — JobMail{% endblock %}
+{% block content %}
+
+<div class="news-page">
+  <header class="page-header news-header">
+    <div>
+      <h1 class="page-header-title">Nouveautés</h1>
+      <p class="news-lede">Ce qui a changé dans l'application, la nouveauté la plus récente en premier.</p>
+    </div>
+  </header>
+
+  <p class="news-since" role="status"></p>
+  <p id="news-copy-status" class="sr-only" role="status"></p>
+
+  {% if news.error %}
+    <p class="news-error" role="alert">
+      <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+      {{ news.error }}
+    </p>
+  {% elif not news.entries %}
+    <p class="news-empty">Aucune nouveauté publiée pour l'instant.</p>
+  {% else %}
+    <div class="news-feed">
+      {% for e in news.entries %}
+      <article class="news-entry" id="{{ e.slug }}" tabindex="-1" aria-labelledby="{{ e.slug }}-titre">
+        <p class="news-date">
+          <time datetime="{{ e.date }}">{{ e.date | format_day }}</time>
+          <span class="news-new-slot"></span>
+          <button type="button" class="news-copy" data-slug="{{ e.slug }}" data-state="idle">
+            <i class="ti ti-link" aria-hidden="true"></i>
+            {# Les trois libellés partagent la même case : la largeur du plus long est réservée,
+               le retour ne décale rien. Nom accessible : texte masqué ci-dessous. #}
+            <span class="news-copy-labels" aria-hidden="true">
+              <span class="news-copy-label" data-for="idle">Copier le lien</span>
+              <span class="news-copy-label is-hidden" data-for="ok">Lien copié</span>
+              <span class="news-copy-label is-hidden" data-for="ko">Copie impossible</span>
+            </span>
+            <span class="sr-only">Copier le lien : {{ e.title }}</span>
+          </button>
+        </p>
+        <h2 id="{{ e.slug }}-titre" class="news-title">{{ e.title }}</h2>
+        <p class="news-permalink" hidden>
+          <span class="news-permalink-label">Adresse de cette nouveauté :</span>
+          <span class="news-permalink-url"></span>
+        </p>
+        {# HTML produit par cadence, repassé par la liste blanche de jobmail/web/news.py. #}
+        <div class="news-body">{{ e.html | safe }}</div>
+        {% if e.captures %}
+        <div class="news-captures">
+          {% for c in e.captures %}
+          <a href="{{ c.url }}" class="news-capture" data-lightbox
+             {% if c.width and c.height %}style="width: min(100%, {{ c.width }}px, calc(30rem * {{ c.width }} / {{ c.height }}))"{% endif %}>
+            <img src="{{ c.url }}" alt="{{ c.alt }}" loading="lazy" decoding="async"
+                 {% if c.width and c.height %}width="{{ c.width }}" height="{{ c.height }}" style="aspect-ratio: {{ c.width }} / {{ c.height }}"{% endif %}>
+            <span class="sr-only">(agrandir)</span>
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+<dialog class="news-lightbox" aria-label="Capture agrandie">
+  <button type="button" class="news-lightbox-close">
+    <i class="ti ti-x" aria-hidden="true"></i>
+    <span>Fermer</span>
+  </button>
+  <figure class="news-lightbox-figure">
+    <img class="news-lightbox-img" alt="">
+    <figcaption class="news-lightbox-caption"></figcaption>
+  </figure>
+</dialog>
+
+{% endblock %}
