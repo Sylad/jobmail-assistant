@@ -57,6 +57,7 @@ from ..models import OfferStatus
 from ..models import RawEmail
 from ..pipeline import run as run_pipeline
 from . import news as news_mod
+from . import plan_public
 from .dates import format_day
 from .links import build_preferred_offer_terms, extract_offer_links
 
@@ -995,6 +996,62 @@ def create_app() -> FastAPI:
             request,
             "nouveautes.html",
             {"news": news_mod.load_news(), "provider": settings.llm_provider},
+        )
+
+    @app.get("/plan-de-travail", response_class=HTMLResponse)
+    def plan_de_travail(request: Request):
+        plan = plan_public.load_public_plan(
+            plan_public.PLAN_PATH,
+            news_mod.news_titles_by_lot(news_mod.load_news().entries),
+        )
+        recent = plan_public.RECENT_DONE
+        sections = [
+            {
+                "id": "en-cours",
+                "title": "En cours",
+                "intro": "Ce qui est en train d'être fait en ce moment.",
+                "lots": plan.doing,
+                "empty": "Rien en cours pour l'instant.",
+            },
+            {
+                "id": "prevu",
+                "title": "Prévu",
+                "intro": "La suite, dans l'ordre du plan.",
+                "lots": plan.todo,
+                "empty": "Les prochains travaux seront annoncés ici.",
+            },
+            {
+                "id": "livre",
+                "title": "Récemment livré",
+                "intro": (
+                    f"Les {recent} derniers travaux terminés, sur {plan.counts['done']} au total."
+                    if plan.counts["done"] > recent
+                    else "Les derniers travaux terminés."
+                ),
+                "lots": plan.done,
+                "empty": "Rien de livré pour l'instant.",
+                "news": True,
+            },
+        ]
+
+        def state_label(lot) -> str:
+            if lot.status == "done":
+                return f"Livré le {format_day(lot.finished)}" if lot.finished else "Livré"
+            if lot.ready:
+                return "Prêt, en attente de livraison"
+            return "En cours" if lot.status == "doing" else "Prévu"
+
+        return templates.TemplateResponse(
+            request,
+            "plan.html",
+            {
+                "plan": plan,
+                "sections": sections,
+                "summary": plan_public.plan_summary(plan.counts),
+                "state_label": state_label,
+                "steps_label": plan_public.steps_label,
+                "provider": settings.llm_provider,
+            },
         )
 
     @app.get("/api/status")

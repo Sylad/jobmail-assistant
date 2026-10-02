@@ -36,6 +36,7 @@ lots:
     created: 2026-09-28
   - id: L6
     title: Page Nouveautés branchée sur cadence news (raf news → page), signature commune des apps
+    public: Une page Nouveautés raconte ce qui change dans l'application
     status: doing
     estimate: 0.5
     visible: true
@@ -45,6 +46,7 @@ lots:
     started: 2026-10-02
   - id: L7
     title: "Page « Plan de travail » : ce qui est prévu, en cours et récemment livré, lue de docs/plan/raf.yaml (titres publics et états seulement, jamais les notes) ; liens Nouveautés et Plan de travail dans la navigation et depuis l'accueil — signature commune des apps"
+    public: Une page Plan de travail montre ce qui se prépare
     status: doing
     estimate: 0.5
     visible: true

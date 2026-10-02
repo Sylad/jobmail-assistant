@@ -27,6 +27,17 @@ refiltré par une liste blanche (`jobmail/web/news.py`). Pastille, « Nouveau »
 `node --test tests/js/`, aussi lancé par pytest) et `news.js` (branchement DOM), en JavaScript simple
 sans build. Mémoire dans `localStorage`, clé `jobmail.news.seen-v1`.
 
+**Plan de travail** (`/plan-de-travail`, L7) : lu à chaque requête dans `docs/plan/raf.yaml` par
+`jobmail/web/plan_public.py`, liste blanche seulement (titre PUBLIC, état, date de livraison,
+décompte des étapes non abandonnées ; l'identifiant n'est qu'un id d'élément). Un lot n'apparaît que
+s'il est `visible: true`, non abandonné, et a un titre public : son champ `public:` (une ligne, en
+français pour l'utilisateur, ≤ 80 caractères, sans « / », nom de fichier, identifiant de lot ni sujet
+de sécurité), sinon — lot livré seulement — le titre de son entrée Nouveautés ; les lots « Revue … »
+exigent un `public:`. **Tout nouveau lot visible reçoit un `public:`** (à faire valider par Sylvain).
+Groupes : En cours, Prévu, Récemment livré (8 derniers). `tests/test_plan_web.py` prouve qu'aucune
+note, verdict, raison ni titre brut n'est rendu (plan synthétique ET vrai plan) et échoue sur un
+`public:` non conforme du vrai plan.
+
 **Captures** : JAMAIS de vrai mail, expéditeur, entreprise ou offre (dépôt public). Les prendre sur
 une instance de démonstration VIDE : variables `DB_PATH`, `CLEANER_REGEX_RULES_PATH`,
 `CLEANER_MBOX_GLOBS` vers `~/projects/developpeur/tmp/jobmail-demo/`, `IMAP_*` vides, lancée depuis

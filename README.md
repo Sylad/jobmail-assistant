@@ -133,6 +133,22 @@ open is fragile. The safer split is: JobMail decides, Thunderbird executes.
   `jobmail.news.seen-v1`); each entry has a « Copier le lien » button
   (`/nouveautes#<slug>`).
 
+- `/plan-de-travail` (Plan de travail) shows what is in progress, planned and
+  recently delivered (the 8 most recent), read on each request from
+  `docs/plan/raf.yaml` (the [cadence](https://github.com/Sylad/cadence) plan).
+  Only an allow-list is rendered: the lot's **public title**, its state, its
+  delivery date and its number of steps done — never notes, review verdicts,
+  reasons, raw titles or step titles. A lot appears only if it is
+  `visible: true`, not dropped, and has a public title: its `public:` field (one
+  line of reader-facing French, ≤ 80 characters, no `/`, file name or lot id),
+  otherwise — for delivered lots only — the title of its Nouveautés entry;
+  « Revue … » lots need an explicit `public:`. A missing or unreadable plan shows
+  an error message, not an empty page. (The Docker image does not ship the plan:
+  the page then says so.)
+
+Both pages are linked from the sidebar and, under 900 px, from the top bar of
+every page (including the dashboard `/`).
+
 ### Adding a Nouveautés entry
 
 Entries live in `docs/nouveautes/*.md` (captures in `docs/nouveautes/captures/`),
@@ -433,7 +449,7 @@ jobmail/
 ├── mail/            # IMAP + Thunderbird + parser
 ├── filtering/       # local keyword rules (privacy-first)
 ├── extraction/      # LLMProvider + mock/local/cloud providers
-├── web/             # FastAPI + Jinja2 dashboard
+├── web/             # FastAPI + Jinja2 dashboard, Nouveautés (news.py), Plan de travail (plan_public.py)
 └── cli.py           # entry-point
 ```
 

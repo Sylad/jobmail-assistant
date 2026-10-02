@@ -1829,3 +1829,60 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
   cursor: pointer;
 }
 .news-lightbox-close:focus-visible { outline: 2px solid var(--accent-pale); outline-offset: 2px; }
+
+/* ═══════════════════════════════════════════
+   PLAN DE TRAVAIL (L7)
+   ═══════════════════════════════════════════ */
+
+.plan-page { max-width: 72ch; }
+
+.plan-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent-light);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+  color: var(--fg);
+  font-weight: 500;
+}
+.plan-summary span { white-space: nowrap; }
+.plan-sep { color: var(--accent-pale); }
+
+.plan-section {
+  margin: 0 0 18px;
+  padding: 18px clamp(14px, 4vw, 22px) 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.plan-section-title { margin: 0 0 4px; color: var(--fg); font-size: 17px; }
+.plan-intro, .plan-empty { margin: 0 0 12px; color: var(--fg-mute); line-height: 1.6; }
+.plan-intro a { text-decoration: underline; text-underline-offset: 3px; }
+.plan-intro a:focus-visible { outline: 2px solid var(--accent-pale); outline-offset: 2px; border-radius: 2px; }
+.plan-empty { font-style: italic; }
+
+.plan-list { list-style: none; margin: 0; padding: 0; }
+.plan-lot { padding: 12px 0; border-top: 1px solid var(--border-soft); }
+.plan-lot-title {
+  margin: 0 0 4px;
+  color: var(--fg-2);
+  font-size: 14.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.plan-lot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--fg-mute);
+  font-size: 12.5px;
+}
+/* L'état est écrit en toutes lettres ; la couleur ne fait que le souligner. */
+.plan-state { color: var(--accent-pale); font-weight: 600; }
+.plan-lot[data-status="done"] .plan-state { color: var(--ok); }

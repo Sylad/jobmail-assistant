@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{#
+  L7 — Plan de travail : ce qui est en cours, prévu et récemment livré (signature commune
+  des apps). Source : docs/plan/raf.yaml, lu à chaque requête par jobmail/web/plan_public.py,
+  qui ne laisse passer que la liste blanche (titre PUBLIC, état, date de livraison, décompte
+  des étapes). L'identifiant d'un lot n'est jamais affiché : seulement en id d'élément.
+#}
+{% block title %}Plan de travail — JobMail{% endblock %}
+{% block content %}
+
+<div class="plan-page">
+  <header class="page-header news-header">
+    <div>
+      <h1 class="page-header-title">Plan de travail</h1>
+      <p class="news-lede">Ce qui est en cours, ce qui suit et ce qui vient d'être terminé dans l'application.</p>
+    </div>
+  </header>
+
+  {% if plan.error %}
+    <p class="news-error" role="alert">
+      <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+      {{ plan.error }}
+    </p>
+  {% else %}
+    {% if summary %}
+    <p class="plan-summary">
+      {% for part in summary %}{% if not loop.first %}<span class="plan-sep" aria-hidden="true">·</span>{% endif %}<span>{{ part }}</span>{% endfor %}
+    </p>
+    {% endif %}
+
+    {% for s in sections %}
+    <section class="plan-section" id="{{ s.id }}" aria-labelledby="plan-{{ s.id }}">
+      <h2 id="plan-{{ s.id }}" class="plan-section-title">{{ s.title }}</h2>
+      <p class="plan-intro">
+        {{ s.intro }}
+        {% if s.news %}Ce qui change à l'écran est raconté dans les <a href="/nouveautes">Nouveautés</a>.{% endif %}
+      </p>
+      {% if s.lots %}
+      <ol class="plan-list">
+        {% for lot in s.lots %}
+        <li class="plan-lot" id="lot-{{ lot.id }}" data-status="{{ lot.status }}">
+          <p class="plan-lot-title">{{ lot.title }}</p>
+          <p class="plan-lot-meta">
+            <span class="plan-state">{{ state_label(lot) }}</span>
+            {% if lot.tasks_total %}<span class="plan-tasks">{{ steps_label(lot.tasks_done, lot.tasks_total) }}</span>{% endif %}
+          </p>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="plan-empty">{{ s.empty }}</p>
+      {% endif %}
+    </section>
+    {% endfor %}
+  {% endif %}
+</div>
+
+{% endblock %}
