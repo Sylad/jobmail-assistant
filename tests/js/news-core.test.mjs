@@ -150,3 +150,20 @@ test('index des Nouveautés lu dans la page : illisible = liste vide', () => {
   assert.deepEqual(N.parseIndex('{'), []);
   assert.deepEqual(N.parseIndex(null), []);
 });
+
+test('autre onglet : seul un changement de la mémoire des Nouveautés recalcule la pastille', () => {
+  assert.equal(N.isSeenStorageEvent({ key: 'jobmail.news.seen-v1' }), true);
+  assert.equal(N.isSeenStorageEvent({ key: null }), true); // localStorage.clear() ailleurs
+  assert.equal(N.isSeenStorageEvent({ key: 'autre.cle' }), false);
+  assert.equal(N.isSeenStorageEvent(null), false);
+});
+
+test('autre onglet : la visite de Nouveautés ailleurs éteint la pastille ici', () => {
+  const s = memoryStorage();
+  const entries = [E('b', '2026-10-02'), E('a', '2026-10-01')];
+  N.ensureBaseline(s, [E('a', '2026-10-01')], NOW);
+  assert.equal(N.badgeAfterStorageChange(s, entries), 1);
+  N.markAllSeen(s, entries, NOW); // l'autre onglet ouvre Nouveautés
+  assert.equal(N.badgeAfterStorageChange(s, entries), 0);
+  assert.equal(N.badgeAfterStorageChange(throwingStorage, entries), 0);
+});

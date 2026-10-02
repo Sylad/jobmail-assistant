@@ -124,6 +124,18 @@
     return entries.filter(function (e) { return isUnseen(e, seen); }).length;
   }
 
+  // ── Autres onglets ──────────────────────────────────────────────────────────────
+
+  /** Événement `storage` venu d'un autre onglet qui touche la mémoire (ou l'efface). */
+  function isSeenStorageEvent(event) {
+    return !!event && (event.key === NEWS_SEEN_KEY || event.key === null);
+  }
+
+  /** Nombre à afficher après un changement de la mémoire ailleurs (sans poser de base). */
+  function badgeAfterStorageChange(storage, entries) {
+    return countUnseen(entries, readSeen(storage));
+  }
+
   // ── Libellés ────────────────────────────────────────────────────────────────────
 
   function badgeLabel(count) {
@@ -218,6 +230,8 @@
     ensureBaseline: ensureBaseline,
     isUnseen: isUnseen,
     countUnseen: countUnseen,
+    isSeenStorageEvent: isSeenStorageEvent,
+    badgeAfterStorageChange: badgeAfterStorageChange,
     badgeLabel: badgeLabel,
     badgeSrLabel: badgeSrLabel,
     sinceLabel: sinceLabel,

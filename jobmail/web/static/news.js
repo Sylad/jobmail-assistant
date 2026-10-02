@@ -35,6 +35,12 @@
     });
   }
 
+  // ── Autre onglet : Nouveautés visitée ailleurs (ou mémoire effacée) → pastille à jour ──
+  window.addEventListener('storage', function (event) {
+    if (!N.isSeenStorageEvent(event)) return;
+    attempt(function () { renderBadge(N.badgeAfterStorageChange(storage, entries)); });
+  });
+
   // ── Pastille (toutes les pages sauf /nouveautes, qui marque tout comme vu) ─────────
   if (!newsPage) {
     attempt(function () {
