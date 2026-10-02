@@ -244,15 +244,30 @@ def test_committed_captures_exist_and_no_cadence_index_page():
     assert not (COMMITTED / "index.html").exists()
 
 
+def _stable(entries: list[dict]) -> list[tuple]:
+    """Parties qui ne dépendent pas de la version de cadence : ordre, slug, titre, date,
+    lots, noms des captures (le HTML rendu peut changer d'une version à l'autre)."""
+    return [
+        (e["slug"], e["title"], e["date"], tuple(e.get("lots", [])), tuple(e["captures"]))
+        for e in entries
+    ]
+
+
 def test_committed_build_is_up_to_date_with_docs_nouveautes(tmp_path):
     cadence = shutil.which("cadence")
     if cadence is None:
-        pytest.skip("cadence absent du PATH : fraîcheur vérifiée par slug seulement")
+        pytest.skip(
+            "cadence absent du PATH : comparaison avec une compilation fraîche impossible "
+            "(slugs comparés aux fichiers par test_committed_build_exists_and_has_one_entry_per_file)"
+        )
     out = tmp_path / "fresh"
-    subprocess.run([cadence, "news", "build", "-o", str(out)], cwd=REPO, check=True,
-                   capture_output=True)
+    res = subprocess.run([cadence, "news", "build", "-o", str(out)], cwd=REPO,
+                         capture_output=True, text=True)
+    assert res.returncode == 0, f"cadence news build en échec : {res.stderr[-1000:]}"
     fresh = json.loads((out / "nouveautes.json").read_text(encoding="utf-8"))
-    assert _committed()["entries"] == fresh["entries"], "JSON périmé : lancer scripts/build-news.sh"
+    assert _stable(_committed()["entries"]) == _stable(fresh["entries"]), (
+        "JSON périmé : lancer scripts/build-news.sh"
+    )
     for c in {c for e in fresh["entries"] for c in e["captures"]}:
         assert (COMMITTED / c).read_bytes() == (out / c).read_bytes(), f"{c} différente"
 
