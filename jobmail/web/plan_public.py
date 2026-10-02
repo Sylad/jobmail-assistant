@@ -217,9 +217,13 @@ def load_public_plan(path: Path | None = None, news_titles: dict[str, str] | Non
         raw = load_raw_plan(path)
     except FileNotFoundError:
         return PublicPlan(error=MISSING)
-    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+    except Exception:  # noqa: BLE001 — YAML invalide, date impossible, imbrication sans fin…
+        # Tout plan illisible donne l'état d'erreur de la page, jamais une erreur 500.
         return PublicPlan(error=UNREADABLE)
-    return build_public_plan(raw, news_titles)
+    try:
+        return build_public_plan(raw, news_titles)
+    except Exception:  # noqa: BLE001 — structure inattendue malgré les contrôles
+        return PublicPlan(error=UNREADABLE)
 
 
 # ── Libellés ─────────────────────────────────────────────────────────────────────

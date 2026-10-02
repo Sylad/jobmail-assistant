@@ -242,11 +242,17 @@ def test_only_the_eight_most_recent_deliveries(client, monkeypatch, tmp_path):
         ("lots: [\n  - id: L1\n  title: : :", "Le plan de travail est illisible pour le moment."),
         ("version: 1\n", "Le plan de travail est illisible pour le moment."),
         ("- juste\n- une liste\n", "Le plan de travail est illisible pour le moment."),
+        ("lots:\n  - id: L1\n    finished: 2026-13-01\n", "Le plan de travail est illisible pour le moment."),
+        ("lots: " + "[" * 5000 + "]" * 5000 + "\n", "Le plan de travail est illisible pour le moment."),
+        (b"\xff\xfe pas de l'utf-8", "Le plan de travail est illisible pour le moment."),
     ],
+    ids=["absent", "yaml-invalide", "sans-lots", "liste", "date-impossible", "imbrication", "pas-utf8"],
 )
 def test_missing_or_malformed_plan_gives_an_honest_error(client, monkeypatch, tmp_path, content, message):
     path = tmp_path / "raf.yaml"
-    if content is not None:
+    if isinstance(content, bytes):
+        path.write_bytes(content)
+    elif content is not None:
         path.write_text(content, encoding="utf-8")
     monkeypatch.setattr(plan_public, "PLAN_PATH", path)
     page = client.get("/plan-de-travail")
