@@ -136,6 +136,8 @@ def test_empty_journal_shows_honest_empty_state(client, monkeypatch, tmp_path):
     page = client.get("/nouveautes")
     assert page.status_code == 200
     assert "Aucune nouveauté publiée pour l'instant." in page.text
+    assert re.search(r'<a href="/plan-de-travail"[^>]*>Voir ce qui se prépare</a>', page.text)
+    assert page.text.index("Aucune nouveauté publiée") < page.text.index("Voir ce qui se prépare")
 
 
 def test_missing_build_is_an_empty_journal(client, monkeypatch, tmp_path):

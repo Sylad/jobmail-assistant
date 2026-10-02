@@ -1666,6 +1666,10 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
   background: var(--surface);
   color: var(--fg-mute);
 }
+.news-empty p { margin: 0; }
+.news-empty p + p { margin-top: 8px; }
+.news-empty-link { text-decoration: underline; text-underline-offset: 3px; }
+.news-empty-link:focus-visible { outline: 2px solid var(--accent-pale); outline-offset: 2px; border-radius: 2px; }
 .news-error { border-color: var(--warn-border); background: var(--warn-bg); color: var(--fg); }
 .news-error i { color: var(--warn); }
 

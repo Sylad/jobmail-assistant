@@ -26,7 +26,10 @@
       {{ news.error }}
     </p>
   {% elif not news.entries %}
-    <p class="news-empty">Aucune nouveauté publiée pour l'instant.</p>
+    <div class="news-empty">
+      <p>Aucune nouveauté publiée pour l'instant.</p>
+      <p><a href="/plan-de-travail" class="news-empty-link">Voir ce qui se prépare</a></p>
+    </div>
   {% else %}
     <div class="news-feed">
       {% for e in news.entries %}
