@@ -1547,7 +1547,8 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
   outline-offset: 2px;
 }
 
-.nav-label { min-width: 0; overflow-wrap: anywhere; }
+/* Un libellé ne se coupe qu'aux espaces, jamais au milieu d'un mot. */
+.nav-label { min-width: 0; }
 
 /* Pastille : nombre d'entrées non vues (« 9+ » au-delà). Place toujours réservée (pas de
    décalage quand elle apparaît) ; texte sombre sur violet pâle, 9,7:1. Le nombre est aussi
@@ -1622,6 +1623,16 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
     color: var(--accent-pale);
   }
   .mobile-nav-item i { font-size: 17px; flex-shrink: 0; }
+  /* Pastille posée sur le coin haut-droit du lien : hors du flux, elle ne prend pas de
+     place au libellé (0 px de décalage quand elle apparaît). */
+  .mobile-nav-item { position: relative; gap: 6px; padding: 6px 8px; }
+  .mobile-nav-item .news-badge {
+    position: absolute;
+    top: -7px;
+    right: -5px;
+    margin: 0;
+    box-shadow: 0 0 0 2px var(--sidebar-bg);
+  }
 }
 
 /* ═══════════════════════════════════════════
