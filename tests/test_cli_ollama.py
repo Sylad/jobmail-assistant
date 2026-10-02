@@ -34,7 +34,10 @@ def test_ensure_ollama_started_skips_non_ollama(monkeypatch):
 def test_ensure_ollama_started_launches_when_unreachable(monkeypatch, tmp_path: Path):
     binary = tmp_path / "ollama"
     binary.write_text("#!/bin/sh\n", encoding="utf-8")
-    settings = Settings(llm_provider="ollama", ollama_binary=str(binary))
+    # URL explicite : la suite ne lit plus .env ni l'environnement du shell.
+    settings = Settings(
+        llm_provider="ollama", ollama_binary=str(binary), ollama_base_url="http://127.0.0.1:11434"
+    )
     availability = iter([False, False, True])
     popen_calls = []
 
