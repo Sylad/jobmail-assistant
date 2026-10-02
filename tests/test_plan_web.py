@@ -323,3 +323,16 @@ def test_real_plan_public_titles_are_all_conforming():
     plan = build_public_plan(raw, titles)
     bad = [(lot_id, why) for lot_id, why in plan.hidden if "non conforme" in why]
     assert not bad, f"titre public à corriger dans docs/plan/raf.yaml : {bad}"
+
+
+def test_lots_do_not_repeat_their_group_state(client, plan_file):
+    page = client.get("/plan-de-travail").text
+    items = re.findall(r'<li class="plan-lot".*?</li>', page, re.S)
+    assert items
+    for item in items:
+        text = re.sub(r"<[^>]+>", " ", item)
+        assert "En cours" not in text and "Prévu" not in text, text
+        assert not re.search(r"\bLivré\b(?! le)", text), text
+    # Lot en cours sans étapes : titre seul, pas de ligne d'état vide.
+    lone = re.search(r'<li class="plan-lot" id="lot-L8".*?</li>', page, re.S).group(0)
+    assert "plan-lot-meta" not in lone

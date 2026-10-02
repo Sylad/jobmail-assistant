@@ -40,10 +40,15 @@
         {% for lot in s.lots %}
         <li class="plan-lot" id="lot-{{ lot.id }}" data-status="{{ lot.status }}">
           <p class="plan-lot-title">{{ lot.title }}</p>
+          {# Le groupe dit déjà l'état : seulement ce qu'il n'apprend pas (prêt à livrer,
+             date de livraison, étapes). #}
+          {% set state = state_label(lot) %}
+          {% if state or lot.tasks_total %}
           <p class="plan-lot-meta">
-            <span class="plan-state">{{ state_label(lot) }}</span>
+            {% if state %}<span class="plan-state">{{ state }}</span>{% endif %}
             {% if lot.tasks_total %}<span class="plan-tasks">{{ steps_label(lot.tasks_done, lot.tasks_total) }}</span>{% endif %}
           </p>
+          {% endif %}
         </li>
         {% endfor %}
       </ol>

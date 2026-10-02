@@ -1035,11 +1035,12 @@ def create_app() -> FastAPI:
         ]
 
         def state_label(lot) -> str:
+            """Ce que le groupe ne dit pas déjà ; vide sinon (pas de « En cours » répété)."""
             if lot.status == "done":
-                return f"Livré le {format_day(lot.finished)}" if lot.finished else "Livré"
+                return f"Livré le {format_day(lot.finished)}" if lot.finished else ""
             if lot.ready:
                 return "Prêt, en attente de livraison"
-            return "En cours" if lot.status == "doing" else "Prévu"
+            return ""
 
         return templates.TemplateResponse(
             request,
