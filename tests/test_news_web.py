@@ -298,3 +298,14 @@ def test_captures_are_served_from_the_compiled_folder(news_dir, tmp_path):
     assert res.headers["content-type"] == "image/png"
     assert client.get("/static/nouveautes-data/nouveautes.json").status_code == 200
     assert client.get("/static/style.css").status_code == 200
+
+
+def test_logo_uses_the_shipped_svg_not_a_missing_icon_glyph(client, news_dir):
+    html = client.get("/").text
+    # ti-mail-spark n'existe pas dans la police d'icônes : carré violet vide.
+    assert "ti-mail-spark" not in html
+    logos = re.findall(r'<img class="app-logo[^"]*" src="([^"?]+)', html)
+    assert len(logos) == 2  # barre latérale et barre du haut
+    for src in logos:
+        assert src == "/static/favicon.svg"
+        assert client.get(src).status_code == 200

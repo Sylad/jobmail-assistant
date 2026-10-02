@@ -1572,6 +1572,11 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
 }
 .news-badge.is-on { visibility: visible; }
 
+/* Logo : l'icône SVG livrée avec l'application (ti-mail-spark n'existe pas dans la police
+   d'icônes et laissait un carré violet vide). */
+.app-logo { display: block; flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; }
+.app-logo-small { width: 30px; height: 30px; border-radius: 8px; }
+
 /* Barre du haut : seule navigation sous 900 px (la barre latérale y est masquée). */
 .mobile-bar { display: none; }
 
@@ -1593,7 +1598,6 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
     text-decoration: none;
   }
   .mobile-bar-brand:hover { text-decoration: none; }
-  .mobile-bar-brand .sidebar-logo-icon { width: 30px; height: 30px; border-radius: 8px; }
   .mobile-nav {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
