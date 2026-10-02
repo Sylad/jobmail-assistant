@@ -154,7 +154,7 @@ h2 { font-size: 1rem; font-weight: 600; margin: 0 0 10px; }
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.12em;
-  color: var(--fg-very-faint);
+  color: var(--fg-mute); /* 7,34:1 (était --fg-very-faint, 2,48:1) */
   text-transform: uppercase;
   padding: 4px 8px 8px;
 }
@@ -866,7 +866,7 @@ tr.row-status-replied { background: rgba(245, 158, 11, 0.03); }
 .footer {
   text-align: center;
   padding: 14px 32px;
-  color: var(--fg-very-faint);
+  color: var(--fg-mute); /* 6,96:1 (était --fg-very-faint, 2,36:1) */
   border-top: 1px solid var(--border-soft);
   font-size: 11px;
   font-family: var(--font-mono);
