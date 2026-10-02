@@ -144,7 +144,8 @@ open is fragile. The safer split is: JobMail decides, Thunderbird executes.
   otherwise — for delivered lots only — the title of its Nouveautés entry;
   « Revue … » lots need an explicit `public:`. A missing or unreadable plan shows
   an error message, not an empty page. (The Docker image does not ship the plan:
-  the page then says so.)
+  the page then says « Le plan de travail n'est pas disponible dans cette
+  installation. »)
 
 Both pages are linked from the sidebar and, under 900 px, from the top bar of
 every page (including the dashboard `/`).

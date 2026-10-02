@@ -238,7 +238,7 @@ def test_only_the_eight_most_recent_deliveries(client, monkeypatch, tmp_path):
 @pytest.mark.parametrize(
     ("content", "message"),
     [
-        (None, "Le plan de travail est introuvable pour le moment."),
+        (None, "Le plan de travail n'est pas disponible dans cette installation."),
         ("lots: [\n  - id: L1\n  title: : :", "Le plan de travail est illisible pour le moment."),
         ("version: 1\n", "Le plan de travail est illisible pour le moment."),
         ("- juste\n- une liste\n", "Le plan de travail est illisible pour le moment."),
@@ -257,7 +257,8 @@ def test_missing_or_malformed_plan_gives_an_honest_error(client, monkeypatch, tm
     monkeypatch.setattr(plan_public, "PLAN_PATH", path)
     page = client.get("/plan-de-travail")
     assert page.status_code == 200
-    assert message in page.text
+    assert message in html_mod.unescape(page.text)
+    assert "raf.yaml" not in page.text and "docs/plan" not in page.text  # aucun chemin exposé
     assert "Les prochains travaux seront annoncés ici." not in page.text
     assert 'class="plan-section"' not in page.text
 

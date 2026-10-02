@@ -34,7 +34,7 @@ RECENT_DONE = 8
 PUBLIC_TITLE_MAX = 80
 STATUSES = ("doing", "todo", "done")
 
-MISSING = "Le plan de travail est introuvable pour le moment."
+MISSING = "Le plan de travail n'est pas disponible dans cette installation."
 UNREADABLE = "Le plan de travail est illisible pour le moment."
 
 # Même liste noire que finance-tracker (comparaison sans casse ni accents).
