@@ -15,6 +15,7 @@ puisse pas injecter de balise ou d'attribut.
 from __future__ import annotations
 
 import json
+import os
 import re
 import struct
 from dataclasses import dataclass, field
@@ -22,7 +23,10 @@ from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
 
-NEWS_DATA_DIR = Path(__file__).parent / "static" / "nouveautes-data"
+# JOBMAIL_NEWS_DATA_DIR : autre dossier compilé (instance de démonstration, captures).
+NEWS_DATA_DIR = Path(
+    os.environ.get("JOBMAIL_NEWS_DATA_DIR") or Path(__file__).parent / "static" / "nouveautes-data"
+)
 NEWS_URL_BASE = "/static/nouveautes-data"
 
 _DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")

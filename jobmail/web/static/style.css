@@ -1555,14 +1555,17 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
 .news-badge {
   margin-left: auto;
   flex-shrink: 0;
+  display: inline-block;
+  box-sizing: border-box;
   min-width: 2.1em;
-  padding: 1px 6px;
+  height: 17px;
+  padding: 0 6px;
   border-radius: 999px;
   background: var(--accent-pale);
   color: #0F172A;
   font-size: 11px;
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 17px;
   text-align: center;
   visibility: hidden;
 }

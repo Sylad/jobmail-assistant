@@ -272,3 +272,14 @@ def test_news_link_is_current_on_the_news_page(client, news_dir):
     html = client.get("/nouveautes").text
     assert re.search(r'href="/nouveautes" class="sidebar-nav-item active"[^>]*aria-current="page"', html)
     assert not re.search(r'href="/"[^>]*aria-current', html)
+
+
+def test_captures_are_served_from_the_compiled_folder(news_dir, tmp_path):
+    settings = web_app.get_settings()
+    settings.db_path = tmp_path / "web2.db"
+    client = TestClient(web_app.create_app())  # monté après le monkeypatch du dossier
+    res = client.get("/static/nouveautes-data/captures/demo-telephone.png")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "image/png"
+    assert client.get("/static/nouveautes-data/nouveautes.json").status_code == 200
+    assert client.get("/static/style.css").status_code == 200

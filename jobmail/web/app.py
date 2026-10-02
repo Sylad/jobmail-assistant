@@ -899,6 +899,12 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", "X-JobMail-Client"],
     )
+    # Captures des Nouveautés : servies depuis le dossier compilé (monté avant /static).
+    app.mount(
+        news_mod.NEWS_URL_BASE,
+        StaticFiles(directory=str(news_mod.NEWS_DATA_DIR), check_dir=False),
+        name="news-data",
+    )
     app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
     @app.get("/", response_class=HTMLResponse)
