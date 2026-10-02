@@ -149,11 +149,12 @@
     return count === 1 ? ' (1 nouveauté non vue)' : ' (' + count + ' nouveautés non vues)';
   }
 
-  function sinceLabel(count) {
+  /** « N nouveautés depuis ta dernière visite » ; « … première visite » si la mémoire
+   *  n'est que celle posée à la toute première page vue (cohérent avec le séparateur). */
+  function sinceLabel(count, seen) {
     if (count <= 0) return '';
-    return count === 1
-      ? '1 nouveauté depuis ta dernière visite'
-      : count + ' nouveautés depuis ta dernière visite';
+    var since = seen && seen.baseline ? 'depuis ta première visite' : 'depuis ta dernière visite';
+    return (count === 1 ? '1 nouveauté ' : count + ' nouveautés ') + since;
   }
 
   /**

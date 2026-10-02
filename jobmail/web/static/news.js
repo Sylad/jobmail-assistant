@@ -71,7 +71,7 @@
       slot.appendChild(mark);
     });
     var since = newsPage.querySelector('.news-since');
-    if (since) since.textContent = N.sinceLabel(count);
+    if (since) since.textContent = N.sinceLabel(count, seen);
 
     var at = seen ? N.seenSeparatorIndex(fresh) : -1;
     if (at > 0) {

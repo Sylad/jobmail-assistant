@@ -167,3 +167,12 @@ test('autre onglet : la visite de Nouveautés ailleurs éteint la pastille ici',
   assert.equal(N.badgeAfterStorageChange(s, entries), 0);
   assert.equal(N.badgeAfterStorageChange(throwingStorage, entries), 0);
 });
+
+test('ligne d’état : « première visite » quand la mémoire n’est que la mémoire de base', () => {
+  const baseline = { date: '2026-10-01', slugs: [], at: '2026-10-01T07:05:00Z', all: true, baseline: true };
+  const visit = { date: '2026-10-01', slugs: [], at: '2026-10-01T07:05:00Z', all: true };
+  assert.equal(N.sinceLabel(1, baseline), '1 nouveauté depuis ta première visite');
+  assert.equal(N.sinceLabel(2, baseline), '2 nouveautés depuis ta première visite');
+  assert.equal(N.sinceLabel(2, visit), '2 nouveautés depuis ta dernière visite');
+  assert.equal(N.sinceLabel(0, baseline), '');
+});
