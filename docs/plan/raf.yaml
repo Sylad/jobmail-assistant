@@ -18,21 +18,25 @@ lots:
   - id: L2
     title: Revue UX — Tableau de bord des offres (/)
     status: todo
+    visible: true
     estimate: 0.25
     created: 2026-09-28
   - id: L3
     title: Revue UX — Fiche offre
     status: todo
+    visible: true
     estimate: 0.25
     created: 2026-09-28
   - id: L4
     title: "Revue UX — Nettoyeur de boîte : scan, phases, déplacement"
     status: todo
+    visible: true
     estimate: 0.25
     created: 2026-09-28
   - id: L5
     title: "Revue UX — Gabarit commun : navigation, en-tête, pied, rendu téléphone"
     status: todo
+    visible: true
     estimate: 0.25
     created: 2026-09-28
   - id: L6
