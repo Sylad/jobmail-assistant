@@ -1,0 +1,13 @@
+# Documentation qui suit le code (cadence docs.sync, L307 de cadence, 24-10) : raf check et la revue signalent un lot dont le code laisse sa doc en retard ; docs.articles = étude de cas du projet dans claude-code-codex (le bibliothécaire propose un lot là-bas).
+docs:
+  sync:
+    # Paquet Python (CLI, pipeline, mail, extraction, cleaner, web FastAPI) : « How it works », « Web UI », « Mailbox cleaner » et « Layout » du README, CLAUDE.md. Exclu : le JSON des Nouveautés généré.
+    - paths: ['jobmail/**', '!jobmail/web/static/nouveautes-data/**']
+      docs: [README.md, CLAUDE.md]
+    # Îlot Vue du cleaner et extension Thunderbird : sections « Frontend assets », « Mailbox cleaner » et « Thunderbird » du README, README de l'extension.
+    - paths: ['frontend/src/**', 'thunderbird-extension/**']
+      docs: [README.md, thunderbird-extension/README.md]
+  since: 2026-10-24
+  articles:
+    - repo: ../claude-code-codex
+      file: frontend/src/pages/case-studies/jobmail-assistant.astro
