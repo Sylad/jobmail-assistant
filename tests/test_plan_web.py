@@ -26,6 +26,7 @@ from jobmail.web.plan_public import (
 )
 
 REPO = Path(__file__).resolve().parents[1]
+REAL_PLAN = REPO / ".cadence" / "raf.yaml"
 
 SYNTHETIC_PLAN = """\
 version: 1
@@ -258,7 +259,7 @@ def test_missing_or_malformed_plan_gives_an_honest_error(client, monkeypatch, tm
     page = client.get("/plan-de-travail")
     assert page.status_code == 200
     assert message in html_mod.unescape(page.text)
-    assert "raf.yaml" not in page.text and "docs/plan" not in page.text  # aucun chemin exposé
+    assert all(p not in page.text for p in ("raf.yaml", "docs/plan", ".cadence"))  # aucun chemin exposé
     assert "Les prochains travaux seront annoncés ici." not in page.text
     assert 'class="plan-section"' not in page.text
 
@@ -307,10 +308,10 @@ def test_labels():
 # ── Vrai plan du dépôt ───────────────────────────────────────────────────────────
 
 def test_real_plan_renders_without_private_text(client, monkeypatch):
-    monkeypatch.setattr(plan_public, "PLAN_PATH", REPO / "docs" / "plan" / "raf.yaml")
+    monkeypatch.setattr(plan_public, "PLAN_PATH", REAL_PLAN)
     page = client.get("/plan-de-travail")
     assert page.status_code == 200
-    raw = plan_public.load_raw_plan(REPO / "docs" / "plan" / "raf.yaml")
+    raw = plan_public.load_raw_plan(REAL_PLAN)
     titles = news_mod.news_titles_by_lot(news_mod.load_news().entries)
     plan = build_public_plan(raw, titles)
     assert not plan.error
@@ -318,11 +319,11 @@ def test_real_plan_renders_without_private_text(client, monkeypatch):
 
 
 def test_real_plan_public_titles_are_all_conforming():
-    raw = plan_public.load_raw_plan(REPO / "docs" / "plan" / "raf.yaml")
+    raw = plan_public.load_raw_plan(REAL_PLAN)
     titles = news_mod.news_titles_by_lot(news_mod.load_news().entries)
     plan = build_public_plan(raw, titles)
     bad = [(lot_id, why) for lot_id, why in plan.hidden if "non conforme" in why]
-    assert not bad, f"titre public à corriger dans docs/plan/raf.yaml : {bad}"
+    assert not bad, f"titre public à corriger dans .cadence/raf.yaml : {bad}"
 
 
 def test_lots_do_not_repeat_their_group_state(client, plan_file):

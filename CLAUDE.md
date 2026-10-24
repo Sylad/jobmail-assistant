@@ -2,7 +2,7 @@
 
 ## Plan, sessions et revue UX (cadence)
 
-Le reste à faire vit dans `docs/plan/raf.yaml`, tenu par `raf`
+Le reste à faire vit dans `.cadence/raf.yaml`, tenu par `raf`
 ([cadence](https://github.com/Sylad/cadence)) : chaque commit cite son lot dans le
 message (`fix(L4): …`, `L2/t1`), `raf now` dit la suite, `raf check` repère les
 écarts. Début et fin de session : skills `/cadence:session-start` et
@@ -27,7 +27,7 @@ refiltré par une liste blanche (`jobmail/web/news.py`). Pastille, « Nouveau »
 `node --test tests/js/`, aussi lancé par pytest) et `news.js` (branchement DOM), en JavaScript simple
 sans build. Mémoire dans `localStorage`, clé `jobmail.news.seen-v1`.
 
-**Plan de travail** (`/plan-de-travail`, L7) : lu à chaque requête dans `docs/plan/raf.yaml` par
+**Plan de travail** (`/plan-de-travail`, L7) : lu à chaque requête dans `.cadence/raf.yaml` par
 `jobmail/web/plan_public.py`, liste blanche seulement (titre PUBLIC, état, date de livraison,
 décompte des étapes non abandonnées ; l'identifiant n'est qu'un id d'élément). Un lot n'apparaît que
 s'il est `visible: true`, non abandonné, et a un titre public : son champ `public:` (une ligne, en

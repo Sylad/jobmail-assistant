@@ -11,3 +11,7 @@ docs:
   articles:
     - repo: ../claude-code-codex
       file: frontend/src/pages/case-studies/jobmail-assistant.astro
+
+# tests/test_plan_web.py cite l'ancien emplacement du plan à dessein : ce sont des assertions que la page publique n'expose AUCUN chemin (l’ancien dossier du plan), pas des lecteurs du plan. Le vrai chemin y est corrigé à la main (REAL_PLAN).
+migrate:
+  keep: [tests/test_plan_web.py]

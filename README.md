@@ -135,7 +135,7 @@ open is fragile. The safer split is: JobMail decides, Thunderbird executes.
 
 - `/plan-de-travail` (Plan de travail) shows what is in progress, planned and
   recently delivered (the 8 most recent), read on each request from
-  `docs/plan/raf.yaml` (the [cadence](https://github.com/Sylad/cadence) plan).
+  `.cadence/raf.yaml` (the [cadence](https://github.com/Sylad/cadence) plan).
   Only an allow-list is rendered: the lot's **public title**, its state, its
   delivery date and its number of steps done — never notes, review verdicts,
   reasons, raw titles or step titles. A lot appears only if it is

@@ -1,4 +1,4 @@
-"""L7 — ce que la page « Plan de travail » publie du plan (docs/plan/raf.yaml, tenu par raf).
+"""L7 — ce que la page « Plan de travail » publie du plan (.cadence/raf.yaml, tenu par raf).
 
 Règles alignées sur les apps sœurs (finance-tracker frontend/scripts/plan-data.mjs,
 evatosorus frontend/src/lib/plan-public.ts) :
@@ -28,7 +28,7 @@ from pathlib import Path
 
 import yaml
 
-PLAN_PATH = Path(__file__).resolve().parents[2] / "docs" / "plan" / "raf.yaml"
+PLAN_PATH = Path(__file__).resolve().parents[2] / ".cadence" / "raf.yaml"
 
 RECENT_DONE = 8
 PUBLIC_TITLE_MAX = 80
