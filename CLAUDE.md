@@ -24,7 +24,7 @@ résultat** : l'application lit ce JSON à chaque requête et tourne sans cadenc
 `pytest` échoue si le JSON versionné ne suit plus `docs/nouveautes/`. Le corps HTML de cadence est
 refiltré par une liste blanche (`jobmail/web/news.py`). Pastille, « Nouveau », séparateur « Déjà vu »,
 « Copier le lien », capture agrandie : `jobmail/web/static/news-core.js` (logique pure, testée par
-`node --test tests/js/`, aussi lancé par pytest) et `news.js` (branchement DOM), en JavaScript simple
+`node --test tests/js/*.test.mjs`, aussi lancé par pytest) et `news.js` (branchement DOM), en JavaScript simple
 sans build. Mémoire dans `localStorage`, clé `jobmail.news.seen-v1`.
 
 **Plan de travail** (`/plan-de-travail`, L7) : lu à chaque requête dans `.cadence/raf.yaml` par

@@ -1,4 +1,4 @@
-"""Lance les tests JavaScript du client (node --test tests/js/) depuis pytest quand Node
+"""Lance les tests JavaScript du client (node --test tests/js/*.test.mjs) depuis pytest quand Node
 est installé : la suite complète reste `pytest`."""
 from __future__ import annotations
 
@@ -14,8 +14,11 @@ REPO = Path(__file__).resolve().parents[1]
 def test_node_suite_passes():
     node = shutil.which("node")
     if node is None:
-        pytest.skip("Node absent : tests JavaScript non lancés (node --test tests/js/)")
+        pytest.skip("Node absent : tests JavaScript non lancés (node --test tests/js/*.test.mjs)")
+    # Fichiers listés un à un : `node --test tests/js/` (dossier) échoue depuis Node 22.
+    files = sorted(str(f.relative_to(REPO)) for f in (REPO / "tests" / "js").glob("*.test.mjs"))
+    assert files, "aucun test JavaScript trouvé dans tests/js/"
     result = subprocess.run(
-        [node, "--test", "tests/js/"], cwd=REPO, capture_output=True, text=True, timeout=120
+        [node, "--test", *files], cwd=REPO, capture_output=True, text=True, timeout=120
     )
     assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-2000:]

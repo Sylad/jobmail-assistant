@@ -431,9 +431,9 @@ Operational notes:
 ## Tests
 
 ```powershell
-pytest                                   # also runs node --test tests/js/ when Node is installed
+pytest                                   # also runs node --test tests/js/*.test.mjs when Node is installed
 pytest -q tests/test_pipeline_privacy.py  # privacy invariants only
-node --test tests/js/                    # Nouveautés client logic (plain JS, no dependency)
+node --test tests/js/*.test.mjs        # Nouveautés client logic (plain JS, no dependency)
 cd frontend
 npm run build                            # includes vue-tsc typecheck
 ```
