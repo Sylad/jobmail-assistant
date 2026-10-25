@@ -12,6 +12,15 @@ docs:
     - repo: ../claude-code-codex
       file: frontend/src/pages/case-studies/jobmail-assistant.astro
 
+# Porte de la vague (L12, 25-10) : la vague lance ces deux commandes après chaque écriture ; un rouge part en correction au lieu d'arriver dans main.
+# test = pytest via le venv du projet, qui lance aussi la suite JavaScript (tests/test_js.py → node --test tests/js/*.test.mjs) ; il n'y a pas d'autre suite frontend (le package frontend/ n'a pas de script test). Aucun test ne touche les vrais MBOX Thunderbird ni Ollama : tests/conftest.py redirige DB, règles et globs MBOX vers un dossier temporaire avant l'import (tests/test_isolation.py le prouve) et les tests Ollama simulent le binaire ; rien à exclure. Vérifié vert sur main le 25-10 (pytest complet).
+# build = ruff puis le build du frontend (vue-tsc --noEmit && vite build, écrit dans jobmail/web/static/assets). Vérifié vert sur main le 25-10.
+# precheck: true = le contrôle préalable cherche si le lot est déjà livré, sur Sonnet.
+orchestrate:
+  test: .venv/bin/python -m pytest -q
+  build: .venv/bin/ruff check . && npm --prefix frontend run build
+  precheck: true
+
 # tests/test_plan_web.py cite l'ancien emplacement du plan à dessein : ce sont des assertions que la page publique n'expose AUCUN chemin (l’ancien dossier du plan), pas des lecteurs du plan. Le vrai chemin y est corrigé à la main (REAL_PLAN).
 migrate:
   keep: [tests/test_plan_web.py]
