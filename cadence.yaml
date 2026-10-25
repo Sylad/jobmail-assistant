@@ -17,6 +17,9 @@ docs:
 # build = ruff puis le build du frontend (vue-tsc --noEmit && vite build, écrit dans jobmail/web/static/assets). Vérifié vert sur main le 25-10.
 # precheck: true = le contrôle préalable cherche si le lot est déjà livré, sur Sonnet.
 orchestrate:
+  # Escalade (L13, cadence L337 / 1.12.0) : avant de rendre un lot encore non conforme après ses passes, la vague joue
+  # une correction et une revue neuve en Fable (règle du lead depuis le 17-10, oubliée deux fois à la main).
+  escalation: { model: fable }
   test: .venv/bin/python -m pytest -q
   build: .venv/bin/ruff check . && npm --prefix frontend run build
   precheck: true
