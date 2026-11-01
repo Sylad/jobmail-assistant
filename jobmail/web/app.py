@@ -249,6 +249,8 @@ templates.env.globals["static_version"] = str(
 templates.env.filters["format_day"] = format_day
 
 _STATUS_FR = {"new": "Nouvelle", "interesting": "Intéressante", "ignored": "Ignorée", "replied": "Répondue"}
+# Filtre « statut » du tableau de bord : un statut connu, ou vide (le menu envoie status= pour « Tous »).
+_DASHBOARD_STATUS_PATTERN = "^(" + "|".join(["", *(s.value for s in OfferStatus)]) + ")$"
 _MODE_FR = {"remote": "Télétravail", "hybrid": "Hybride", "onsite": "Sur site", "unknown": "Non précisé"}
 _CONTRACT_FR = {"cdi": "CDI", "cdd": "CDD", "freelance": "Freelance", "mission": "Mission", "unknown": "Non précisé"}
 templates.env.filters["status_fr"] = lambda v: _STATUS_FR.get(str(v), str(v))
@@ -918,7 +920,7 @@ def create_app() -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     def dashboard(
         request: Request,
-        status: str | None = Query(None),
+        status: str | None = Query(None, pattern=_DASHBOARD_STATUS_PATTERN),
         techno: str | None = Query(None),
         sender: str | None = Query(None),
         since_days: int | None = Query(None, ge=0, le=365),

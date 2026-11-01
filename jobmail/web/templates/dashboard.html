@@ -8,7 +8,7 @@
     <h1 class="page-header-title">Tableau de bord</h1>
     <p class="page-header-sub">
       {% if stats is defined and stats.last_activity %}
-        {{ stats.last_activity }} · {{ total_count }} offres détectées
+        {{ stats.last_activity }} · {{ total_count }} offre{{ 's' if total_count > 1 }} détectée{{ 's' if total_count > 1 }}
       {% else %}
         Suivi des offres d'emploi
       {% endif %}
@@ -251,7 +251,7 @@
       <tbody>
         {% for o in offers %}
         <tr class="score-{{ o.extraction.relevance_score }} row-status-{{ o.status.value }}">
-          <td><strong>{{ o.extraction.relevance_score }}/10</strong></td>
+          <td data-label="Score"><strong>{{ o.extraction.relevance_score }}/10</strong></td>
           <td data-label="Reçu" class="muted small">{{ o.received_at.strftime('%d/%m') }}</td>
           <td data-label="Titre">{{ o.extraction.title or o.subject }}</td>
           <td data-label="Société">
@@ -336,7 +336,7 @@
     </div>
     {% else %}
     <div class="pagination">
-      <span class="pagination-meta">{{ all_offers_count }} offres</span>
+      <span class="pagination-meta">{{ all_offers_count }} offre{{ 's' if all_offers_count > 1 }}</span>
     </div>
     {% endif %}
 

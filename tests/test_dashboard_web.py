@@ -166,3 +166,85 @@ def test_R8_les_textes_secondaires_de_l_ecran_atteignent_le_contraste_AA():
         jeton = re.search(r"color:\s*var\(--([\w-]+)\)", regle).group(1)
         assert _contraste(_jeton(jeton), fond) >= 4.5, (selecteur, jeton, fond)
         assert "opacity" not in regle, selecteur
+
+
+# ── L15 : suites de la revue de L2 ─────────────────────────────────────────────
+
+def test_L15_R1_un_statut_inconnu_est_refuse_comme_les_autres_parametres(tmp_path):
+    client = _client(tmp_path, [(9, "new")])
+    assert client.get("/?status=inconnu").status_code == 422
+    assert client.get("/?status=NEW").status_code == 422            # casse exacte attendue
+
+
+def test_L15_R1_les_statuts_valides_et_le_statut_vide_restent_acceptes(tmp_path):
+    client = _client(tmp_path, [(9, "new"), (8, "interesting")])
+    for statut in ("new", "interesting", "replied", "ignored"):
+        assert client.get(f"/?status={statut}").status_code == 200, statut
+    # Le menu « Statut » envoie status= quand « Tous » est choisi.
+    vide = client.get("/?status=")
+    assert vide.status_code == 200 and "2 offres" in vide.text
+
+
+def test_L15_R2_le_pluriel_suit_le_nombre_d_offres(tmp_path):
+    seule = _client(tmp_path, [(9, "new")]).get("/").text
+    assert "1 offre détectée" in seule and "1 offres" not in seule
+    assert "1 offre<" in seule  # pied de liste : « 1 offre » sans s
+    deux = _client(tmp_path, [(9, "new"), (8, "new")]).get("/").text
+    assert "2 offres détectées" in deux and "2 offres<" in deux
+
+
+def test_L15_R3_la_cellule_score_porte_son_libelle_en_cartes_telephone(tmp_path):
+    html = _client(tmp_path, [(9, "new")]).get("/").text
+    body = html[html.index("<tbody>"):html.index("</tbody>")]
+    assert re.search(r'<td data-label="Score">\s*<strong>9/10</strong>', body)
+    assert "<th>Score</th>" in html
+
+
+def test_L15_R4_le_score_0_a_4_atteint_le_contraste_AA_dans_toutes_ses_regles():
+    bg = _jeton("bg")
+    survol = _compose(bg, (BLANC, 0.02), (BLANC, 0.04))
+    for n in range(0, 5):
+        regle = re.search(rf"tr\.score-{n} td:first-child[^{{]*\{{([^}}]*)\}}", CSS).group(1)
+        jeton = re.search(r"color:\s*var\(--([\w-]+)\)", regle).group(1)
+        assert jeton not in ("fg-faint", "fg-very-faint"), n
+        assert _contraste(_jeton(jeton), survol) >= 4.5, n
+
+
+def _annotation(selecteur: str) -> tuple[float, str | None, float | None]:
+    """Ratio actuel et, s'il est écrit, « (était --jeton, n,nn:1) » de la règle (ou de sa ligne de fermeture)."""
+    m = re.search(re.escape(selecteur) + r"\s*\{[^}]*\}[^\n]*", CSS)
+    note = re.search(r"(\d),(\d\d):1", m.group(0))
+    assert note, selecteur
+    avant = re.search(r"était --([\w-]+)[^)]*?(\d),(\d\d):1", m.group(0))
+    return (float(f"{note.group(1)}.{note.group(2)}"),
+            avant.group(1) if avant else None,
+            float(f"{avant.group(2)}.{avant.group(3)}") if avant else None)
+
+
+def test_L15_R5_les_ratios_annotes_dans_le_css_sont_les_ratios_mesures():
+    bg = _jeton("bg")
+    mute = _jeton("fg-mute")
+    ligne = _compose(bg, (BLANC, 0.02))
+    ignoree_survol = _compose(bg, (BLANC, 0.02), ((148, 163, 184), 0.06), (BLANC, 0.04))
+    mesures = {
+        ".sidebar-nav-label": _compose(_jeton("sidebar-bg")),
+        ".page-header-sub": bg,
+        ".footer": bg,
+        ".section-header-meta": bg,
+        ".kpi-label": _compose(bg, (BLANC, 0.05)),
+        ".filter-form label": _compose(bg, (BLANC, 0.03)),
+        ".quick-filters-label": _compose(bg, (BLANC, 0.03)),
+        "table.offers th": _compose(bg, (BLANC, 0.02), (BLANC, 0.03)),
+        ".pagination-meta": ligne,
+        "tr.score-3 td:first-child, tr.score-4 td:first-child": _compose(bg, (BLANC, 0.02), (BLANC, 0.04)),
+        ".muted.small": ligne,
+        "td.col-mode": ligne,
+        ".btn-icon.active-ignored": _compose(bg, (BLANC, 0.02), ((148, 163, 184), 0.06), (BLANC, 0.04), (BLANC, 0.05)),
+        ".status-ignored": _compose(ignoree_survol, ((100, 116, 139), 0.1)),
+    }
+    for selecteur, fond in mesures.items():
+        actuel, ancien, ratio_ancien = _annotation(selecteur)
+        assert abs(actuel - _contraste(mute, fond)) < 0.006, (selecteur, actuel, round(_contraste(mute, fond), 3))
+        if ancien:  # « était --fg-faint, 3,75:1 » : le ratio de l'ancien jeton sur le même fond
+            assert abs(ratio_ancien - _contraste(_jeton(ancien), fond)) < 0.006, (
+                selecteur, ancien, ratio_ancien, round(_contraste(_jeton(ancien), fond), 3))
