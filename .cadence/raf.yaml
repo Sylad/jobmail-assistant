@@ -17,7 +17,7 @@ lots:
     finished: 2026-09-28
   - id: L2
     title: Revue UX — Tableau de bord des offres (/)
-    public: "Tableau de bord des offres plus lisible : libellés en français, contrastes renforcés, cartes au téléphone"
+    public: "Tableau de bord plus lisible : libellés français, contrastes, vue téléphone"
     status: done
     visible: true
     estimate: 0.25
