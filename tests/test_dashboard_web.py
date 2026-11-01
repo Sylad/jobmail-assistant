@@ -101,6 +101,17 @@ def _contraste(fg: str, bg: str) -> float:
     return (a + 0.05) / (b + 0.05)
 
 
+def _compose(base: str, *couches: tuple[tuple[int, int, int], float]) -> str:
+    """Fond réellement vu : la page, puis chaque calque translucide (rgb, alpha) dans l'ordre."""
+    rgb = [int(base[i:i + 2], 16) for i in (1, 3, 5)]
+    for couleur, alpha in couches:
+        rgb = [c * (1 - alpha) + k * alpha for c, k in zip(rgb, couleur)]
+    return "#" + "".join(f"{round(c):02X}" for c in rgb)
+
+
+BLANC = (255, 255, 255)
+
+
 def _jeton(nom: str) -> str:
     return re.search(rf"--{nom}:\s*(#[0-9A-Fa-f]{{6}})", CSS).group(1)
 
@@ -119,6 +130,13 @@ def test_R7_mode_date_et_bouton_ignore_atteignent_le_contraste_AA(tmp_path):
         jeton = re.search(r"color:\s*var\(--([\w-]+)\)", regle).group(1)
         assert _contraste(_jeton(jeton), fond) >= 4.5, regle
         assert "opacity" not in regle, regle
+    # Pastille « Ignorée » : fond composé page → offers-wrap 2 % → teinte de ligne → survol 4 % → fond de pastille.
+    pastille = _regle(".status-ignored")
+    jeton = re.search(r"color:\s*var\(--([\w-]+)\)", pastille).group(1)
+    fond_pastille = _compose(
+        fond, (BLANC, 0.02), ((148, 163, 184), 0.06), (BLANC, 0.04), ((100, 116, 139), 0.1)
+    )
+    assert _contraste(_jeton(jeton), fond_pastille) >= 4.5, pastille
 
 
 def test_R7_la_ligne_d_une_offre_ignoree_n_est_pas_attenuee_par_opacite(tmp_path):
@@ -127,3 +145,24 @@ def test_R7_la_ligne_d_une_offre_ignoree_n_est_pas_attenuee_par_opacite(tmp_path
     assert "row-status-ignored" in ligne
     assert "active-ignored" in html
     assert "opacity" not in _regle("tr.row-status-ignored")
+
+
+def test_R8_les_textes_secondaires_de_l_ecran_atteignent_le_contraste_AA():
+    """Libellés de filtre, en-têtes de colonnes, méta, scores faibles, KPI et sous-titre : ≥ 4,5:1
+    sur le fond réellement composé (WCAG 2.2 1.4.3, pas de texte « large » à 10–12 px)."""
+    bg = _jeton("bg")
+    fonds = {
+        ".filter-form label": _compose(bg, (BLANC, 0.03)),          # .filters = --surface-alt
+        ".quick-filters-label": _compose(bg, (BLANC, 0.03)),
+        "table.offers th": _compose(bg, (BLANC, 0.02), (BLANC, 0.03)),
+        ".section-header-meta": bg,
+        ".pagination-meta": _compose(bg, (BLANC, 0.02)),
+        ".kpi-label": _compose(bg, (BLANC, 0.05)),                  # .kpi-card = --surface
+        ".page-header-sub": bg,
+        "tr.score-3 td:first-child, tr.score-4 td:first-child": _compose(bg, (BLANC, 0.02), (BLANC, 0.04)),
+    }
+    for selecteur, fond in fonds.items():
+        regle = _regle(selecteur)
+        jeton = re.search(r"color:\s*var\(--([\w-]+)\)", regle).group(1)
+        assert _contraste(_jeton(jeton), fond) >= 4.5, (selecteur, jeton, fond)
+        assert "opacity" not in regle, selecteur
