@@ -23,8 +23,10 @@ lots:
     created: 2026-09-28
     started: 2026-11-01
     tasks:
-      - { id: t1, title: "Téléphone : placer la liste d'offres avant les panneaux Pont Thunderbird et Analyse Ollama et les filtres (à trancher par Sylvain)", status: todo }
+      - { id: t1, title: "Téléphone : placer la liste d'offres avant les panneaux Pont Thunderbird et Analyse Ollama et les filtres (à trancher par Sylvain)", status: dropped }
     review: { date: 2026-11-01, verdict: "conforme : 0 bloquant, 0 majeur, 7 mineurs (3 sous-tâches proposées ; t1 et le champ public: restent à trancher par Sylvain) — orchestré (vague 2026-11-01-1045-job, 3 passe(s) de correction)", commit: 6ab45a268494acae2fd67ee3b17ecadb1a0569cd }
+    notes:
+      - { date: 2026-11-01, text: "[L2/t1] abandonné : repris en lot L16 avec la décision de Sylvain du 01-11 (liste remontée)" }
   - id: L3
     title: Revue UX — Fiche offre
     status: todo
@@ -124,6 +126,12 @@ lots:
     review: { date: 2026-11-01, verdict: "Conforme : aucun constat. Statut inconnu refusé en 422 (cas limites testés, aucun 500), pluriel corrigé, libellé Score posé, les 14 ratios annotés vérifiés par test, captures reprises à HEAD et Nouveautés recompilées. — orchestré (vague 2026-11-01-1110-job, 1 passe(s) de correction)", commit: d1d487d7ae6156cab857a71040aebcaa357622cd }
     ux: { date: 2026-11-01, verdict: "conforme — captures de l'entrée Nouveautés de L2 reprises à HEAD et regardées par le lead (Réinitialiser, 12 offres sur 60, Score libellé en cartes au téléphone, gris ≥ 4,5:1) ; statut inconnu → 422, pluriel tenu" }
     finished: 2026-11-01
+  - id: L16
+    title: "Tableau de bord au téléphone (≤ 768 px) : la liste des offres (titre, filtres, liste) passe au-dessus des panneaux Pont Thunderbird et Analyse Ollama (décision de Sylvain du 01-11) ; desktop inchangé ; test de l'ordre des blocs à 390 px ; captures 390 et 1440 sur l'instance de démonstration vide"
+    status: todo
+    estimate: 0.25
+    visible: true
+    created: 2026-11-01
 acknowledged:
   - { sha: 2451f61971a86025ad35b3fc833393a169f87b47, subject: "plan: visible: true sur les lots « Revue UX — » (règle raf check de cadence L271)", date: 2026-10-23, reason: "plan seul : pose visible: true sur les revues UX, cite un lot du dépôt cadence" }
   - { sha: 0e0502c8025fe78d3c5953d7940013fede6a736d, subject: "config: la documentation suit le code (docs.sync) et l'étude de cas du projet est déclarée (docs.articles) — outillage cadence, lead 24-10", date: 2026-10-24, reason: "réglage d'outillage cadence (docs.sync, docs.articles), pas un lot du projet — lead 24-10" }
