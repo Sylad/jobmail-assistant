@@ -311,3 +311,14 @@ def test_logo_uses_the_shipped_svg_not_a_missing_icon_glyph(client, news_dir):
     for src in logos:
         assert src == "/static/favicon.svg"
         assert client.get(src).status_code == 200
+
+
+def test_L15_entree_L2_decrit_la_capture_du_filtre_12_offres_sur_60():
+    """La capture du filtre (jeu de démonstration) affiche « 12 offres sur 60 » : l'alt et
+    le corps de l'entrée L2 citent ce même compte, pas un autre."""
+    texte = (ENTRIES_DIR / "2026-11-01-revue-ux-tableau-de-bord-des-offres.md").read_text(
+        encoding="utf-8"
+    )
+    comptes = set(re.findall(r"(\d+) offres sur 60", texte))
+    assert comptes == {"12"}
+    assert texte.count("12 offres sur 60") == 2  # alt de la capture + phrase du corps
