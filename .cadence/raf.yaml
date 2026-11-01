@@ -24,6 +24,7 @@ lots:
     started: 2026-11-01
     tasks:
       - { id: t1, title: "Téléphone : placer la liste d'offres avant les panneaux Pont Thunderbird et Analyse Ollama et les filtres (à trancher par Sylvain)", status: todo }
+    review: { date: 2026-11-01, verdict: "conforme : 0 bloquant, 0 majeur, 7 mineurs (3 sous-tâches proposées ; t1 et le champ public: restent à trancher par Sylvain) — orchestré (vague 2026-11-01-1045-job, 3 passe(s) de correction)", commit: 6ab45a268494acae2fd67ee3b17ecadb1a0569cd }
   - id: L3
     title: Revue UX — Fiche offre
     status: todo
