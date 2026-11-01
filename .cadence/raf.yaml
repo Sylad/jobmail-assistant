@@ -141,6 +141,14 @@ lots:
       - { date: 2026-11-01, text: "titre remplacé : « Tableau de bord au téléphone (≤ 768 px) : la liste des offres (titre, filtres, liste) passe au-dessus des panneaux Pont Thunderbird et Analyse Ollama (décision de Sylvain du 01-11) ; desktop inchangé ; test de l'ordre des blocs à 390 px ; captures 390 et 1440 sur l'instance de démonstration vide »" }
     ux: { date: 2026-11-01, verdict: "conforme — captures 390 et 1440 regardées par le lead : liste avant les panneaux partout, écart de 20 px, ordre visuel = ordre du DOM (WCAG 1.3.2 / 2.4.3)" }
     finished: 2026-11-01
+  - id: L17
+    title: "Config de la porte : orchestrate.gate.readsPlan (un test lit le plan ; un commit de plan seul a poussé un titre public trop long le 01-11)"
+    status: done
+    estimate: 0.05
+    created: 2026-11-01
+    started: 2026-11-01
+    review: { date: 2026-11-01, verdict: "conforme : une clé de config, suite verte au commit précédent (73 tests)", commit: 9a18690e64488d6508dc51fd27337aebba43ab38 }
+    finished: 2026-11-01
 acknowledged:
   - { sha: 2451f61971a86025ad35b3fc833393a169f87b47, subject: "plan: visible: true sur les lots « Revue UX — » (règle raf check de cadence L271)", date: 2026-10-23, reason: "plan seul : pose visible: true sur les revues UX, cite un lot du dépôt cadence" }
   - { sha: 0e0502c8025fe78d3c5953d7940013fede6a736d, subject: "config: la documentation suit le code (docs.sync) et l'étude de cas du projet est déclarée (docs.articles) — outillage cadence, lead 24-10", date: 2026-10-24, reason: "réglage d'outillage cadence (docs.sync, docs.articles), pas un lot du projet — lead 24-10" }
