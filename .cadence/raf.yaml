@@ -121,6 +121,7 @@ lots:
     visible: true
     created: 2026-11-01
     started: 2026-11-01
+    review: { date: 2026-11-01, verdict: "Conforme : aucun constat. Statut inconnu refusé en 422 (cas limites testés, aucun 500), pluriel corrigé, libellé Score posé, les 14 ratios annotés vérifiés par test, captures reprises à HEAD et Nouveautés recompilées. — orchestré (vague 2026-11-01-1110-job, 1 passe(s) de correction)", commit: d1d487d7ae6156cab857a71040aebcaa357622cd }
 acknowledged:
   - { sha: 2451f61971a86025ad35b3fc833393a169f87b47, subject: "plan: visible: true sur les lots « Revue UX — » (règle raf check de cadence L271)", date: 2026-10-23, reason: "plan seul : pose visible: true sur les revues UX, cite un lot du dépôt cadence" }
   - { sha: 0e0502c8025fe78d3c5953d7940013fede6a736d, subject: "config: la documentation suit le code (docs.sync) et l'étude de cas du projet est déclarée (docs.articles) — outillage cadence, lead 24-10", date: 2026-10-24, reason: "réglage d'outillage cadence (docs.sync, docs.articles), pas un lot du projet — lead 24-10" }
