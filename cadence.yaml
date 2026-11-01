@@ -20,6 +20,8 @@ orchestrate:
   # Escalade (L13, cadence L337 / 1.12.0) : avant de rendre un lot encore non conforme après ses passes, la vague joue
   # une correction et une revue neuve en Fable (règle du lead depuis le 17-10, oubliée deux fois à la main).
   escalation: { model: fable }
+  # Un test de la porte lit le plan (tests/test_plan_web.py, titres publics) : verify --gate rejoue sous des commits de plan seuls (cadence L450). Oubli constaté le 01-11 : un titre public de 105 caractères poussé sur main.
+  gate: { readsPlan: true }
   test: .venv/bin/python -m pytest -q
   build: .venv/bin/ruff check . && npm --prefix frontend run build
   precheck: true
