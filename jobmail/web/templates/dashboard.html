@@ -259,7 +259,7 @@
             {% if o.is_esn %}<span class="chip chip-esn company-chip" title="ESN/presta : {{ o.esn_match }}">ESN</span>{% endif %}
           </td>
           <td data-label="Lieu">{{ o.extraction.location }}</td>
-          <td data-label="Mode" style="color: var(--fg-faint); font-size:12px">{{ o.extraction.work_mode.value | mode_fr }}</td>
+          <td data-label="Mode" class="col-mode">{{ o.extraction.work_mode.value | mode_fr }}</td>
           <td data-label="Contrat">
             <span style="font-size:11px; background:var(--surface-hover); color:var(--fg-mute); padding:2px 7px; border-radius:5px">
               {{ o.extraction.contract_type.value | contract_fr }}

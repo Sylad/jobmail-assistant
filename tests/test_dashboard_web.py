@@ -88,3 +88,34 @@ def test_R6_au_telephone_les_offres_sont_des_cartes_sans_defilement_lateral():
     assert "table.offers { display: block; overflow-x: auto; }" not in media
     assert re.search(r"table\.offers tbody tr\s*\{[^}]*display:\s*grid", media)
     assert re.search(r"table\.offers thead\s*\{[^}]*display:\s*none", media)
+
+
+def _luminance(hexa: str) -> float:
+    canaux = [int(hexa[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in canaux]
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contraste(fg: str, bg: str) -> float:
+    a, b = sorted((_luminance(fg), _luminance(bg)), reverse=True)
+    return (a + 0.05) / (b + 0.05)
+
+
+def _jeton(nom: str) -> str:
+    return re.search(rf"--{nom}:\s*(#[0-9A-Fa-f]{{6}})", CSS).group(1)
+
+
+def _regle(selecteur: str) -> str:
+    return re.search(re.escape(selecteur) + r"\s*\{([^}]*)\}", CSS).group(1)
+
+
+def test_R7_mode_date_et_bouton_ignore_atteignent_le_contraste_AA(tmp_path):
+    html = _client(tmp_path, [(9, "new")]).get("/").text
+    body = html[html.index("<tbody>"):html.index("</tbody>")]
+    cellule_mode = re.search(r'<td data-label="Mode"([^>]*)>', body).group(1)
+    assert "fg-faint" not in cellule_mode and "fg-very-faint" not in cellule_mode
+    fond = _jeton("bg")
+    for regle in (_regle("td.col-mode"), _regle(".muted.small"), _regle(".btn-icon.active-ignored")):
+        jeton = re.search(r"color:\s*var\(--([\w-]+)\)", regle).group(1)
+        assert _contraste(_jeton(jeton), fond) >= 4.5, regle
+        assert "opacity" not in regle, regle
