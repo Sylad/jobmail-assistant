@@ -17,7 +17,8 @@ lots:
     finished: 2026-09-28
   - id: L2
     title: Revue UX — Tableau de bord des offres (/)
-    status: doing
+    public: "Tableau de bord des offres plus lisible : libellés en français, contrastes renforcés, cartes au téléphone"
+    status: done
     visible: true
     estimate: 0.25
     created: 2026-09-28
@@ -27,6 +28,8 @@ lots:
     review: { date: 2026-11-01, verdict: "conforme : 0 bloquant, 0 majeur, 7 mineurs (3 sous-tâches proposées ; t1 et le champ public: restent à trancher par Sylvain) — orchestré (vague 2026-11-01-1045-job, 3 passe(s) de correction)", commit: 6ab45a268494acae2fd67ee3b17ecadb1a0569cd }
     notes:
       - { date: 2026-11-01, text: "[L2/t1] abandonné : repris en lot L16 avec la décision de Sylvain du 01-11 (liste remontée)" }
+    ux: { date: 2026-11-01, verdict: "conforme — captures 1440 et 390 regardées par le lead : libellés français (Tableau de bord, Réinitialiser), gris ≥ 4,5:1, offres en cartes au téléphone avec libellés ; suites traitées par L15 et L16" }
+    finished: 2026-11-01
   - id: L3
     title: Revue UX — Fiche offre
     status: todo
