@@ -119,3 +119,11 @@ def test_R7_mode_date_et_bouton_ignore_atteignent_le_contraste_AA(tmp_path):
         jeton = re.search(r"color:\s*var\(--([\w-]+)\)", regle).group(1)
         assert _contraste(_jeton(jeton), fond) >= 4.5, regle
         assert "opacity" not in regle, regle
+
+
+def test_R7_la_ligne_d_une_offre_ignoree_n_est_pas_attenuee_par_opacite(tmp_path):
+    html = _client(tmp_path, [(9, "ignored")]).get("/").text
+    ligne = re.search(r'<tr class="([^"]*)"', html[html.index("<tbody>"):]).group(1)
+    assert "row-status-ignored" in ligne
+    assert "active-ignored" in html
+    assert "opacity" not in _regle("tr.row-status-ignored")
