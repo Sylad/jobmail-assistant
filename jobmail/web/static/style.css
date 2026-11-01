@@ -1759,17 +1759,10 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
 .news-copy-labels { display: inline-grid; }
 .news-copy-label { grid-area: 1 / 1; white-space: nowrap; }
 .news-copy-label.is-hidden { visibility: hidden; }
-/* Tableau de bord (L16) : le document suit l'ordre du téléphone (liste des offres, puis panneaux
-   Pont Thunderbird et Analyse Ollama), donc lecture et tabulation y sont dans le bon ordre.
-   Au bureau, `order` remonte les panneaux au-dessus des filtres (rendu historique). */
-@media (min-width: 769px) {
-  .dashboard-stack { display: flex; flex-direction: column; }
-  .dashboard-stack > .reanalysis-panel { order: 1; }
-  .dashboard-stack > .filters, .dashboard-stack > .offers-wrap { order: 2; }
-}
-@media (max-width: 768px) {
-  .offers-wrap { margin-bottom: 20px; }
-}
+/* Tableau de bord (L16) : un seul ordre partout, bureau compris : le document suit l'écran (liste des
+   offres, puis panneaux Pont Thunderbird et Analyse Ollama), sans `order`. 20 px séparent la liste
+   du premier panneau à toutes les largeurs. */
+.dashboard-stack > .offers-wrap { margin-bottom: 20px; }
 
 @media (pointer: coarse) {
   .news-copy { min-height: 44px; min-width: 44px; }

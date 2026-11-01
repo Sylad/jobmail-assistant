@@ -1,10 +1,10 @@
 {
   "project": "jobmail-assistant",
-  "generated": "2026-11-01 12:24",
+  "generated": "2026-11-01 12:27",
   "entries": [
     {
       "slug": "2026-11-01-tableau-de-bord-au-telephone-768-px-la-liste-des-offres-titr",
-      "title": "Au téléphone, la liste des offres passe en premier",
+      "title": "La liste des offres passe en premier sur le tableau de bord",
       "date": "2026-11-01",
       "lots": [
         "L16"
@@ -15,9 +15,9 @@
       ],
       "alts": [
         "Tableau de bord au téléphone : compteurs, filtres et liste des offres, puis les panneaux Pont Thunderbird et Analyse Ollama en bas de page",
-        "Tableau de bord sur ordinateur : les panneaux Pont Thunderbird et Analyse Ollama restent au-dessus des filtres et de la liste"
+        "Tableau de bord sur ordinateur : compteurs, filtres et liste des offres, puis les panneaux Pont Thunderbird et Analyse Ollama sous la liste"
       ],
-      "html": "<p>Sur un écran de téléphone, le tableau de bord montre maintenant tes offres avant le reste.</p>\n<ul><li>Sous les compteurs viennent d'abord les filtres et la liste des offres.</li><li>Les panneaux « Pont Thunderbird » et « Analyse Ollama » passent en bas de page, après la liste.</li><li>Sur ordinateur, rien ne change : les deux panneaux restent au-dessus des filtres.</li></ul>"
+      "html": "<p>Sur tous les écrans, téléphone comme ordinateur, le tableau de bord montre maintenant tes offres avant le reste.</p>\n<ul><li>Sous les compteurs viennent d'abord les filtres et la liste des offres.</li><li>Les panneaux « Pont Thunderbird » et « Analyse Ollama » passent en bas de page, après la liste.</li><li>Un espace sépare la liste du premier panneau, sur tous les écrans.</li></ul>"
     },
     {
       "slug": "2026-11-01-le-tableau-de-bord-corrige-quelques-details",
