@@ -259,7 +259,9 @@ lignes du log (`~/.jobmail/jobmail.log`).
 ## Tableau de bord (`/`)
 
 - Les quatre compteurs du haut portent toujours sur **toutes** les offres ; seul le tableau suit les filtres, et son titre indique « N offres sur TOTAL » quand un filtre est actif.
-- Statuts, modes et contrats sont affichés en français (`status_fr`, `mode_fr`, `contract_fr` dans `jobmail/web/app.py`) ; les valeurs des paramètres d'URL (`?status=interesting`) restent en anglais.
+- Statuts, modes et contrats sont affichés en français (`status_fr`, `mode_fr`, `contract_fr` dans `jobmail/web/app.py`) ; les valeurs des paramètres d'URL (`?status=interesting`) restent en anglais ; un statut inconnu (`?status=inconnu`) est refusé en 422, comme un `min_score` hors 0–10, et `?status=` (« Tous ») reste accepté.
+- Les libellés suivent le nombre : « 1 offre détectée », « 1 offre » (au pluriel dès 2). En cartes, la cellule Score porte son libellé « SCORE ».
+- Les textes secondaires restent à ≥ 4,5:1 (WCAG 1.4.3) ; les ratios annotés dans `style.css` sont vérifiés par `test_L15_R5_…`.
 - Sous 900 px, le tableau devient une liste de cartes (aucun défilement horizontal, boutons d'action de 44 px).
 - Les boutons icônes portent un `aria-label` qui cite le titre de l'offre.
 - Tests : `tests/test_dashboard_web.py`.

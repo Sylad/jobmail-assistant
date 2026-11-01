@@ -1,7 +1,22 @@
 {
   "project": "jobmail-assistant",
-  "generated": "2026-11-01 11:25",
+  "generated": "2026-11-01 11:56",
   "entries": [
+    {
+      "slug": "2026-11-01-le-tableau-de-bord-corrige-quelques-details",
+      "title": "Le tableau de bord corrige quelques détails",
+      "date": "2026-11-01",
+      "lots": [
+        "L15"
+      ],
+      "captures": [
+        "captures/L15-carte-avec-libelle-score.png"
+      ],
+      "alts": [
+        "Liste des offres au téléphone : chaque carte commence par le libellé « Score » au-dessus de la note"
+      ],
+      "html": "<p>Suites de la revue du tableau de bord.</p>\n<ul><li>Une adresse avec un statut qui n'existe pas (<code>/?status=…</code>) est refusée proprement au lieu d'afficher une erreur serveur.</li><li>Le pluriel est respecté : « 1 offre détectée », « 1 offre ».</li><li>Au téléphone, la note de chaque offre porte maintenant son libellé « Score », comme les autres informations de la carte.</li><li>Les scores faibles et les textes secondaires sont plus lisibles (contraste d'au moins 4,5 contre 1).</li><li>Les captures de l'entrée précédente ont été reprises avec l'écran actuel.</li></ul>"
+    },
     {
       "slug": "2026-11-01-revue-ux-tableau-de-bord-des-offres",
       "title": "Le tableau de bord est plus clair, surtout au téléphone",
