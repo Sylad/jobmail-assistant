@@ -1759,6 +1759,13 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
 .news-copy-labels { display: inline-grid; }
 .news-copy-label { grid-area: 1 / 1; white-space: nowrap; }
 .news-copy-label.is-hidden { visibility: hidden; }
+/* Téléphone (L16) : la liste des offres (titre, filtres, liste) passe au-dessus des panneaux
+   Pont Thunderbird et Analyse Ollama. Le document garde l'ordre du bureau ; seul `order` change. */
+@media (max-width: 768px) {
+  .dashboard-stack { display: flex; flex-direction: column; }
+  .dashboard-stack > .reanalysis-panel { order: 1; }
+}
+
 @media (pointer: coarse) {
   .news-copy { min-height: 44px; min-width: 44px; }
 }

@@ -263,6 +263,7 @@ lignes du log (`~/.jobmail/jobmail.log`).
 - Les libellés suivent le nombre : « 1 offre détectée », « 1 offre » (au pluriel dès 2). En cartes, la cellule Score porte son libellé « SCORE ».
 - Les textes secondaires restent à ≥ 4,5:1 (WCAG 1.4.3) ; les ratios annotés dans `style.css` sont vérifiés par `test_L15_R5_…`.
 - Sous 900 px, le tableau devient une liste de cartes (aucun défilement horizontal, boutons d'action de 44 px).
+- Jusqu'à 768 px (téléphone), les filtres et la liste des offres passent au-dessus des panneaux Pont Thunderbird et Analyse Ollama (`.dashboard-stack` dans `dashboard.html`, `order` dans `style.css`) ; l'ordre du document, donc celui du bureau, ne change pas. Tests : `tests/test_dashboard_phone_order.py`.
 - Les boutons icônes portent un `aria-label` qui cite le titre de l'offre.
 - Tests : `tests/test_dashboard_web.py`.
 
