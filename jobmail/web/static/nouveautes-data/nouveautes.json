@@ -1,7 +1,24 @@
 {
   "project": "jobmail-assistant",
-  "generated": "2026-10-02 16:50",
+  "generated": "2026-11-01 11:25",
   "entries": [
+    {
+      "slug": "2026-11-01-revue-ux-tableau-de-bord-des-offres",
+      "title": "Le tableau de bord est plus clair, surtout au téléphone",
+      "date": "2026-11-01",
+      "lots": [
+        "L2"
+      ],
+      "captures": [
+        "captures/L2-tableau-de-bord-filtre.png",
+        "captures/L2-offres-en-cartes-telephone.png"
+      ],
+      "alts": [
+        "Tableau de bord sur ordinateur avec un filtre actif : les compteurs du haut restent à 60 et le titre de la liste indique « 16 offres sur 60 »",
+        "Liste des offres au téléphone : chaque offre est une carte avec ses quatre boutons d'action"
+      ],
+      "html": "<p>Le tableau de bord des offres a été revu écran par écran.</p>\n<ul><li>Les quatre compteurs du haut (offres détectées, haute pertinence, nouvelles, mails ingérés) ne bougent plus quand tu filtres la liste : ils comptent toujours toutes tes offres.</li><li>Quand un filtre est actif, le titre de la liste dit combien d'offres il retient : « 16 offres sur 60 ».</li><li>Statuts, modes de travail et types de contrat sont affichés en français (« Nouvelle », « Intéressante », « Télétravail », « Non précisé »…). La page s'appelle « Tableau de bord » et le bouton « Reset » devient « Réinitialiser ».</li><li>Au téléphone, chaque offre est une carte : plus besoin de faire défiler le tableau sur le côté pour atteindre les boutons. Ces boutons mesurent 44 px pour être faciles à toucher.</li><li>Les boutons ★, ↩, ⊘ et l'œil ont un nom que les lecteurs d'écran annoncent, avec le titre de l'offre concernée.</li></ul>"
+    },
     {
       "slug": "2026-10-02-une-page-plan-de-travail-et-un-menu-au-telephone",
       "title": "Une page Plan de travail, et un menu au téléphone",

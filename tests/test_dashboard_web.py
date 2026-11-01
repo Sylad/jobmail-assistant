@@ -79,6 +79,8 @@ def test_R5_le_titre_de_la_page_est_en_francais(tmp_path):
     html = _client(tmp_path).get("/").text
     assert "<h1 class=\"page-header-title\">Tableau de bord</h1>" in html
     assert "<title>Tableau de bord — JobMail</title>" in html
+    assert '<span class="nav-label">Tableau de bord</span>' in html
+    assert ">Réinitialiser</a>" in html and ">Reset</a>" not in html
 
 
 def test_R6_au_telephone_les_offres_sont_des_cartes_sans_defilement_lateral():

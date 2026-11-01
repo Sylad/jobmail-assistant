@@ -256,6 +256,14 @@ Re-double-cliquer alors que l'app tourne déjà ouvre simplement une seconde fen
 Si le serveur ne démarre pas en 30 s, une boîte de dialogue affiche les dernières
 lignes du log (`~/.jobmail/jobmail.log`).
 
+## Tableau de bord (`/`)
+
+- Les quatre compteurs du haut portent toujours sur **toutes** les offres ; seul le tableau suit les filtres, et son titre indique « N offres sur TOTAL » quand un filtre est actif.
+- Statuts, modes et contrats sont affichés en français (`status_fr`, `mode_fr`, `contract_fr` dans `jobmail/web/app.py`) ; les valeurs des paramètres d'URL (`?status=interesting`) restent en anglais.
+- Sous 900 px, le tableau devient une liste de cartes (aucun défilement horizontal, boutons d'action de 44 px).
+- Les boutons icônes portent un `aria-label` qui cite le titre de l'offre.
+- Tests : `tests/test_dashboard_web.py`.
+
 ## Frontend assets
 
 The dashboard is server-rendered with Jinja, and the Mailbox cleaner is a

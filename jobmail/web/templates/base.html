@@ -33,7 +33,7 @@
     {% macro nav_links(item_class) %}
         <a href="/" class="{{ item_class }} {% if _is_dashboard %}active{% endif %}"{% if _is_dashboard %} aria-current="page"{% endif %}>
           <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
-          <span class="nav-label">Dashboard</span>
+          <span class="nav-label">Tableau de bord</span>
         </a>
 
         <a href="/cleaner" class="{{ item_class }} {% if _is_cleaner %}active{% endif %}"{% if _is_cleaner %} aria-current="page"{% endif %}>
