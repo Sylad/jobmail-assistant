@@ -1,6 +1,7 @@
-"""L16 — tableau de bord au téléphone (≤ 768 px) : la liste des offres passe au-dessus des
-panneaux Pont Thunderbird et Analyse Ollama. L'ordre réel à 390 px est mesuré dans un navigateur
-(voir le rapport de lot) ; ici, la structure et les règles qui le produisent."""
+"""L16 — tableau de bord : le document suit l'ordre du téléphone (liste des offres avant les
+panneaux Pont Thunderbird et Analyse Ollama : WCAG 1.3.2 / 2.4.3) ; au bureau (≥ 769 px) le CSS
+remonte les panneaux au-dessus des filtres. Les mesures en navigateur (390 et 1440 px) sont dans
+le rapport de lot ; ici, la structure et les règles qui les produisent."""
 from __future__ import annotations
 
 import re
@@ -8,39 +9,37 @@ import re
 from tests.test_dashboard_web import CSS, _client
 
 
-def _media_768() -> str:
-    m = re.search(r"@media \(max-width: 768px\) \{(.*?)\n\}\n", CSS, re.S)
-    assert m, "bloc @media (max-width: 768px) absent"
+def _block(media: str) -> str:
+    m = re.search(r"@media \(" + re.escape(media) + r"\) \{(.*?)\n\}\n", CSS, re.S)
+    assert m, f"bloc @media ({media}) absent"
     return m.group(1)
 
 
 def _stack(html: str) -> str:
-    m = re.search(r'<div class="dashboard-stack">(.*)</div>\s*</div>\s*</main>|'
-                  r'<div class="dashboard-stack">(.*)', html, re.S)
+    m = re.search(r'<div class="dashboard-stack">(.*)', html, re.S)
     assert m, "conteneur .dashboard-stack absent"
-    return m.group(1) or m.group(2)
+    return m.group(1)
 
 
-def test_le_document_garde_l_ordre_du_bureau_dans_un_conteneur(tmp_path):
-    html = _client(tmp_path, [(9, "new")]).get("/").text
-    stack = _stack(html)
-    # Ordre du document = ordre du bureau (inchangé) ; c'est le CSS ≤ 768 px qui le modifie.
-    marqueurs = ["page-header", "kpi-grid", "Pont Thunderbird", "Analyse Ollama",
-                 'class="filters"', "offers-wrap"]
+def test_le_document_met_la_liste_des_offres_avant_les_panneaux(tmp_path):
+    stack = _stack(_client(tmp_path, [(9, "new")]).get("/").text)
+    marqueurs = ["page-header", "kpi-grid", 'class="filters"', "offers-wrap",
+                 "Pont Thunderbird", "Analyse Ollama"]
     positions = [stack.find(x) for x in marqueurs]
     assert all(p >= 0 for p in positions), positions
     assert positions == sorted(positions), positions
 
 
-def test_a_390_px_les_panneaux_passent_apres_la_liste_des_offres():
-    css = _media_768()
+def test_a_390_px_un_ecart_de_20_px_separe_la_liste_du_premier_panneau():
+    css = _block("max-width: 768px")
+    assert re.search(r"\.offers-wrap\s*\{[^}]*margin-bottom:\s*20px", css)
+    # le téléphone ne réordonne rien : plus de `order` dans ce bloc
+    assert "order:" not in css
+
+
+def test_a_1440_px_les_panneaux_restent_au_dessus_des_filtres_et_de_la_liste():
+    css = _block("min-width: 769px")
     assert re.search(r"\.dashboard-stack\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column", css)
-    m = re.search(r"\.dashboard-stack\s*>\s*\.reanalysis-panel\s*\{[^}]*order:\s*(\d+)", css)
-    assert m and int(m.group(1)) >= 1
-
-
-def test_le_bureau_garde_l_ordre_du_document():
-    hors_768 = CSS.replace(_media_768(), "")
-    # aucune règle `order` sur le tableau de bord hors du bloc ≤ 768 px
-    assert not re.search(r"\.dashboard-stack[^{]*\{[^}]*order:", hors_768)
-    assert not re.search(r"\.dashboard-stack\s*\{[^}]*display:\s*flex", hors_768)
+    p = re.search(r"\.dashboard-stack\s*>\s*\.reanalysis-panel\s*\{[^}]*order:\s*(\d+)", css)
+    f = re.search(r"\.dashboard-stack\s*>\s*\.filters,\s*\.dashboard-stack\s*>\s*\.offers-wrap\s*\{[^}]*order:\s*(\d+)", css)
+    assert p and f and 0 < int(p.group(1)) < int(f.group(1))
