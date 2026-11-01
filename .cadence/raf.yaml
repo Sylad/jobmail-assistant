@@ -22,6 +22,8 @@ lots:
     estimate: 0.25
     created: 2026-09-28
     started: 2026-11-01
+    tasks:
+      - { id: t1, title: "Téléphone : placer la liste d'offres avant les panneaux Pont Thunderbird et Analyse Ollama et les filtres (à trancher par Sylvain)", status: todo }
   - id: L3
     title: Revue UX — Fiche offre
     status: todo
