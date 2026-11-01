@@ -1509,7 +1509,31 @@ dl.grid dd { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .filter-form { flex-direction: column; }
   .filter-form label, .filter-form select, .filter-form input, .filter-form .btn { width: 100%; }
-  table.offers { display: block; overflow-x: auto; }
+  /* Offres en cartes : aucune colonne hors écran, actions toujours visibles (L2). */
+  table.offers, table.offers tbody { display: block; }
+  table.offers thead { display: none; }
+  table.offers tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  table.offers tbody tr:last-child { border-bottom: none; }
+  table.offers td { display: block; padding: 0; border-bottom: none; min-width: 0; overflow-wrap: anywhere; }
+  table.offers td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-mute);
+  }
+  table.offers td[data-label="Titre"], table.offers td[data-label="Technos"] { grid-column: 1 / -1; }
+  table.offers td[data-label="Titre"] { font-weight: 600; font-size: 14px; }
+  table.offers td.row-actions { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+  table.offers td.row-actions .btn-icon, table.offers td.row-actions .btn-sm { min-width: 44px; min-height: 44px; }
+  table.offers td.row-actions .inline-actions { display: flex; gap: 8px; }
   .reanalysis-panel { display: flex; flex-direction: column; }
   .reanalysis-actions { width: 100%; }
   .reanalysis-status, .reanalysis-progress { padding-left: 0; }

@@ -247,6 +247,13 @@ templates.env.globals["static_version"] = str(
     )
 )
 templates.env.filters["format_day"] = format_day
+
+_STATUS_FR = {"new": "Nouvelle", "interesting": "Intéressante", "ignored": "Ignorée", "replied": "Répondue"}
+_MODE_FR = {"remote": "Télétravail", "hybrid": "Hybride", "onsite": "Sur site", "unknown": "Non précisé"}
+_CONTRACT_FR = {"cdi": "CDI", "cdd": "CDD", "freelance": "Freelance", "mission": "Mission", "unknown": "Non précisé"}
+templates.env.filters["status_fr"] = lambda v: _STATUS_FR.get(str(v), str(v))
+templates.env.filters["mode_fr"] = lambda v: _MODE_FR.get(str(v), str(v))
+templates.env.filters["contract_fr"] = lambda v: _CONTRACT_FR.get(str(v), str(v))
 # L6 — la pastille du lien Nouveautés a besoin des slugs et dates sur chaque page.
 templates.env.globals["news_index"] = lambda: news_mod.news_index()
 
@@ -931,13 +938,15 @@ def create_app() -> FastAPI:
                 since_days=since_days,
                 esn_mode=esn,
             )
+            every_offer = list_offers(conn)
             technos = all_known_technos(conn)
             senders = all_sender_domains(conn)
             stats = _compute_stats(conn)
 
-        # Server-side KPI counts from all (unfiltered) offers
-        kpi_high = sum(1 for o in offers if o.extraction.relevance_score >= 8)
-        kpi_new  = sum(1 for o in offers if o.status.value == "new")
+        # Compteurs du haut de page : toujours sur toutes les offres, jamais sur le filtre.
+        total_count = len(every_offer)
+        kpi_high = sum(1 for o in every_offer if o.extraction.relevance_score >= 8)
+        kpi_new  = sum(1 for o in every_offer if o.status.value == "new")
 
         # Pagination
         total_offers = len(offers)
@@ -968,6 +977,7 @@ def create_app() -> FastAPI:
             {
                 "offers": paginated,
                 "all_offers_count": total_offers,
+                "total_count": total_count,
                 "kpi_high": kpi_high,
                 "kpi_new": kpi_new,
                 "page": page,
