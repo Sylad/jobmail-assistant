@@ -17,10 +17,11 @@ lots:
     finished: 2026-09-28
   - id: L2
     title: Revue UX — Tableau de bord des offres (/)
-    status: todo
+    status: doing
     visible: true
     estimate: 0.25
     created: 2026-09-28
+    started: 2026-11-01
   - id: L3
     title: Revue UX — Fiche offre
     status: todo
