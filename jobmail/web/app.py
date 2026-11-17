@@ -2010,12 +2010,22 @@ def create_app() -> FastAPI:
             ),
         )
 
+    def _offer_not_found(request: Request) -> HTMLResponse:
+        # L3/t1 : une page en français dans le gabarit, avec un chemin de retour, plutôt que le
+        # JSON brut {"detail": "Offer not found"} (Nielsen 9).
+        return templates.TemplateResponse(
+            request,
+            "not_found.html",
+            {"provider": settings.llm_provider, "imap_enabled": settings.imap_enabled},
+            status_code=404,
+        )
+
     @app.get("/offers/{offer_id}", response_class=HTMLResponse)
     def offer_detail(request: Request, offer_id: int):
         with connect(settings.db_path) as conn:
             offer = get_offer(conn, offer_id, with_body=True)
         if offer is None:
-            raise HTTPException(status_code=404, detail="Offer not found")
+            return _offer_not_found(request)
         return templates.TemplateResponse(
             request,
             "offer.html",
@@ -2040,6 +2050,7 @@ def create_app() -> FastAPI:
 
     @app.post("/offers/{offer_id}/status")
     def set_status(
+        request: Request,
         offer_id: int,
         status: str = Form(...),
         return_to: str = Form(""),
@@ -2050,7 +2061,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail=str(e)) from e
         with connect(settings.db_path) as conn:
             if get_offer(conn, offer_id) is None:
-                raise HTTPException(status_code=404, detail="Offer not found")
+                return _offer_not_found(request)
             update_status(conn, offer_id, new_status)
         # If invoked from the dashboard inline buttons, preserve the active
         # filter set by sending the user back to the same URL.

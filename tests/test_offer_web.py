@@ -94,3 +94,40 @@ def test_R7_copie_de_l_adresse_annoncee(tmp_path):
     assert 'data-email="une.adresse.vraiment.tres.longue@recrutement-exemple.test"' in html
     assert 'id="copy-email-status"' in html and 'aria-live="polite"' in html
     assert "onclick=" not in html
+
+
+def _client(tmp_path) -> TestClient:
+    settings = web_app.get_settings()
+    settings.db_path = tmp_path / "offer.db"
+    settings.llm_provider = "mock"
+    return TestClient(web_app.create_app())  # crée le schéma : la base existe, l'offre non
+
+
+def test_R8_offre_introuvable_page_404_en_francais(tmp_path):
+    # Nielsen 9 : l'erreur se reconnaît et on en sort, au lieu du JSON brut de FastAPI.
+    client = _client(tmp_path)
+    for resp in (
+        client.get("/offers/999999"),
+        client.post("/offers/999999/status", data={"status": "ignored"}, follow_redirects=False),
+    ):
+        assert resp.status_code == 404
+        assert resp.headers["content-type"].startswith("text/html")
+        html = resp.text
+        assert "Offer not found" not in html and '"detail"' not in html
+        assert "<title>Offre introuvable — JobMail</title>" in html
+        assert "<h1" in html and "Offre introuvable</h1>" in html
+        assert re.search(r'<a href="/" class="btn[^"]*">\s*<i[^>]*></i> Retour au tableau de bord', html)
+        assert 'class="sidebar' in html  # dans le gabarit : la navigation reste là
+
+
+def test_R9_cibles_de_la_fiche_au_moins_40_px_au_toucher():
+    # Sous 900 px, les .btn-sm de la fiche (28 px partout ailleurs) font 40 px au moins.
+    small = CSS[CSS.index("@media (max-width: 900px)"):]
+    small = small[: small.index("\n}\n")]
+    bodies = [
+        b for b in re.findall(r"([^{}]+)\{([^}]*)\}", small)
+        if ".offer-actions-row .btn-sm" in b[0] and ".offer-detail .btn-sm" in b[0]
+    ]
+    assert bodies, "règle des .btn-sm de la fiche absente sous 900 px"
+    height = int(re.search(r"min-height:\s*(\d+)px", bodies[0][1]).group(1))
+    assert height >= 40

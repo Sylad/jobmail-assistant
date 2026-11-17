@@ -977,6 +977,11 @@ tr.row-status-replied { background: rgba(245, 158, 11, 0.03); }
 }
 .back:hover { color: var(--fg-2); text-decoration: none; }
 
+/* L3/t1 : offre introuvable (404) — message en français et chemin de retour. */
+.not-found { max-width: 560px; padding: 24px 0; }
+.not-found-text { margin: 8px 0 20px; color: var(--fg-mute); line-height: 1.5; }
+.not-found-back { min-height: 44px; }
+
 .offer-page-title {
   font-size: 24px;
   font-weight: 800;
@@ -1547,6 +1552,8 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 13px; 
   table.offers td[data-label="Titre"] { font-weight: 600; font-size: 14px; }
   table.offers td.row-actions { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; margin-top: 6px; }
   table.offers td.row-actions .btn-icon, table.offers td.row-actions .btn-sm { min-width: 44px; min-height: 44px; }
+  /* L3/t3 : au toucher, les .btn-sm de la fiche offre (28 px) passent à 40 px au moins. */
+  .offer-actions-row .btn-sm, .offer-detail .btn-sm { min-height: 40px; }
   table.offers td.row-actions .inline-actions { display: flex; gap: 8px; }
   .reanalysis-panel { display: flex; flex-direction: column; }
   .reanalysis-actions { width: 100%; }
