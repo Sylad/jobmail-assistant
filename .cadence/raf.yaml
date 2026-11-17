@@ -45,10 +45,11 @@ lots:
     ux: { date: 2026-11-17, verdict: "conforme (lead, captures 390 px) : 404 claire avec retour au tableau de bord ; boutons d'action à 40 px sur téléphone ; reste t2 avec L5" }
   - id: L4
     title: "Revue UX — Nettoyeur de boîte : scan, phases, déplacement"
-    status: todo
+    status: doing
     visible: true
     estimate: 0.25
     created: 2026-09-28
+    started: 2026-11-17
   - id: L5
     title: "Revue UX — Gabarit commun : navigation, en-tête, pied, rendu téléphone"
     status: todo
