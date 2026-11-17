@@ -2004,6 +2004,26 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 13px; 
 .backup-panel input[type="checkbox"],
 .confirm-line { cursor: pointer; }
 
+/* t4 : la confirmation manquante s'affiche sous les boutons d'action, pas en haut de l'écran. */
+.cleaner-confirm-hint {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--bad);
+  border-radius: var(--radius);
+  /* Texte en --fg : --bad sur le fond déjà teinté du bloc d'action ne tient pas 4,5:1 (WCAG 1.4.3). */
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* t3 : en-tête de la liste des candidats (compte toujours visible, bouton replier / afficher). */
+.cleaner-candidates-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.cleaner-candidates-head h2 { margin: 0; }
+.cleaner-candidates-count { flex: 1 1 auto; }
+.cleaner-candidates-foot { display: flex; justify-content: flex-end; padding-top: 10px; }
+
 @media (prefers-reduced-motion: reduce) {
   .vue-progress-bar-active .vue-progress-indicator { animation: none; }
 }
@@ -2021,4 +2041,8 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 13px; 
   /* Le bouton « Déplacer toutes les phases sélectionnées » (nowrap) élargissait la page de 3 px à 320 px. */
   .cleaner-action-bar { grid-template-columns: minmax(0, 1fr); }
   .cleaner-action-controls button { white-space: normal; height: auto; min-height: 36px; text-align: left; }
+  .cleaner-confirm-hint { text-align: left; }
+  /* Cibles tactiles de 44 px pour replier / afficher la liste (WCAG 2.5.8, 44 px visés). */
+  .cleaner-candidates-head button, .cleaner-candidates-foot button { min-height: 44px; }
+  .cleaner-candidates-count { flex-basis: 100%; order: 3; }
 }

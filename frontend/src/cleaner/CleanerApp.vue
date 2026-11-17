@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
-import { Download, ExternalLink, Plus, Search, Send, Trash2 } from "@lucide/vue";
+import { ChevronDown, ChevronUp, Download, ExternalLink, Plus, Search, Send, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import ProgressPanel from "./ProgressPanel.vue";
 import {
+  candidatesListOpen,
   countPlannedMoves,
   emptyCandidatesMessage as emptyMessageFor,
   initialPhaseSelection,
+  missingConfirmationHint,
   planPhaseMoves,
   plannedMoveUids,
   scanPanelVisibleAfterFullScan,
@@ -99,6 +101,21 @@ const confirmMove = ref(false);
 const confirmThunderbirdClosed = ref(false);
 const actionMessage = ref("");
 const actionError = ref("");
+// L4/t4 : la confirmation manquante se dit à côté du bouton cliqué, qui la porte en aria-describedby.
+const confirmHint = ref<{ action: "move" | "extension"; text: string } | null>(null);
+// L4/t3 : liste des candidats repliable par phase. `null` = pas encore de choix à la main : repliée
+// par défaut en écran étroit au-delà du seuil. Affichage seulement, la sélection ne change pas.
+const candidatesOpenChoice = reactive<Record<CleanerPhaseSource, boolean | null>>({
+  thunderbird: null,
+  regex: null,
+  parsed_jobs: null,
+  duplicates: null,
+});
+const narrowQuery = typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 900px)") : null;
+const narrowScreen = ref(narrowQuery?.matches ?? false);
+narrowQuery?.addEventListener("change", (event) => {
+  narrowScreen.value = event.matches;
+});
 const regexSaveState = ref<"saved" | "dirty" | "saving" | "error">("saved");
 let regexSaveTimer: number | undefined;
 let regexHydrating = false;
@@ -137,6 +154,30 @@ const phaseOrder = scanPhases.map((phase) => phase.source);
 // (cleaner-core.ts), sélection par phase comprise pour « Règles regex ».
 const totalSelectedCandidates = computed(() => countPlannedMoves(phaseOrder, phaseResults, phaseSelections));
 const emptyCandidatesMessage = computed(() => emptyMessageFor(reportResult.value));
+const candidatesOpen = computed(() => candidatesListOpen(
+  currentReport.value?.candidates.length ?? 0,
+  narrowScreen.value,
+  candidatesOpenChoice[activePhase.value],
+));
+
+function toggleCandidates(): void {
+  candidatesOpenChoice[activePhase.value] = !candidatesOpen.value;
+}
+
+function collapseCandidatesFromBottom(): void {
+  candidatesOpenChoice[activePhase.value] = false;
+  // Le bouton du bas disparaît avec la liste : le focus et la vue reviennent sur l'en-tête.
+  const toggle = document.getElementById("cleaner-candidates-toggle");
+  toggle?.focus();
+  toggle?.scrollIntoView({ block: "center" });
+}
+
+watch([confirmMove, confirmThunderbirdClosed], () => {
+  const hint = confirmHint.value;
+  if (hint && missingConfirmationHint(hint.action, confirmMove.value, confirmThunderbirdClosed.value) === null) {
+    confirmHint.value = null;
+  }
+});
 const regexSaveLabel = computed(() => {
   if (regexSaveState.value === "saving") return "Sauvegarde...";
   if (regexSaveState.value === "dirty") return "Modifications non sauvegardées";
@@ -245,6 +286,7 @@ function scanFormData(extra?: Record<string, string>, source: CleanerSource = fo
 async function startFullScan(): Promise<void> {
   actionMessage.value = "";
   actionError.value = "";
+  confirmHint.value = null;
   reportResult.value = null;
   selectedUids.value = new Set();
   confirmMove.value = false;
@@ -255,6 +297,7 @@ async function startFullScan(): Promise<void> {
     phaseStatuses[phase.source] = "idle";
     phaseErrors[phase.source] = "";
     phaseSelections[phase.source] = [];
+    candidatesOpenChoice[phase.source] = null;
   });
 
   try {
@@ -510,10 +553,9 @@ function senderRowClass(sender: string): string {
 async function moveAllSelections(): Promise<void> {
   actionError.value = "";
   actionMessage.value = "";
-  if (!confirmMove.value || !confirmThunderbirdClosed.value) {
-    actionError.value = "Coche les deux confirmations avant de déplacer.";
-    return;
-  }
+  const missing = missingConfirmationHint("move", confirmMove.value, confirmThunderbirdClosed.value);
+  confirmHint.value = missing ? { action: "move", text: missing } : null;
+  if (missing) return;
   if (totalSelectedCandidates.value <= 0) return;
 
   moveAllRunning.value = true;
@@ -565,9 +607,13 @@ async function entrustSelectionToExtension(): Promise<void> {
   actionError.value = "";
   actionMessage.value = "";
   if (!confirmMove.value) {
-    actionError.value = "Coche « Rapport relu » avant de confier la sélection à l'extension Thunderbird.";
+    confirmHint.value = {
+      action: "extension",
+      text: missingConfirmationHint("extension", confirmMove.value, confirmThunderbirdClosed.value)!,
+    };
     return;
   }
+  confirmHint.value = null;
   const uids = plannedMoveUids(phaseOrder, phaseResults, phaseSelections);
   if (!uids.length) return;
   extensionRequestRunning.value = true;
@@ -910,6 +956,7 @@ function setMoveAllSummaryProgress(title: string): void {
             type="button"
             variant="destructive"
             :disabled="!totalSelectedCandidates || moveAllRunning"
+            :aria-describedby="confirmHint?.action === 'move' ? 'cleaner-confirm-hint' : undefined"
             @click="moveAllSelections"
           >
             <Trash2 :size="16" />
@@ -920,11 +967,13 @@ function setMoveAllSummaryProgress(title: string): void {
             variant="ghost"
             title="Thunderbird reste ouvert : son extension déplacera cette sélection, et elle seule, quand tu cliqueras « Corbeille scan JobMail »."
             :disabled="!totalSelectedCandidates || moveAllRunning || extensionRequestRunning"
+            :aria-describedby="confirmHint?.action === 'extension' ? 'cleaner-confirm-hint' : undefined"
             @click="entrustSelectionToExtension"
           >
             <Send :size="16" />
             Confier la sélection à l'extension Thunderbird
           </Button>
+          <p v-if="confirmHint" id="cleaner-confirm-hint" class="cleaner-confirm-hint" role="alert">{{ confirmHint.text }}</p>
         </div>
 
         <ProgressPanel
@@ -973,8 +1022,34 @@ function setMoveAllSummaryProgress(title: string): void {
       </div>
       <p v-else class="empty">Aucun expéditeur candidat.</p>
 
-      <h2>Mails candidats</h2>
-      <div v-if="currentReport.candidates.length" class="cleaner-table-scroll cleaner-cards-scroll">
+      <div class="cleaner-candidates-head">
+        <h2>Mails candidats</h2>
+        <template v-if="currentReport.candidates.length">
+          <span class="muted small cleaner-candidates-count">
+            <strong>{{ currentReport.candidates.length }}</strong> candidat(s) dans cette phase,
+            <strong>{{ selectedCount }}</strong> sélectionné(s)
+          </span>
+          <Button
+            id="cleaner-candidates-toggle"
+            type="button"
+            size="sm"
+            variant="ghost"
+            class="cleaner-candidates-toggle"
+            :aria-expanded="candidatesOpen"
+            aria-controls="cleaner-candidates-list"
+            @click="toggleCandidates"
+          >
+            <component :is="candidatesOpen ? ChevronUp : ChevronDown" :size="14" />
+            {{ candidatesOpen ? 'Replier la liste' : 'Afficher la liste' }}
+          </Button>
+        </template>
+      </div>
+      <div
+        v-if="currentReport.candidates.length"
+        v-show="candidatesOpen"
+        id="cleaner-candidates-list"
+        class="cleaner-table-scroll cleaner-cards-scroll"
+      >
       <table class="offers cleaner-table">
         <thead>
           <tr>
@@ -1022,6 +1097,12 @@ function setMoveAllSummaryProgress(title: string): void {
           </tr>
         </tbody>
       </table>
+      <div class="cleaner-candidates-foot">
+        <Button type="button" size="sm" variant="ghost" @click="collapseCandidatesFromBottom">
+          <ChevronUp :size="14" />
+          Replier la liste
+        </Button>
+      </div>
       </div>
       <p v-else class="empty">{{ emptyCandidatesMessage }}</p>
 

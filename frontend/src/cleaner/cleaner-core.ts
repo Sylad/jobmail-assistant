@@ -82,3 +82,27 @@ export function emptyCandidatesMessage(result: CoreResult | null): string {
   if (result?.source === "parsed_jobs" && result.report.scanned_count === 0) return EMPTY_PARSED_JOBS_MESSAGE;
   return EMPTY_CANDIDATES_MESSAGE;
 }
+
+/** L4/t3 : au-delà de ce nombre de candidats, la liste d'une phase arrive repliée au téléphone. */
+export const CANDIDATES_COLLAPSE_THRESHOLD = 20;
+
+/** L4/t3 : la liste des candidats d'une phase est-elle dépliée ? Le choix fait à la main sur cette
+ * phase l'emporte ; sinon elle n'est repliée qu'en écran étroit (candidats en cartes, environ
+ * 250 px par mail) et au-delà du seuil. N'agit que sur l'affichage, jamais sur la sélection. */
+export function candidatesListOpen(count: number, narrow: boolean, userChoice: boolean | null): boolean {
+  if (userChoice !== null) return userChoice;
+  return !(narrow && count > CANDIDATES_COLLAPSE_THRESHOLD);
+}
+
+export const MOVE_CONFIRMATIONS_HINT = "Coche les deux confirmations avant de déplacer.";
+export const EXTENSION_CONFIRMATION_HINT = "Coche « Rapport relu » avant de confier la sélection à l'extension Thunderbird.";
+
+/** L4/t4 : ce qui manque pour lancer l'action, dit à côté de son bouton ; `null` quand rien ne manque. */
+export function missingConfirmationHint(
+  action: "move" | "extension",
+  confirmMove: boolean,
+  confirmThunderbirdClosed: boolean,
+): string | null {
+  if (action === "extension") return confirmMove ? null : EXTENSION_CONFIRMATION_HINT;
+  return confirmMove && confirmThunderbirdClosed ? null : MOVE_CONFIRMATIONS_HINT;
+}

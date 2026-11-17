@@ -103,3 +103,45 @@ def test_extension_handoff_button_sends_the_confirmed_selection_only():
     # Le bundle commité est bien reconstruit depuis ces sources.
     assert "/api/thunderbird/cleaner/request" in BUNDLE
     assert "Confier la sélection à l'extension Thunderbird" in BUNDLE
+
+
+def test_candidate_list_is_collapsible_per_phase_with_its_count_visible():
+    # L4/t3 : 48 candidats en cartes faisaient environ 12 000 px de haut à 390 px.
+    assert "candidatesListOpen(" in VUE and "candidatesOpenChoice[activePhase.value]" in VUE
+    head = VUE[VUE.index('<div class="cleaner-candidates-head">'):VUE.index('id="cleaner-candidates-list"')]
+    # Le compte reste affiché, liste repliée ou non ; le bouton dit son état aux lecteurs d'écran.
+    assert "{{ currentReport.candidates.length }}</strong> candidat(s) dans cette phase" in head
+    assert "{{ selectedCount }}</strong> sélectionné(s)" in head
+    assert ':aria-expanded="candidatesOpen"' in head and 'aria-controls="cleaner-candidates-list"' in head
+    assert "Afficher la liste" in head and "Replier la liste" in head
+    # Repliée = masquée (v-show), pas retirée du calcul : la sélection vit hors du DOM.
+    assert 'v-show="candidatesOpen"' in VUE
+    # Un nouveau scan revient au réglage par défaut de chaque phase.
+    scan = VUE[VUE.index("async function startFullScan"):VUE.index("async function startPhaseScan")]
+    assert "candidatesOpenChoice[phase.source] = null;" in scan
+    # Replier ne touche à aucune sélection.
+    for name in ("toggleCandidates", "collapseCandidatesFromBottom"):
+        start = VUE.index(f"function {name}")
+        body = VUE[start:VUE.index("\n}\n", start)]
+        assert "phaseSelections" not in body and "selectedUids" not in body, name
+    assert "Afficher la liste" in BUNDLE and "cleaner-candidates-list" in BUNDLE
+    assert ".cleaner-candidates-head" in _l4_block()
+
+
+def test_missing_confirmation_is_said_next_to_the_move_button_and_linked_to_it():
+    # L4/t4 : le message s'affichait en haut de l'écran, loin du bouton cliqué (Nielsen 9, WCAG 3.3.1).
+    controls = VUE[VUE.index('<div class="cleaner-action-controls">'):VUE.index('v-if="movePanel.visible"')]
+    assert 'id="cleaner-confirm-hint"' in controls and 'role="alert"' in controls
+    assert controls.index("@click=\"moveAllSelections\"") < controls.index('id="cleaner-confirm-hint"')
+    assert ":aria-describedby=\"confirmHint?.action === 'move' ? 'cleaner-confirm-hint' : undefined\"" in controls
+    assert ":aria-describedby=\"confirmHint?.action === 'extension' ? 'cleaner-confirm-hint' : undefined\"" in controls
+    # Ces deux messages ne passent plus par le bandeau du haut.
+    assert "Coche les deux confirmations" not in VUE and "Coche « Rapport relu »" not in VUE
+    for name, end in (("moveAllSelections", "moveAllRunning.value = true"), ("entrustSelectionToExtension", "plannedMoveUids(")):
+        start = VUE.index(f"async function {name}")
+        guard = VUE[start:VUE.index(end, start)]
+        assert "confirmHint.value =" in guard and "return;" in guard, name
+        assert "actionError.value = \"Coche" not in guard
+    assert "Coche les deux confirmations avant de déplacer." in CORE
+    assert "cleaner-confirm-hint" in BUNDLE and "Coche les deux confirmations avant de déplacer." in BUNDLE
+    assert ".cleaner-confirm-hint" in _l4_block()

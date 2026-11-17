@@ -106,3 +106,44 @@ test("la sélection confiée à l'extension Thunderbird est exactement celle du 
   const none = { thunderbird: [], regex: [], parsed_jobs: [], duplicates: [] };
   assert.deepEqual(core.plannedMoveUids(ORDER, results, none), []);
 });
+
+test('liste des candidats : repliée par défaut au téléphone au-delà du seuil, jamais sur grand écran (t3)', () => {
+  const n = core.CANDIDATES_COLLAPSE_THRESHOLD;
+  assert.equal(n, 20);
+  // Écran étroit (candidats en cartes) : 48 candidats mesurés à environ 12 000 px de haut.
+  assert.equal(core.candidatesListOpen(48, true, null), false);
+  assert.equal(core.candidatesListOpen(n + 1, true, null), false);
+  assert.equal(core.candidatesListOpen(n, true, null), true);
+  assert.equal(core.candidatesListOpen(0, true, null), true);
+  // Grand écran : le tableau reste déplié, quel que soit le nombre.
+  assert.equal(core.candidatesListOpen(250, false, null), true);
+  // Le choix fait à la main sur la phase l'emporte, dans les deux sens et aux deux largeurs.
+  assert.equal(core.candidatesListOpen(48, true, true), true);
+  assert.equal(core.candidatesListOpen(3, true, false), false);
+  assert.equal(core.candidatesListOpen(250, false, false), false);
+});
+
+test('replier la liste ne change pas ce qui part au déplacement (t3)', () => {
+  const regex = regexScan();
+  const results = { thunderbird: null, regex, parsed_jobs: null, duplicates: null };
+  const selections = { thunderbird: [], parsed_jobs: [], duplicates: [], regex: core.initialPhaseSelection(regex) };
+  const before = core.plannedMoveUids(ORDER, results, selections);
+  // L'état replié n'est un paramètre d'aucun calcul d'envoi : même sélection, même résultat.
+  assert.equal(core.candidatesListOpen(regex.report.candidates.length, true, null), false);
+  assert.deepEqual(core.plannedMoveUids(ORDER, results, selections), before);
+  assert.equal(before.length, 48);
+  for (const fn of [core.planPhaseMoves, core.countPlannedMoves, core.plannedMoveUids]) assert.equal(fn.length, 3);
+});
+
+test('confirmation manquante : le message dit ce qui manque, et disparaît quand rien ne manque (t4)', () => {
+  const both = 'Coche les deux confirmations avant de déplacer.';
+  assert.equal(core.missingConfirmationHint('move', false, false), both);
+  assert.equal(core.missingConfirmationHint('move', true, false), both);
+  assert.equal(core.missingConfirmationHint('move', false, true), both);
+  assert.equal(core.missingConfirmationHint('move', true, true), null);
+  // L'extension déplace Thunderbird ouvert : seule la relecture est exigée.
+  const read = "Coche « Rapport relu » avant de confier la sélection à l'extension Thunderbird.";
+  assert.equal(core.missingConfirmationHint('extension', false, false), read);
+  assert.equal(core.missingConfirmationHint('extension', false, true), read);
+  assert.equal(core.missingConfirmationHint('extension', true, false), null);
+});
