@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
-import { Download, ExternalLink, Plus, Search, Trash2 } from "@lucide/vue";
+import { Download, ExternalLink, Plus, Search, Send, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import ProgressPanel from "./ProgressPanel.vue";
 import {
@@ -8,6 +8,7 @@ import {
   emptyCandidatesMessage as emptyMessageFor,
   initialPhaseSelection,
   planPhaseMoves,
+  plannedMoveUids,
   scanPanelVisibleAfterFullScan,
 } from "./cleaner-core";
 import type {
@@ -85,6 +86,7 @@ const phaseSelections = reactive<Record<CleanerPhaseSource, string[]>>({
 const activePhase = ref<CleanerPhaseSource>("thunderbird");
 const fullScanRunning = ref(false);
 const moveAllRunning = ref(false);
+const extensionRequestRunning = ref(false);
 const moveAllBaseMoved = ref(0);
 const moveAllBaseProcessed = ref(0);
 const moveAllSkipped = ref(0);
@@ -557,6 +559,33 @@ async function moveAllSelections(): Promise<void> {
   }
 }
 
+// L4/t5 : l'extension Thunderbird (« Corbeille scan JobMail ») ne reçoit que cette sélection,
+// confirmée ici. Thunderbird reste ouvert sur ce chemin : seule la relecture est exigée.
+async function entrustSelectionToExtension(): Promise<void> {
+  actionError.value = "";
+  actionMessage.value = "";
+  if (!confirmMove.value) {
+    actionError.value = "Coche « Rapport relu » avant de confier la sélection à l'extension Thunderbird.";
+    return;
+  }
+  const uids = plannedMoveUids(phaseOrder, phaseResults, phaseSelections);
+  if (!uids.length) return;
+  extensionRequestRunning.value = true;
+  try {
+    const data = new FormData();
+    uids.forEach((uid) => data.append("selected_uid", uid));
+    data.set("confirm_move", "yes");
+    const response = await fetch("/api/thunderbird/cleaner/request", { method: "POST", body: data });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || "Impossible de confier la sélection à l'extension.");
+    actionMessage.value = `${payload.candidate_count} mail(s) confié(s) à l'extension Thunderbird. Rien n'est encore déplacé : dans Thunderbird, clique « Corbeille scan JobMail ». Un nouveau scan annule cette demande.`;
+  } catch (error) {
+    actionError.value = error instanceof Error ? error.message : "Impossible de confier la sélection à l'extension.";
+  } finally {
+    extensionRequestRunning.value = false;
+  }
+}
+
 function moveFieldsForPhase(result: CleanerScanResultPayload, uids: string[]): Record<string, string | string[]> {
   const fields: Record<string, string | string[]> = {
     source: result.source,
@@ -885,6 +914,16 @@ function setMoveAllSummaryProgress(title: string): void {
           >
             <Trash2 :size="16" />
             {{ moveAllRunning ? 'Déplacement en cours…' : 'Déplacer toutes les phases sélectionnées' }}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            title="Thunderbird reste ouvert : son extension déplacera cette sélection, et elle seule, quand tu cliqueras « Corbeille scan JobMail »."
+            :disabled="!totalSelectedCandidates || moveAllRunning || extensionRequestRunning"
+            @click="entrustSelectionToExtension"
+          >
+            <Send :size="16" />
+            Confier la sélection à l'extension Thunderbird
           </Button>
         </div>
 

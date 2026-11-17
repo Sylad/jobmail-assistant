@@ -355,6 +355,10 @@ _refresh_job: RefreshJob | None = None
 _refresh_lock = threading.Lock()
 _thunderbird_bridge_state = ThunderbirdBridgeState()
 _thunderbird_bridge_lock = threading.Lock()
+# L4/t5 : la seule demande que l'extension Thunderbird peut exécuter — la sélection confirmée
+# dans /cleaner. Absente tant que l'écran n'a rien confirmé ; consommée après usage.
+_thunderbird_cleaner_request: dict | None = None
+_thunderbird_cleaner_request_lock = threading.Lock()
 
 
 def _now_iso() -> str:
@@ -405,11 +409,30 @@ def _record_thunderbird_bridge_event(event: str, payload: dict) -> dict:
             _thunderbird_bridge_state.last_error = str(payload.get("message") or "")
         else:
             raise HTTPException(status_code=400, detail="Evenement Thunderbird inconnu.")
+    if event == "cleaner_move" and payload.get("request_id"):
+        # La demande confirmée vient d'être exécutée : un second clic ne la rejoue pas.
+        _clear_thunderbird_cleaner_request(str(payload["request_id"]))
     return _thunderbird_bridge_payload()
 
 
-def _latest_thunderbird_cleaner_request() -> dict:
-    jobs: list[CleanerScanJob]
+def _clear_thunderbird_cleaner_request(request_id: str | None = None) -> None:
+    """Oublie la demande confirmée (toute demande, ou seulement celle de cet identifiant)."""
+    global _thunderbird_cleaner_request
+    with _thunderbird_cleaner_request_lock:
+        current = _thunderbird_cleaner_request
+        if current is not None and request_id in (None, current["request_id"]):
+            _thunderbird_cleaner_request = None
+
+
+def _confirm_thunderbird_cleaner_request(selected_uid: list[str]) -> dict:
+    """Enregistre la sélection confirmée dans /cleaner pour l'extension Thunderbird (L4/t5).
+
+    Même règle que le déplacement MBOX : seuls les UID nommés par la requête, bornés aux
+    candidats déplaçables des scans Thunderbird terminés encore en mémoire. Sélection absente,
+    vide, faite de blancs ou étrangère aux scans → CleanerError, et plus aucune demande en
+    attente (la précédente est oubliée aussi).
+    """
+    global _thunderbird_cleaner_request
     with _cleaner_jobs_lock:
         jobs = [
             job
@@ -417,28 +440,40 @@ def _latest_thunderbird_cleaner_request() -> dict:
             if job.status == "done" and job.report is not None and job.source != "imap"
         ]
     jobs.sort(key=lambda job: job.finished_at or job.started_at, reverse=True)
-
-    deduped: dict[str, dict] = {}
+    movable: dict[str, dict] = {}
     for job in jobs:
-        if len(deduped) >= 1000:
-            break
         assert job.report is not None
         for candidate in job.report.candidates:
-            if not candidate.can_move:
-                continue
-            payload = _candidate_payload(candidate)
+            if candidate.can_move:
+                movable.setdefault(candidate.uid, _candidate_payload(candidate))
+
+    with _thunderbird_cleaner_request_lock:
+        _thunderbird_cleaner_request = None
+        uids = _requested_move_uids(selected_uid, list(movable))
+        deduped: dict[str, dict] = {}
+        for uid in uids:
+            payload = movable[uid]
             key = payload["message_id"] or f"{payload['sender']}::{payload['subject']}::{payload['received_at']}"
             deduped.setdefault(key, payload)
+        latest = jobs[0] if jobs else None
+        request = {
+            "request_id": uuid.uuid4().hex,
+            "source": "confirmed_selection",
+            "created_at": _now_iso(),
+            "latest_scan_at": datetime.fromtimestamp(latest.finished_at, tz=timezone.utc).isoformat() if latest and latest.finished_at else "",
+            "candidate_count": len(deduped),
+            "candidates": list(deduped.values()),
+        }
+        _thunderbird_cleaner_request = request
+        return request
 
-    latest = jobs[0] if jobs else None
-    return {
-        "request_id": uuid.uuid4().hex,
-        "source": "latest_cleaner_scan",
-        "created_at": _now_iso(),
-        "latest_scan_at": datetime.fromtimestamp(latest.finished_at, tz=timezone.utc).isoformat() if latest and latest.finished_at else "",
-        "candidate_count": len(deduped),
-        "candidates": list(deduped.values()),
-    }
+
+def _latest_thunderbird_cleaner_request() -> dict:
+    """La demande confirmée dans /cleaner, jamais « tous les candidats des scans » (L4/t5)."""
+    with _thunderbird_cleaner_request_lock:
+        if _thunderbird_cleaner_request is None:
+            raise CleanerError(NO_SELECTION_MESSAGE)
+        return dict(_thunderbird_cleaner_request)
 
 
 def _refresh_payload(job: RefreshJob | None) -> dict:
@@ -1177,7 +1212,30 @@ def create_app() -> FastAPI:
 
     @app.get("/api/thunderbird/cleaner/latest-request")
     def api_thunderbird_cleaner_latest_request():
-        return _latest_thunderbird_cleaner_request()
+        try:
+            return _latest_thunderbird_cleaner_request()
+        except CleanerError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+    @app.post("/api/thunderbird/cleaner/request")
+    def api_thunderbird_cleaner_request(
+        confirm_move: str = Form(""),
+        selected_uid: list[str] = Form(default=[]),
+    ):
+        # L4/t5 : /cleaner confie SA sélection à l'extension. Thunderbird reste ouvert ici
+        # (c'est lui qui déplace), donc pas de confirmation « Thunderbird est fermé ».
+        if confirm_move != "yes":
+            _clear_thunderbird_cleaner_request()
+            raise HTTPException(status_code=400, detail="Confirmation obligatoire avant de confier la sélection à l'extension.")
+        try:
+            request = _confirm_thunderbird_cleaner_request(selected_uid)
+        except CleanerError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        return {
+            "request_id": request["request_id"],
+            "candidate_count": request["candidate_count"],
+            "created_at": request["created_at"],
+        }
 
     @app.post("/offers/reanalyze/start")
     def start_offer_reanalysis():
@@ -1453,6 +1511,8 @@ def create_app() -> FastAPI:
         )
         with _cleaner_jobs_lock:
             _cleaner_jobs[job.id] = job
+        # L4/t5 : un nouveau scan remet la sélection en jeu, la demande confiée à l'extension tombe.
+        _clear_thunderbird_cleaner_request()
 
         def run_job() -> None:
             def progress(report: CleanerReport, mailbox: str) -> None:

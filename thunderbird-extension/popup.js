@@ -93,7 +93,7 @@ trashCleanerButton.addEventListener("click", async () => {
 });
 
 trashJobMailCleanerButton.addEventListener("click", async () => {
-  const ok = window.confirm("Envoyer a la corbeille les candidats du dernier scan JobMail ?");
+  const ok = window.confirm("Envoyer à la corbeille les mails sélectionnés et confirmés dans l'écran /cleaner de JobMail ?");
   if (!ok) {
     return;
   }

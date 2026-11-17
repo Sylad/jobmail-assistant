@@ -55,7 +55,7 @@ lots:
       - { id: t2, title: "Sujets en UTF-8 non encodé affichés avec des caractères de remplacement (_decode_hdr, jobmail/mail/thunderbird.py)", status: todo }
       - { id: t3, title: Liste des candidats repliable ou paginée au téléphone (≈ 12 000 px de haut à 390 px), status: todo }
       - { id: t4, title: "Message de confirmation manquante affiché près du bouton Déplacer, pas en haut de l'écran", status: todo }
-      - { id: t5, title: "Extension Thunderbird « Corbeille scan JobMail » : latest-request (app.py:411) et background.js:345 envoient à la corbeille TOUS les candidats des scans en mémoire, exclusions ignorées — n'envoyer que la sélection confirmée (revue L4 du 17-11, antérieur au lot)", status: todo }
+      - { id: t5, title: "Extension Thunderbird « Corbeille scan JobMail » : latest-request (app.py:411) et background.js:345 envoient à la corbeille TOUS les candidats des scans en mémoire, exclusions ignorées — n'envoyer que la sélection confirmée (revue L4 du 17-11, antérieur au lot)", status: done }
     review: { date: 2026-11-17, verdict: "conforme : une sélection absente, vide ou faite de blancs est refusée en 400 sur /start, l'endpoint synchrone et move-to-delete IMAP, pour les 4 phases ; regex bornée au scan ; 88 pytest + 23 node, 30 rouges sur l'ancien app.py ; t1 corrigé", commit: 9c78fbe006b94117bb01398b89e7f007752686e2 }
     ux: { date: 2026-11-17, verdict: "conforme (lead, capture 390 px regardée) : écran lisible, explications et confirmations visibles, aucun débordement ; 4 écarts en t1-t4" }
   - id: L5

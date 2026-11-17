@@ -58,6 +58,15 @@ export function countPlannedMoves(
   return planPhaseMoves(order, results, selections).reduce((sum, move) => sum + move.uids.length, 0);
 }
 
+/** UID confiés à l'extension Thunderbird (t5) : la même sélection que le déplacement, à plat. */
+export function plannedMoveUids(
+  order: readonly PhaseSource[],
+  results: Record<PhaseSource, CoreResult | null>,
+  selections: Record<PhaseSource, readonly string[]>,
+): string[] {
+  return planPhaseMoves(order, results, selections).flatMap((move) => move.uids);
+}
+
 /** Après le scan complet : le panneau, figé sur la dernière phase, se retire quand les quatre
  * phases sont terminées (les cartes de phase portent alors les comptes). */
 export function scanPanelVisibleAfterFullScan(

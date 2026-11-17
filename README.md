@@ -353,8 +353,11 @@ local `.xpi` during development. It is deliberately thin:
 - imports unread recent mails manually or on a timer;
 - reads cleaner configuration from `/cleaner/state`;
 - can run a lightweight cleaner scan from Thunderbird Inbox folders;
-- can execute the latest JobMail cleaner report through
-  `/api/thunderbird/cleaner/latest-request`;
+- can move the selection confirmed in `/cleaner` ("Confier la sélection à
+  l'extension Thunderbird", `POST /api/thunderbird/cleaner/request`), read
+  through `/api/thunderbird/cleaner/latest-request`: only the mails named by
+  that confirmed selection, never every scan candidate; no confirmed selection
+  → 400 and nothing moves; the request is single-use and a new scan cancels it;
 - moves messages via Thunderbird's `messages.delete(..., deletePermanently:
   false)` API, so the account's trash behavior is honored.
 

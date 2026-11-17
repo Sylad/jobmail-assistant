@@ -341,6 +341,11 @@ async function trashCleanerCandidates() {
   return { moved_count: ids.length };
 }
 
+// L4/t5 : ne part a la corbeille que la selection confirmee dans l'ecran /cleaner de JobMail.
+// Sans selection confirmee (400 du serveur) ou devant toute autre reponse, rien n'est deplace.
+const NO_CONFIRMED_SELECTION =
+  "Aucune sélection confirmée dans JobMail : dans /cleaner, coche les mails puis « Confier la sélection à l'extension Thunderbird ».";
+
 async function trashJobMailCleanerRequest() {
   const request = await getLatestCleanerRequest();
   const resolution = await resolveCleanerRequestMessageIds(request.candidates || []);
@@ -361,6 +366,7 @@ async function trashJobMailCleanerRequest() {
     isUserAction: true,
   });
   await reportBridgeEvent("cleaner_move", {
+    request_id: request.request_id,
     requested_count: request.candidate_count || 0,
     resolved_count: ids.length,
     moved_count: ids.length,
@@ -380,10 +386,17 @@ async function getLatestCleanerRequest() {
   const response = await fetch(`${endpoint}/api/thunderbird/cleaner/latest-request`, {
     headers: { "Accept": "application/json" },
   });
+  if (response.status === 400) {
+    throw new Error(NO_CONFIRMED_SELECTION);
+  }
   if (!response.ok) {
     throw new Error(`Demande cleaner JobMail indisponible (${response.status})`);
   }
-  return response.json();
+  const request = await response.json();
+  if (request?.source !== "confirmed_selection" || !request.request_id || !Array.isArray(request.candidates)) {
+    throw new Error(NO_CONFIRMED_SELECTION);
+  }
+  return request;
 }
 
 async function resolveCleanerRequestMessageIds(candidates) {

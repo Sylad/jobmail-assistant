@@ -25,10 +25,13 @@ propres API, JobMail decide quoi importer ou nettoyer.
    candidats, puis `Corbeille candidats` demande confirmation et laisse
    Thunderbird effectuer le deplacement. Le nettoyage n'est jamais automatique ;
    l'anciennete et la limite de scan viennent de la configuration JobMail.
-6. Si le scan a deja ete lance dans l'interface JobMail, utiliser
-   `Corbeille scan JobMail`. L'extension recupere le dernier rapport cleaner,
-   retrouve les messages dans Thunderbird par `Message-Id`, puis deplace ceux
-   qui sont resolus.
+6. Si le scan a deja ete lance dans l'interface JobMail : dans `/cleaner`,
+   cocher les mails voulus, cocher `Rapport relu`, puis cliquer
+   `Confier la sélection à l'extension Thunderbird`. Ensuite seulement,
+   `Corbeille scan JobMail` recupere cette selection confirmee, retrouve les
+   messages dans Thunderbird par `Message-Id`, puis deplace ceux qui sont
+   resolus. Sans selection confirmee, le bouton ne deplace rien. La demande
+   sert une seule fois ; un nouveau scan l'annule.
 
 ## Intention
 
@@ -42,6 +45,9 @@ boites MBOX pendant que Thunderbird les utilise.
   message a ete deplace, supprime ou si le `Message-Id` differe, l'extension le
   signale comme introuvable.
 - `Corbeille candidats` agit sur le dernier scan lance depuis l'extension.
-  `Corbeille scan JobMail` agit sur le dernier scan lance depuis l'interface
-  JobMail.
+  `Corbeille scan JobMail` agit seulement sur la selection confirmee dans
+  l'ecran `/cleaner` de JobMail (jamais sur tous les candidats des scans) ;
+  les exclusions et les cases decochees sont respectees.
+- Ce chemin ne cree pas de sauvegarde `.mbox` : c'est Thunderbird qui deplace
+  vers sa corbeille.
 - Le nettoyage reste toujours manuel et demande confirmation.

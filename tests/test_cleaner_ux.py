@@ -89,3 +89,17 @@ def test_cleaner_component_uses_the_tested_core_logic():
     assert "report.candidates.map((candidate) => candidate.uid)" not in VUE + CORE
     # Le bundle commité suit ces sources.
     assert "cette phase n'a rien à proposer" in BUNDLE
+
+
+def test_extension_handoff_button_sends_the_confirmed_selection_only():
+    # L4/t5 : l'extension Thunderbird ne reçoit que la sélection de l'écran, après « Rapport relu ».
+    start = VUE.index("async function entrustSelectionToExtension")
+    body = VUE[start:VUE.index("function moveFieldsForPhase")]
+    assert "if (!confirmMove.value)" in body
+    assert "plannedMoveUids(phaseOrder, phaseResults, phaseSelections)" in body
+    assert body.index("if (!confirmMove.value)") < body.index("fetch(")
+    assert '"/api/thunderbird/cleaner/request"' in body
+    assert "Confier la sélection à l'extension Thunderbird" in VUE
+    # Le bundle commité est bien reconstruit depuis ces sources.
+    assert "/api/thunderbird/cleaner/request" in BUNDLE
+    assert "Confier la sélection à l'extension Thunderbird" in BUNDLE

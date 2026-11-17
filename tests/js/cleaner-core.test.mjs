@@ -91,3 +91,18 @@ test('message vide : explication propre à « Offres déjà traitées » quand l
   }
   assert.equal(core.emptyCandidatesMessage(null), generic);
 });
+
+test("la sélection confiée à l'extension Thunderbird est exactement celle du déplacement (t5)", () => {
+  const results = {
+    thunderbird: result('thunderbird', [candidate('a', 'x@x.example'), candidate('b', 'y@y.example')]),
+    regex: result('regex', [candidate('b', 'y@y.example'), candidate('c', 'z@z.example')]),
+    parsed_jobs: null,
+    duplicates: result('duplicates', [candidate('d', 'w@w.example')]),
+  };
+  // « a » décoché, « d » exclu : ils ne sont pas confiés ; « b », vu par deux phases, l'est une fois.
+  const selections = { thunderbird: ['b'], regex: ['b', 'c'], parsed_jobs: [], duplicates: [] };
+  assert.deepEqual(core.plannedMoveUids(ORDER, results, selections), ['b', 'c']);
+  assert.equal(core.plannedMoveUids(ORDER, results, selections).length, core.countPlannedMoves(ORDER, results, selections));
+  const none = { thunderbird: [], regex: [], parsed_jobs: [], duplicates: [] };
+  assert.deepEqual(core.plannedMoveUids(ORDER, results, none), []);
+});
