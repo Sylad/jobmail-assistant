@@ -76,6 +76,8 @@ lots:
       - { id: t5, title: "Sous 900 px, l'état du traitement et les connexions disparaissent avec la barre latérale, sans remplaçant (Nielsen 1) : ligne d'état compacte dans la barre du haut ? — à trancher par Sylvain", status: done }
     review: { date: 2026-11-17, verdict: "conforme (correction relue par le lead) : rechargement par l'adresse GET sans fragment, ou la page GET donnée par le serveur après un POST, jamais le renvoi du formulaire ; tests des deux cas", commit: 2e62cd3ca9f2d82b36d87493138d1faa9a45e41e }
     ux: { date: 2026-11-17, verdict: "conforme (lead, capture 390 regardée) : lien actif distinct par la graisse et le trait, navigation lisible ; t1-t5 ouvertes (dont t4 : libellé « Mailbox Cleaner », choix de Sylvain)" }
+    notes:
+      - { date: 2026-11-17, text: "17-11 23:17 : Sylvain tranche t4 — libellé « Nettoyeur de boîte » au lieu de « Mailbox Cleaner »" }
   - id: L6
     title: Page Nouveautés branchée sur cadence news (raf news → page), signature commune des apps
     public: Une page Nouveautés raconte ce qui change dans l'application
