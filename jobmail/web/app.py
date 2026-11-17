@@ -243,6 +243,7 @@ templates.env.globals["static_version"] = str(
             (BASE_DIR / "static" / "assets" / "cleaner.js").stat().st_mtime,
             (BASE_DIR / "static" / "news-core.js").stat().st_mtime,
             (BASE_DIR / "static" / "news.js").stat().st_mtime,
+            (BASE_DIR / "static" / "shell-status.js").stat().st_mtime,
         )
     )
 )
@@ -258,6 +259,8 @@ templates.env.filters["mode_fr"] = lambda v: _MODE_FR.get(str(v), str(v))
 templates.env.filters["contract_fr"] = lambda v: _CONTRACT_FR.get(str(v), str(v))
 # L6 — la pastille du lien Nouveautés a besoin des slugs et dates sur chaque page.
 templates.env.globals["news_index"] = lambda: news_mod.news_index()
+# L5/t1 — l'état du gabarit est fourni à toutes les pages, au même endroit.
+templates.context_processors.append(lambda request: {"shell": _shell_status(get_settings())})
 
 
 @dataclass
@@ -634,6 +637,84 @@ def _llm_provider_available(settings) -> bool:
     except httpx.HTTPError:
         return False
     return True
+
+
+# ── L5 — état commun du gabarit (barre latérale, ligne d'état du téléphone, scrutation) ──
+#
+# Un seul calcul, servi à TOUTES les pages par le processeur de contexte `shell` et en JSON
+# par /api/shell-status (scrutation sans rechargement, static/shell-status.js). Les textes
+# sont rédigés ici : le navigateur ne fait que les recopier, la page et la scrutation ne
+# peuvent donc pas diverger.
+
+_OLLAMA_PROBE_TTL = 20.0  # secondes ; une page ne sonde pas Ollama à chaque rendu
+_OLLAMA_PROBE_TIMEOUT = 0.8
+_ollama_probe_cache: dict = {}
+
+
+def _ollama_reachable(base_url: str) -> bool:
+    now = time.monotonic()
+    cached = _ollama_probe_cache.get(base_url)
+    if cached is not None and now - cached[0] < _OLLAMA_PROBE_TTL:
+        return cached[1]
+    import httpx
+
+    try:
+        httpx.get(f"{base_url.rstrip('/')}/api/tags", timeout=_OLLAMA_PROBE_TIMEOUT).raise_for_status()
+        ok = True
+    except httpx.HTTPError:
+        ok = False
+    _ollama_probe_cache[base_url] = (now, ok)
+    return ok
+
+
+def _ollama_status(settings) -> dict:
+    """État écrit de la connexion Ollama ; `state` choisit la couleur (ok, warn, off)."""
+    if settings.llm_provider != "ollama":
+        return {"state": "off", "label": "Non utilisé", "model": f"Fournisseur : {settings.llm_provider}"}
+    if _ollama_reachable(settings.ollama_base_url):
+        return {"state": "ok", "label": "Joignable", "model": settings.ollama_model}
+    return {"state": "warn", "label": "Injoignable", "model": settings.ollama_model}
+
+
+def _app_job_running() -> tuple[str, int | None, str] | None:
+    """Traitement lancé depuis l'application (analyse ou réanalyse) : (phase, avancement, écoulé)."""
+    refresh, reanalysis = _refresh_job, _reanalysis_job
+    for job, phase in ((refresh, "Analyse des nouveaux mails"), (reanalysis, "Réanalyse des offres")):
+        if job is not None and job.status == "running":
+            elapsed = int(time.time() - job.started_at)
+            progress = None
+            if job is reanalysis and job.total_count:
+                progress = round(job.processed_count / job.total_count * 100)
+            m, s = divmod(elapsed, 60)
+            return phase, progress, f"{m}m{s:02d}s"
+    return None
+
+
+def _shell_status(settings) -> dict:
+    with connect(settings.db_path) as conn:
+        stats = _compute_stats(conn)
+    running, phase, progress, elapsed = stats["is_running"], stats["phase"], stats["progress"], stats["uptime"]
+    app_job = _app_job_running()
+    if not running and app_job is not None:
+        running = True
+        phase, progress, elapsed = app_job
+    emails = stats["emails"]
+    if running:
+        label, detail = "En cours", phase or "Traitement en cours"
+        meta = f"{elapsed} écoulé" if elapsed else ""
+    else:
+        label = "Au repos"
+        detail = f"{emails} mail{'s' if emails > 1 else ''} ingéré{'s' if emails > 1 else ''}"
+        meta = f"Dernière activité : {stats['last_activity']}" if stats["last_activity"] else ""
+    return {
+        "running": running,
+        "label": label,
+        "summary": detail,
+        "meta": meta,
+        "progress": progress if running else None,
+        "ollama": _ollama_status(settings),
+        "imap": {"enabled": bool(settings.imap_enabled), "label": "Activé" if settings.imap_enabled else "Désactivé"},
+    }
 
 
 def _empty_extraction(extraction) -> bool:
@@ -1127,6 +1208,11 @@ def create_app() -> FastAPI:
     def api_status():
         with connect(settings.db_path) as conn:
             return _compute_stats(conn)
+
+    @app.get("/api/shell-status")
+    def api_shell_status():
+        # L5/t2 — scrutée par static/shell-status.js à la place du rechargement de la page.
+        return _shell_status(settings)
 
     @app.get("/api/thunderbird/bridge")
     def api_thunderbird_bridge():

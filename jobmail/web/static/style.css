@@ -248,6 +248,25 @@ h2 { font-size: 1rem; font-weight: 600; margin: 0 0 10px; }
   margin-top: 1px;
 }
 
+/* L5/t1 — couleur du libellé selon l'état (le texte dit l'état ; la couleur n'est qu'un renfort). */
+.sidebar-status-label { color: var(--fg-2); }
+.sidebar-status.is-running .sidebar-status-label { color: var(--ok); }
+
+/* L5/t3 — la couleur de l'icône d'une connexion suit son état écrit. */
+.conn-ok .conn-icon { color: var(--ok); }
+.conn-warn .conn-icon { color: var(--warn); }
+.conn-off .conn-icon { color: var(--fg-mute); }
+.conn-warn .sidebar-connection-sub { color: var(--warn); }
+
+/* L5/t2 — un traitement fini pendant la lecture : proposé, jamais imposé. */
+.shell-done {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--accent-pale);
+}
+.shell-done[hidden], .sidebar-footer-meta[hidden], .pipeline-progress[hidden] { display: none; }
+
 .sidebar-footer-meta {
   margin-top: 6px;
   font-size: 11px;
@@ -1700,6 +1719,24 @@ main.container:focus { outline: none; }
     box-shadow: inset 3px 0 0 var(--accent-light);
   }
   .mobile-nav-item i { font-size: 17px; flex-shrink: 0; }
+  /* L5/t5 — état du traitement et connexions au téléphone (la barre latérale est masquée). */
+  .mobile-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--fg-mute);
+  }
+  .mobile-status .live-dot { margin-top: 5px; }
+  .mobile-status-text { min-width: 0; overflow-wrap: anywhere; }
+  .mobile-status-label { color: var(--fg-2); font-weight: 600; }
+  .mobile-status.is-running .mobile-status-label { color: var(--ok); }
+  .mobile-status-conns { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+  .mobile-status-conns .conn-icon { font-size: 14px; vertical-align: -2px; }
+  .mobile-status-conns .conn-warn { color: var(--warn); }
+  .mobile-status .shell-done { margin-top: 4px; min-height: 24px; }
   /* Pastille posée sur le coin haut-droit du lien : hors du flux, elle ne prend pas de
      place au libellé (0 px de décalage quand elle apparaît). */
   .mobile-nav-item { position: relative; gap: 6px; padding: 6px 8px; }

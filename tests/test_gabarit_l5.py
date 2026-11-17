@@ -1,9 +1,11 @@
 """Revue UX du gabarit commun (L5) : une règle par test, nommée « Rn — … »."""
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from jobmail.web import app as web_app
@@ -58,7 +60,7 @@ def test_R4_connexions_hors_de_la_navigation():
     nav = re.search(r'<nav class="sidebar-nav-group"[^>]*>(.*?)</nav>', html, re.S).group(1)
     assert "Connexions" not in nav and "Ollama" not in nav
     assert re.search(r'<section class="sidebar-nav-group" aria-labelledby="sidebar-connections-title">', html)
-    assert 'class="ti ti-brain" style="color: var(--warn)" aria-hidden="true"' in html
+    assert re.search(r'<section class="sidebar-nav-group"[^>]*>.*?ti-brain.*?</section>', html, re.S)
 
 
 def test_R5_fiche_offre_dans_la_rubrique_sans_etre_la_page():
@@ -83,3 +85,128 @@ def test_R8_textes_du_gabarit_pas_trop_petits():
     assert "font-size: 12px" in _rules(".footer")[0]
     assert "font-size: inherit" in _rules(".footer small")[0]
     assert "font-size: 11px" in _rules(".sidebar-nav-label")[0]
+
+
+# ── L5/t1, t2, t3, t5 : un seul état, le même partout, tenu à jour sans recharger ─────────
+
+PAGES = ("/", "/cleaner", "/nouveautes", "/plan-de-travail", "/offers/9999")
+
+
+def _sidebar_footer(html: str) -> str:
+    return re.search(r'<div class="sidebar-footer">(.*?)</aside>', html, re.S).group(1)
+
+
+def _mobile_status(html: str) -> str:
+    return re.search(r'<div class="mobile-status[^"]*" data-shell-status>(.*?)</header>', html, re.S).group(1)
+
+
+@pytest.fixture(autouse=True)
+def _aucun_traitement(monkeypatch):
+    # Ni job laissé par un autre test, ni `jobmail watch` réel sur la machine.
+    monkeypatch.setattr(web_app, "_refresh_job", None)
+    monkeypatch.setattr(web_app, "_reanalysis_job", None)
+    monkeypatch.setattr(web_app, "_pipeline_process_active", lambda: (False, None))
+    # Réglages partagés : un autre test a pu activer IMAP ou changer de fournisseur.
+    settings = web_app.get_settings()
+    monkeypatch.setattr(settings, "imap_host", "")
+    monkeypatch.setattr(settings, "llm_provider", "mock")
+
+
+@pytest.fixture
+def running_refresh(monkeypatch):
+    job = web_app.RefreshJob(id="test")
+    monkeypatch.setattr(web_app, "_refresh_job", job)
+    return job
+
+
+def test_R9_meme_etat_au_repos_et_bloc_imap_sur_toutes_les_pages():
+    for path in PAGES:
+        html = _page(path)
+        footer = _sidebar_footer(html)
+        assert "Au repos" in footer and re.search(r"\d+ mails? ingérés?", footer), path
+        assert "En cours" not in footer, path
+        assert '<div class="sidebar-connection-label">IMAP</div>' in html, path
+        assert "Désactivé" in html, path
+
+
+def test_R10_traitement_en_cours_vu_sur_toutes_les_pages(running_refresh):
+    for path in PAGES:
+        html = _page(path)
+        assert "En cours" in _sidebar_footer(html), path
+        assert "Au repos" not in _sidebar_footer(html), path
+        assert "Analyse des nouveaux mails" in _mobile_status(html), path
+    status = TestClient(web_app.create_app()).get("/api/shell-status").json()
+    assert status["running"] is True and status["label"] == "En cours"
+    assert status["summary"] == "Analyse des nouveaux mails"
+
+
+def test_R11_reanalyse_en_cours_avec_avancement(monkeypatch):
+    job = web_app.ReanalysisJob(id="r", total_count=4, processed_count=1)
+    monkeypatch.setattr(web_app, "_reanalysis_job", job)
+    html = _page("/plan-de-travail")
+    assert "Réanalyse des offres" in _sidebar_footer(html)
+    assert re.search(r'role="progressbar"[^>]*aria-valuenow="25"', html)
+    assert 'style="width: 25%"' in html
+
+
+def test_R12_pas_de_rechargement_automatique_meme_pendant_un_traitement(running_refresh):
+    for path in PAGES:
+        html = _page(path)
+        assert 'http-equiv="refresh"' not in html, path
+        assert '<script src="/static/shell-status.js' in html, path
+        assert re.search(r'<script type="application/json" id="jm-shell-status">\{.*"running": true', html), path
+
+
+def test_R13_api_et_page_disent_le_meme_etat():
+    client = TestClient(web_app.create_app())
+    status = client.get("/api/shell-status").json()
+    assert set(status) == {"running", "label", "summary", "meta", "progress", "ollama", "imap"}
+    html = client.get("/nouveautes").text
+    embedded = re.search(r'id="jm-shell-status">(.*?)</script>', html).group(1)
+    assert json.loads(embedded) == status
+
+
+@pytest.mark.parametrize(
+    ("provider", "reachable", "state", "label"),
+    [("mock", None, "off", "Non utilisé"), ("ollama", True, "ok", "Joignable"), ("ollama", False, "warn", "Injoignable")],
+)
+def test_R14_couleur_de_l_icone_ollama_suit_l_etat_ecrit(monkeypatch, provider, reachable, state, label):
+    settings = web_app.get_settings()
+    monkeypatch.setattr(settings, "llm_provider", provider)
+    monkeypatch.setattr(web_app, "_ollama_reachable", lambda _url: reachable)
+    html = _page("/cleaner")
+    connections = re.search(r'aria-labelledby="sidebar-connections-title">(.*?)</section>', html, re.S).group(1)
+    assert f'class="sidebar-connection conn-{state}" data-shell-ollama' in connections
+    assert f"<span data-shell-ollama-label>{label}</span>" in connections
+    assert "style=\"color: var(--warn)\"" not in connections
+    assert f'<span class="conn-{state}" data-shell-ollama>' in _mobile_status(html)
+    for cls, var in (("ok", "--ok"), ("warn", "--warn"), ("off", "--fg-mute")):
+        assert f"color: var({var})" in _rules(f".conn-{cls} .conn-icon")[0]
+
+
+def test_R15_sonde_ollama_mise_en_cache(monkeypatch):
+    calls = []
+
+    class _Resp:
+        def raise_for_status(self):
+            return None
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "get", lambda url, timeout: calls.append(url) or _Resp())
+    web_app._ollama_probe_cache.clear()
+    assert web_app._ollama_reachable("http://ollama.test:11434") is True
+    assert web_app._ollama_reachable("http://ollama.test:11434") is True
+    assert calls == ["http://ollama.test:11434/api/tags"]
+    web_app._ollama_probe_cache.clear()
+
+
+def test_R16_etat_et_connexions_au_telephone():
+    html = _page("/plan-de-travail")
+    header = re.search(r'<header class="mobile-bar">(.*?)</header>', html, re.S).group(1)
+    assert "data-shell-status" in header and 'role="status"' in header
+    mobile = _mobile_status(html)
+    assert "Au repos" in mobile and "Ollama : " in mobile and "IMAP : Désactivé" in mobile
+    # Affichée sous 900 px seulement, avec la barre du haut qui la contient.
+    block = re.search(r"@media \(max-width: 900px\) \{\n  \.mobile-bar \{(.*?)\n\}", CSS, re.S).group(1)
+    assert re.search(r"\.mobile-status \{\s*display: flex;", block)

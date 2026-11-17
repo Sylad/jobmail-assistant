@@ -11,9 +11,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css?v={{ static_version }}">
   {% block head_extra %}{% endblock %}
-  {% if stats is defined and stats.is_running %}
-  <meta http-equiv="refresh" content="8">
-  {% endif %}
+  {# L5/t2 — plus de rechargement automatique (WCAG 2.2.1) : static/shell-status.js scrute l'état. #}
 </head>
 <body>
   {# L5 — lien d'évitement (WCAG 2.4.1) : visible seulement au focus clavier. #}
@@ -86,62 +84,36 @@
       <section class="sidebar-nav-group" aria-labelledby="sidebar-connections-title">
         <div class="sidebar-nav-label" id="sidebar-connections-title">Connexions</div>
 
-        <div class="sidebar-connection">
-          <i class="ti ti-brain" style="color: var(--warn)" aria-hidden="true"></i>
+        {# L5/t3 — la couleur de l'icône suit l'état, toujours écrit à côté (Nielsen 1, WCAG 1.4.1). #}
+        <div class="sidebar-connection conn-{{ shell.ollama.state }}" data-shell-ollama>
+          <i class="ti ti-brain conn-icon" aria-hidden="true"></i>
           <div>
             <div class="sidebar-connection-label">Ollama</div>
-            <div class="sidebar-connection-sub">{{ provider | default('–') }}</div>
+            <div class="sidebar-connection-sub"><span data-shell-ollama-label>{{ shell.ollama.label }}</span> · <span data-shell-ollama-detail>{{ shell.ollama.model }}</span></div>
           </div>
         </div>
 
-        {% if imap_enabled is defined %}
-        <div class="sidebar-connection">
-          <i class="ti ti-mail{% if not imap_enabled %}-off{% endif %}"
-             style="color: {% if imap_enabled %}var(--ok){% else %}var(--fg-faint){% endif %}" aria-hidden="true"></i>
+        <div class="sidebar-connection conn-{{ 'ok' if shell.imap.enabled else 'off' }}">
+          <i class="ti ti-mail{% if not shell.imap.enabled %}-off{% endif %} conn-icon" aria-hidden="true"></i>
           <div>
-            {# L5 — désactivé : seule l'icône est grisée ; le texte reste à 7,34:1 (WCAG 1.4.3). #}
-            <div class="sidebar-connection-label" style="color: {% if imap_enabled %}var(--fg-2){% else %}var(--fg-mute){% endif %}">IMAP</div>
-            <div class="sidebar-connection-sub">{{ 'Activé' if imap_enabled else 'Désactivé' }}</div>
+            <div class="sidebar-connection-label">IMAP</div>
+            <div class="sidebar-connection-sub">{{ shell.imap.label }}</div>
           </div>
         </div>
-        {% endif %}
       </section>
       </div>
 
-      {# Footer — status indicator #}
+      {# L5/t1 — un seul état, le même sur toutes les pages (processeur de contexte « shell »). #}
       <div class="sidebar-footer">
-        {% if stats is defined %}
-          {% if stats.is_running %}
-            <div class="sidebar-status">
-              <div class="live-dot"></div>
-              <div>
-                <div class="sidebar-status-label" style="color: var(--ok)">En cours</div>
-                <div class="sidebar-status-detail">{{ stats.phase or 'Pipeline actif' }}</div>
-              </div>
-            </div>
-            {% if stats.uptime %}
-            <div class="sidebar-footer-meta">{{ stats.uptime }} écoulé</div>
-            {% endif %}
-          {% else %}
-            <div class="sidebar-status">
-              <div class="live-dot live-dot-idle"></div>
-              <div>
-                <div class="sidebar-status-label" style="color: var(--ok)">Au repos</div>
-                <div class="sidebar-status-detail">{{ stats.emails }} mails ingérés</div>
-              </div>
-            </div>
-            {% if stats.last_activity %}
-            <div class="sidebar-footer-meta">{{ stats.last_activity }}</div>
-            {% endif %}
-          {% endif %}
-        {% else %}
-          <div class="sidebar-status">
-            <div class="live-dot live-dot-idle"></div>
-            <div>
-              <div class="sidebar-status-label" style="color: var(--fg-mute)">Au repos</div>
-            </div>
+        <div class="sidebar-status{% if shell.running %} is-running{% endif %}" data-shell-status>
+          <div class="live-dot{% if not shell.running %} live-dot-idle{% endif %}" aria-hidden="true"></div>
+          <div role="status">
+            <div class="sidebar-status-label" data-shell-label>{{ shell.label }}</div>
+            <div class="sidebar-status-detail" data-shell-detail>{{ shell.summary }}</div>
           </div>
-        {% endif %}
+        </div>
+        <div class="sidebar-footer-meta" data-shell-meta{% if not shell.meta %} hidden{% endif %}>{{ shell.meta }}</div>
+        <a class="shell-done" href="" data-shell-done hidden>Traitement terminé · recharger la page</a>
       </div>
 
     </aside>
@@ -158,14 +130,25 @@
         <nav class="mobile-nav" aria-label="Navigation principale">
 {{ nav_links('mobile-nav-item') }}
         </nav>
+        {# L5/t5 — sous 900 px, l'état et les connexions tiennent sur une ligne compacte. #}
+        <div class="mobile-status{% if shell.running %} is-running{% endif %}" data-shell-status>
+          <div class="live-dot{% if not shell.running %} live-dot-idle{% endif %}" aria-hidden="true"></div>
+          <div class="mobile-status-text">
+            <div role="status"><strong class="mobile-status-label" data-shell-label>{{ shell.label }}</strong> · <span data-shell-detail>{{ shell.summary }}</span></div>
+            <div class="mobile-status-conns">
+              <span class="conn-{{ shell.ollama.state }}" data-shell-ollama><i class="ti ti-brain conn-icon" aria-hidden="true"></i> Ollama : <span data-shell-ollama-label>{{ shell.ollama.label }}</span></span>
+              <span class="conn-{{ 'ok' if shell.imap.enabled else 'off' }}"><i class="ti ti-mail{% if not shell.imap.enabled %}-off{% endif %} conn-icon" aria-hidden="true"></i> IMAP : {{ shell.imap.label }}</span>
+            </div>
+            <a class="shell-done" href="" data-shell-done hidden>Traitement terminé · recharger la page</a>
+          </div>
+        </div>
       </header>
 
       {# Pipeline progress bar #}
-      {% if stats is defined and stats.is_running and stats.progress is not none %}
-      <div class="pipeline-progress">
-        <div class="pipeline-progress-fill" style="width: {{ stats.progress }}%"></div>
+      <div class="pipeline-progress" data-shell-progress role="progressbar" aria-label="Avancement du traitement"
+           aria-valuemin="0" aria-valuemax="100"{% if shell.progress is not none %} aria-valuenow="{{ shell.progress }}"{% else %} hidden{% endif %}>
+        <div class="pipeline-progress-fill" style="width: {{ shell.progress or 0 }}%"></div>
       </div>
-      {% endif %}
 
       <main class="container" id="contenu" tabindex="-1">
         {% block content %}{% endblock %}
@@ -250,6 +233,10 @@
   <script type="application/json" id="jm-news-index">{{ news_index() | tojson }}</script>
   <script src="/static/news-core.js?v={{ static_version }}"></script>
   <script src="/static/news.js?v={{ static_version }}"></script>
+
+  {# L5/t2 — état initial du gabarit, puis scrutation de /api/shell-status (pas de rechargement). #}
+  <script type="application/json" id="jm-shell-status">{{ shell | tojson }}</script>
+  <script src="/static/shell-status.js?v={{ static_version }}"></script>
 
   {% block scripts %}{% endblock %}
 </body>
