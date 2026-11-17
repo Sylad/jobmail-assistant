@@ -74,7 +74,7 @@ lots:
       - { id: t3, title: "Icône Ollama toujours ambre (couleur d'avertissement) alors qu'aucun état n'est dit : couleur neutre ou état réel écrit (Nielsen 1) — quel état afficher, à trancher par Sylvain", status: done }
       - { id: t4, title: "Libellé anglais « Mailbox Cleaner » (navigation, titre, h1 de /cleaner) : nom de produit ou « Nettoyage des mails » ? (Nielsen 2, WCAG 3.1.2) — à trancher par Sylvain", status: todo }
       - { id: t5, title: "Sous 900 px, l'état du traitement et les connexions disparaissent avec la barre latérale, sans remplaçant (Nielsen 1) : ligne d'état compacte dans la barre du haut ? — à trancher par Sylvain", status: done }
-    review: { date: 2026-11-17, verdict: "conforme : contrastes mesurés, tests/test_gabarit_l5.py (8 règles), aucune donnée personnelle, plan valide ; notes : docs.sync signale le README sans élément concerné, pas de titre public", commit: cfd9437ae31dbf86e0df194f105562fee60c1e5f }
+    review: { date: 2026-11-17, verdict: "non conforme (t1-t5) : 1 majeur — le lien « Traitement terminé · recharger la page » donne 405 sur les pages rendues par POST et ne fait rien sur une adresse avec #fragment ; le reste conforme", commit: 4c528279b109721e18c8700a9d4a98c1c274b136 }
     ux: { date: 2026-11-17, verdict: "conforme (lead, capture 390 regardée) : lien actif distinct par la graisse et le trait, navigation lisible ; t1-t5 ouvertes (dont t4 : libellé « Mailbox Cleaner », choix de Sylvain)" }
   - id: L6
     title: Page Nouveautés branchée sur cadence news (raf news → page), signature commune des apps
