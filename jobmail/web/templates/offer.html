@@ -2,7 +2,7 @@
 {% block title %}{{ offer.extraction.title or offer.subject }} — JobMail{% endblock %}
 {% block content %}
 
-<a href="/" class="back">Retour au dashboard</a>
+<a href="/" class="back"><i class="ti ti-arrow-left" aria-hidden="true"></i> Retour au tableau de bord</a>
 
 {# ── Page title & meta ── #}
 <h1 class="offer-page-title">{{ offer.extraction.title or offer.subject }}</h1>
@@ -12,11 +12,11 @@
   {% if offer.is_esn %}<span class="chip chip-esn company-chip" title="ESN/presta : {{ offer.esn_match }}">ESN</span>{% endif %}
   {% if offer.extraction.location %}
   <span class="offer-meta-sep">·</span>
-  <span class="offer-meta-loc"><i class="ti ti-map-pin" style="font-size:12px; vertical-align:-1px"></i> {{ offer.extraction.location }}</span>
+  <span class="offer-meta-loc"><i class="ti ti-map-pin" aria-hidden="true" style="font-size:12px; vertical-align:-1px"></i> {{ offer.extraction.location }}</span>
   {% endif %}
   <span class="offer-meta-sep">·</span>
   <span class="status status-{{ offer.status.value }}">
-    {% if offer.status.value == 'interesting' %}★ {% endif %}{{ offer.status.value }}
+    {% if offer.status.value == 'interesting' %}★ {% endif %}{{ offer.status.value | status_fr }}
   </span>
 </div>
 
@@ -24,118 +24,28 @@
 <div class="offer-actions-row">
   {% if offer_links %}
   <a class="btn btn-primary btn-sm" href="{{ offer_links[0].url }}" target="_blank" rel="noopener noreferrer">
-    <i class="ti ti-external-link" style="font-size:13px"></i> Voir l'offre
+    <i class="ti ti-external-link" aria-hidden="true" style="font-size:13px"></i> Voir l'offre
   </a>
   {% endif %}
   {% if recruiter_email %}
   <a class="btn btn-sm" href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}">
-    <i class="ti ti-mail-forward" style="font-size:13px"></i> Répondre par mail
+    <i class="ti ti-mail-forward" aria-hidden="true" style="font-size:13px"></i> Répondre par mail
   </a>
   <a class="btn btn-sm btn-ghost"
      href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}&body={{ 'Bonjour,%0A%0AVotre offre m%27int%C3%A9resse. Je suis disponible pour un %C3%A9change.%0A%0ACordialement,%0ASylvain Ladoire' | safe }}">
-    <i class="ti ti-template" style="font-size:13px"></i> Réponse template
+    <i class="ti ti-template" aria-hidden="true" style="font-size:13px"></i> Réponse template
   </a>
-  <button type="button" class="btn btn-sm btn-ghost"
-          onclick="navigator.clipboard.writeText('{{ recruiter_email }}'); this.innerHTML='<i class=\'ti ti-check\' style=\'font-size:13px\'></i> Copié'">
-    <i class="ti ti-copy" style="font-size:13px"></i> Copier l'email
+  <button type="button" class="btn btn-sm btn-ghost" id="copy-email" data-email="{{ recruiter_email }}">
+    <i class="ti ti-copy" aria-hidden="true" style="font-size:13px"></i> <span class="copy-label">Copier l'email</span>
   </button>
+  <span id="copy-email-status" class="copy-status" role="status" aria-live="polite"></span>
   {% endif %}
 </div>
 
 {# ── Two-column layout ── #}
 <div class="offer-detail-layout offer-detail">
 
-  {# ── Left: main content ── #}
-  <div class="offer-main">
-
-    {# Liens de l'offre #}
-    {% if offer_links %}
-    <div class="offer-card">
-      <div class="offer-card-header">
-        <h2>Liens de l'offre</h2>
-      </div>
-      <div class="offer-card-body">
-        <div class="link-actions">
-          {% for link in offer_links %}
-          <a class="btn btn-sm btn-ghost offer-link" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
-            <i class="ti ti-external-link" style="font-size:12px"></i> {{ link.label }}
-          </a>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
-    {# Informations #}
-    <div class="offer-card">
-      <div class="offer-card-header">
-        <h2>Informations</h2>
-      </div>
-      <div class="offer-card-body">
-        <dl class="grid">
-          <dt>Recruteur</dt><dd>{{ offer.extraction.recruiter or offer.sender }}</dd>
-          <dt>Mode</dt><dd>{{ offer.extraction.work_mode.value }}</dd>
-          <dt>Contrat</dt><dd>{{ offer.extraction.contract_type.value }}</dd>
-          <dt>Anglais requis</dt><dd>{{ 'oui' if offer.extraction.english_required else 'non' }}</dd>
-          <dt>Reçu le</dt><dd>{{ offer.received_at.strftime('%Y-%m-%d %H:%M') }}</dd>
-          <dt>Sujet</dt><dd>{{ offer.subject }}</dd>
-        </dl>
-      </div>
-    </div>
-
-    {# Résumé LLM #}
-    <div class="offer-card offer-card-llm">
-      <div class="offer-card-header">
-        <h2><i class="ti ti-robot" style="color:var(--accent-light); margin-right:6px; vertical-align:-2px"></i>Résumé LLM</h2>
-      </div>
-      <div class="offer-card-body" style="position:relative; z-index:1">
-        <p style="margin:0; font-size:14px; line-height:1.7; color:var(--fg-2)">
-          {{ offer.extraction.summary or '(aucun résumé)' }}
-        </p>
-      </div>
-    </div>
-
-    {# Extrait du mail #}
-    {% if offer.body_text %}
-    <div class="offer-card">
-      <div class="offer-card-header">
-        <h2>Extrait du mail</h2>
-      </div>
-      <div class="offer-card-body">
-        <details {% if offer.extraction.relevance_score >= 7 %}open{% endif %}>
-          <summary>
-            {{ 'Masquer' if offer.extraction.relevance_score >= 7 else 'Afficher' }}
-            ({{ offer.body_text | length }} caractères)
-          </summary>
-          <pre class="mail-body" style="margin-top:10px">{{ offer.body_text[:3000] }}{% if offer.body_text | length > 3000 %}
-
-[…tronqué à 3000 chars…]{% endif %}</pre>
-        </details>
-      </div>
-    </div>
-    {% endif %}
-
-    {# Statut #}
-    <div class="offer-card">
-      <div class="offer-card-header">
-        <h2>Statut</h2>
-      </div>
-      <div class="offer-card-body">
-        <form method="post" action="/offers/{{ offer.id }}/status" class="status-form">
-          <input type="hidden" name="return_to" value="/offers/{{ offer.id }}">
-          {% for s in all_statuses %}
-          <button type="submit" name="status" value="{{ s }}"
-                  class="btn status-btn status-{{ s }} {% if s == offer.status.value %}active{% endif %}">
-            {% if s == 'interesting' %}★ {% endif %}{{ s }}
-          </button>
-          {% endfor %}
-        </form>
-      </div>
-    </div>
-
-  </div>{# /offer-main #}
-
-  {# ── Right: sidebar ── #}
+  {# ── Score et technos : avant le contenu dans le DOM (lu en premier au téléphone et au clavier), à droite sur grand écran ── #}
   <aside class="offer-sidebar-sticky">
 
     {# Score card #}
@@ -160,7 +70,7 @@
           {% elif offer.extraction.relevance_score >= 6 %}
           <span class="score-badge score-badge-warn">Pertinence moyenne</span>
           {% else %}
-          <span class="score-badge" style="background:var(--surface-hover);color:var(--fg-faint);border:1px solid var(--border)">Faible pertinence</span>
+          <span class="score-badge" style="background:var(--surface-hover);color:var(--fg-mute);border:1px solid var(--border)">Faible pertinence</span>
           {% endif %}
         </div>
       </div>
@@ -170,7 +80,7 @@
     {% if offer.extraction.technos %}
     <div class="offer-card">
       <div class="offer-card-header">
-        <h2><i class="ti ti-cpu" style="color:var(--accent-light); margin-right:6px; vertical-align:-2px"></i>Technos détectées</h2>
+        <h2><i class="ti ti-cpu" aria-hidden="true" style="color:var(--accent-light); margin-right:6px; vertical-align:-2px"></i>Technos détectées</h2>
       </div>
       <div class="techno-tags" style="padding:14px 18px">
         {% for t in offer.extraction.technos %}
@@ -180,19 +90,119 @@
     </div>
     {% endif %}
 
-    {# Navigation #}
+  </aside>
+
+  {# ── Left: main content ── #}
+  <div class="offer-main">
+
+    {# Liens de l'offre #}
+    {% if offer_links %}
     <div class="offer-card">
+      <div class="offer-card-header">
+        <h2>Liens de l'offre</h2>
+      </div>
       <div class="offer-card-body">
-        <div class="offer-nav">
-          <a href="/" class="btn btn-sm btn-ghost" style="flex:1; justify-content:center">
-            <i class="ti ti-arrow-left" style="font-size:13px"></i> Dashboard
+        <div class="link-actions">
+          {% for link in offer_links %}
+          <a class="btn btn-sm btn-ghost offer-link" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
+            <i class="ti ti-external-link" aria-hidden="true" style="font-size:12px"></i> {{ link.label }}
           </a>
+          {% endfor %}
         </div>
       </div>
     </div>
+    {% endif %}
 
-  </aside>
+    {# Informations #}
+    <div class="offer-card">
+      <div class="offer-card-header">
+        <h2>Informations</h2>
+      </div>
+      <div class="offer-card-body">
+        <dl class="grid">
+          <dt>Recruteur</dt><dd>{{ offer.extraction.recruiter or offer.sender }}</dd>
+          <dt>Mode</dt><dd>{{ offer.extraction.work_mode.value | mode_fr }}</dd>
+          <dt>Contrat</dt><dd>{{ offer.extraction.contract_type.value | contract_fr }}</dd>
+          <dt>Anglais requis</dt><dd>{{ 'oui' if offer.extraction.english_required else 'non' }}</dd>
+          <dt>Reçu le</dt><dd><time datetime="{{ offer.received_at.isoformat() }}">{{ offer.received_at.strftime('%d/%m/%Y à %H:%M') }}</time></dd>
+          <dt>Sujet</dt><dd>{{ offer.subject }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {# Résumé LLM #}
+    <div class="offer-card offer-card-llm">
+      <div class="offer-card-header">
+        <h2><i class="ti ti-robot" aria-hidden="true" style="color:var(--accent-light); margin-right:6px; vertical-align:-2px"></i>Résumé LLM</h2>
+      </div>
+      <div class="offer-card-body" style="position:relative; z-index:1">
+        <p style="margin:0; font-size:14px; line-height:1.7; color:var(--fg-2)">
+          {{ offer.extraction.summary or '(aucun résumé)' }}
+        </p>
+      </div>
+    </div>
+
+    {# Extrait du mail #}
+    {% if offer.body_text %}
+    <div class="offer-card">
+      <div class="offer-card-header">
+        <h2>Extrait du mail</h2>
+      </div>
+      <div class="offer-card-body">
+        <details {% if offer.extraction.relevance_score >= 7 %}open{% endif %}>
+          <summary>Texte du mail ({{ offer.body_text | length }} caractères)</summary>
+          <pre class="mail-body" style="margin-top:10px">{{ offer.body_text[:3000] }}{% if offer.body_text | length > 3000 %}
+
+[…tronqué à 3000 chars…]{% endif %}</pre>
+        </details>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Statut #}
+    <div class="offer-card">
+      <div class="offer-card-header">
+        <h2>Statut</h2>
+      </div>
+      <div class="offer-card-body">
+        <form method="post" action="/offers/{{ offer.id }}/status" class="status-form">
+          <input type="hidden" name="return_to" value="/offers/{{ offer.id }}">
+          {% for s in all_statuses %}
+          {% set current = s == offer.status.value %}
+          <button type="submit" name="status" value="{{ s }}"
+                  aria-pressed="{{ 'true' if current else 'false' }}"
+                  class="btn status-btn status-{{ s }}{% if current %} active{% endif %}">
+            {% if current %}<i class="ti ti-check" aria-hidden="true" style="font-size:13px"></i> {% endif %}{% if s == 'interesting' %}★ {% endif %}{{ s | status_fr }}{% if current %}<span class="sr-only"> (statut actuel)</span>{% endif %}
+          </button>
+          {% endfor %}
+        </form>
+      </div>
+    </div>
+
+  </div>{# /offer-main #}
+
 
 </div>{# /offer-detail-layout #}
 
+<script>
+  (function () {
+    var btn = document.getElementById("copy-email");
+    if (!btn) return;
+    var label = btn.querySelector(".copy-label");
+    var status = document.getElementById("copy-email-status");
+    btn.addEventListener("click", function () {
+      var email = btn.dataset.email;
+      function done(ok) {
+        status.textContent = ok ? "Adresse copiée" : "Copie impossible : " + email;
+        label.textContent = ok ? "Copié" : "Copier l'email";
+        if (ok) setTimeout(function () { label.textContent = "Copier l'email"; status.textContent = ""; }, 3000);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(email).then(function () { done(true); }, function () { done(false); });
+      } else {
+        done(false);
+      }
+    });
+  })();
+</script>
 {% endblock %}
