@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import html
 from datetime import datetime, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 
 from jobmail.cleaner import CleanerBackupCleanup, CleanerBackupSummary, CleanerTempCleanup, CleanerTempSummary
@@ -620,6 +622,7 @@ def test_cleaner_regex_move_reuses_finished_scan_job(monkeypatch, tmp_path):
         data={
             "source": "regex",
             "regex_job_id": "job-123",
+            "selected_uid": "mbox:pop.example:123",
             "sender_regex_rule": ["amazon", "googleplay"],
             "subject_regex_rule": ["promo", ""],
             "confirm_move": "yes",
@@ -681,6 +684,7 @@ def test_cleaner_regex_move_progress_endpoints(monkeypatch, tmp_path):
         data={
             "source": "regex",
             "regex_job_id": "scan-job-456",
+            "selected_uid": "mbox:pop.example:456",
             "confirm_move": "yes",
             "confirm_thunderbird_closed": "yes",
         },
@@ -831,3 +835,155 @@ def test_cleaner_regex_move_requires_finished_scan_job(monkeypatch, tmp_path):
 
     assert resp.status_code == 400
     assert "Relance un scan regex" in resp.text
+
+
+# --- Sélection vide ou absente : rien n'est déplacé, quelle que soit la phase (L4, bloquant serveur) ---
+
+_MOVE_SERVICES = (
+    "move_thunderbird_to_trash",
+    "move_scanned_regex_uids_to_trash",
+    "move_parsed_jobs_to_trash",
+    "move_thunderbird_duplicates_to_trash",
+    "move_to_delete",
+)
+_PHASE_SOURCES = ("thunderbird", "regex", "parsed_jobs", "duplicates")
+# Absente, vide, ou faite seulement de blancs : trois façons de ne rien sélectionner.
+_EMPTY_SELECTIONS = ({}, {"selected_uid": ""}, {"selected_uid": ["", "  "]})
+_EMPTY_IDS = ["absente", "vide", "blancs"]
+_NOTHING_MOVED = "Aucun mail sélectionné : rien n'a été déplacé."
+
+
+def _page_text(resp) -> str:
+    # Le gabarit échappe l'apostrophe du message ; l'endpoint /start, lui, répond en JSON.
+    return html.unescape(resp.text)
+
+
+def _forbid_every_move(monkeypatch):
+    def fail_move(*args, **kwargs):
+        raise AssertionError("aucun déplacement ne doit partir sans sélection")
+
+    for name in _MOVE_SERVICES:
+        monkeypatch.setattr(web_app, name, fail_move)
+
+
+def _finished_regex_scan(job_id: str) -> None:
+    job = web_app.CleanerScanJob(
+        id=job_id,
+        status="done",
+        scanned_count=12,
+        candidate_count=2,
+        report=CleanerReport(
+            scanned_count=12,
+            candidates=[
+                CleanerCandidate(
+                    uid=uid,
+                    received_at=datetime(2026, 5, 1, tzinfo=timezone.utc),
+                    sender="amazon@example.com",
+                    subject="Promo",
+                    reason="regle 1",
+                    source="mbox",
+                )
+                for uid in ("mbox:pop.example:456", "mbox:pop.example:789")
+            ],
+        ),
+        min_age_days=9,
+        max_mails=0,
+        regex_rules=[("amazon", "promo")],
+    )
+    with web_app._cleaner_jobs_lock:
+        web_app._cleaner_jobs[job.id] = job
+
+
+def _move_fields(source: str, selection: dict, job_id: str) -> dict:
+    fields = {"source": source, "confirm_move": "yes", "confirm_thunderbird_closed": "yes", **selection}
+    if source == "regex":
+        fields["regex_job_id"] = job_id
+    return fields
+
+
+@pytest.mark.parametrize("selection", _EMPTY_SELECTIONS, ids=_EMPTY_IDS)
+@pytest.mark.parametrize("source", _PHASE_SOURCES)
+def test_cleaner_move_start_with_empty_selection_moves_nothing(monkeypatch, tmp_path, source, selection):
+    _forbid_every_move(monkeypatch)
+    client = _client(monkeypatch, tmp_path)
+    _finished_regex_scan("scan-empty-start")
+    with web_app._cleaner_move_jobs_lock:
+        jobs_before = set(web_app._cleaner_move_jobs)
+
+    resp = client.post(
+        "/cleaner/move-thunderbird-to-trash/start",
+        data=_move_fields(source, selection, "scan-empty-start"),
+    )
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == _NOTHING_MOVED
+    with web_app._cleaner_move_jobs_lock:
+        assert set(web_app._cleaner_move_jobs) == jobs_before  # 0 déplacement lancé
+
+
+@pytest.mark.parametrize("selection", _EMPTY_SELECTIONS, ids=_EMPTY_IDS)
+@pytest.mark.parametrize("source", _PHASE_SOURCES)
+def test_cleaner_sync_move_with_empty_selection_moves_nothing(monkeypatch, tmp_path, source, selection):
+    _forbid_every_move(monkeypatch)
+    client = _client(monkeypatch, tmp_path)
+    _finished_regex_scan("scan-empty-sync")
+
+    resp = client.post(
+        "/cleaner/move-thunderbird-to-trash",
+        data=_move_fields(source, selection, "scan-empty-sync"),
+    )
+
+    assert resp.status_code == 400
+    assert _NOTHING_MOVED in _page_text(resp)
+    assert "mail(s) déplacé(s)" not in _page_text(resp)
+
+
+@pytest.mark.parametrize("selection", _EMPTY_SELECTIONS, ids=_EMPTY_IDS)
+def test_cleaner_imap_move_with_empty_selection_moves_nothing(monkeypatch, tmp_path, selection):
+    _forbid_every_move(monkeypatch)
+    client = _client(monkeypatch, tmp_path)
+
+    resp = client.post("/cleaner/move-to-delete", data={"confirm_move": "yes", **selection})
+
+    assert resp.status_code == 400
+    assert _NOTHING_MOVED in _page_text(resp)
+    assert "mail(s) déplacé(s)" not in _page_text(resp)
+
+
+@pytest.mark.parametrize(
+    "endpoint", ["/cleaner/move-thunderbird-to-trash/start", "/cleaner/move-thunderbird-to-trash"]
+)
+def test_cleaner_regex_move_ignores_uids_outside_the_scan(monkeypatch, tmp_path, endpoint):
+    # Une sélection qui ne recoupe pas le scan ne retombe pas sur « tout le scan ».
+    _forbid_every_move(monkeypatch)
+    client = _client(monkeypatch, tmp_path)
+    _finished_regex_scan("scan-outside")
+
+    resp = client.post(
+        endpoint,
+        data=_move_fields("regex", {"selected_uid": "mbox:pop.example:999"}, "scan-outside"),
+    )
+
+    assert resp.status_code == 400
+    assert "rien n'a été déplacé" in _page_text(resp)
+
+
+def test_cleaner_sync_regex_move_filters_selected_uids(monkeypatch, tmp_path):
+    # L'endpoint synchrone suit la sélection, comme /start : il ne déplace plus tout le scan.
+    calls = {}
+
+    def fake_move(settings, *, uids, min_age_days):
+        calls["uids"] = uids
+        return len(uids), CleanerReport(scanned_count=12, candidates=[])
+
+    monkeypatch.setattr(web_app, "move_scanned_regex_uids_to_trash", fake_move)
+    client = _client(monkeypatch, tmp_path)
+    _finished_regex_scan("scan-sync-selected")
+
+    resp = client.post(
+        "/cleaner/move-thunderbird-to-trash",
+        data=_move_fields("regex", {"selected_uid": "mbox:pop.example:789"}, "scan-sync-selected"),
+    )
+
+    assert resp.status_code == 200
+    assert calls == {"uids": ["mbox:pop.example:789"]}

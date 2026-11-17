@@ -888,6 +888,24 @@ def _move_job_payload(job: CleanerMoveJob) -> dict:
     }
 
 
+NO_SELECTION_MESSAGE = "Aucun mail sélectionné : rien n'a été déplacé."
+
+
+def _requested_move_uids(selected_uid: list[str], scanned_uids: list[str] | None = None) -> list[str]:
+    """UID à déplacer : uniquement ceux que la requête nomme, jamais « tout » par défaut.
+
+    Une sélection absente, vide ou faite de blancs ne déplace rien (CleanerError), pour toutes
+    les phases. Pour la phase regex, `scanned_uids` borne la sélection aux candidats du scan.
+    """
+    requested = [uid for uid in selected_uid if uid.strip()]
+    if scanned_uids is not None:
+        wanted = set(requested)
+        requested = [uid for uid in scanned_uids if uid in wanted]
+    if not requested:
+        raise CleanerError(NO_SELECTION_MESSAGE)
+    return requested
+
+
 def _regex_job_move_context(job_id: str) -> tuple[list[str], CleanerReport, list[tuple[str, str]], int, int] | None:
     with _cleaner_jobs_lock:
         job = _cleaner_jobs.get(job_id)
@@ -1655,7 +1673,7 @@ def create_app() -> FastAPI:
         try:
             moved_count, report = move_to_delete(
                 settings,
-                uids=selected_uid,
+                uids=_requested_move_uids(selected_uid),
                 min_age_days=min_age_days,
                 max_mails=max_mails,
             )
@@ -1707,11 +1725,10 @@ def create_app() -> FastAPI:
         if confirm_move != "yes" or confirm_thunderbird_closed != "yes":
             raise HTTPException(status_code=400, detail="Confirmation obligatoire et Thunderbird doit etre ferme avant l'action.")
 
-        selected_uids = list(selected_uid)
+        scanned_uids: list[str] | None = None
         scan_report: CleanerReport | None = None
         regex_rules: list[tuple[str, str]] = []
         if source == "regex":
-            requested_uids = set(selected_uids)
             job_context = _regex_job_move_context(regex_job_id) if regex_job_id else None
             if job_context is None:
                 raise HTTPException(
@@ -1719,11 +1736,12 @@ def create_app() -> FastAPI:
                     detail="Le resultat du scan n'est plus disponible. Relance un scan regex avant de deplacer.",
                 )
             scanned_uids, scan_report, regex_rules, min_age_days, max_mails = job_context
-            selected_uids = [uid for uid in scanned_uids if not requested_uids or uid in requested_uids]
         elif source not in {"thunderbird", "parsed_jobs", "duplicates"}:
             raise HTTPException(status_code=400, detail="Source Thunderbird inconnue.")
-        if not selected_uids:
-            raise HTTPException(status_code=400, detail="Aucun mail selectionne.")
+        try:
+            selected_uids = _requested_move_uids(selected_uid, scanned_uids)
+        except CleanerError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
         move_job = CleanerMoveJob(
             id=uuid.uuid4().hex,
@@ -1940,14 +1958,14 @@ def create_app() -> FastAPI:
             if source == "parsed_jobs":
                 moved_count, report = move_parsed_jobs_to_trash(
                     settings,
-                    uids=selected_uid,
+                    uids=_requested_move_uids(selected_uid),
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                 )
             elif source == "duplicates":
                 moved_count, report = move_thunderbird_duplicates_to_trash(
                     settings,
-                    uids=selected_uid,
+                    uids=_requested_move_uids(selected_uid),
                     min_age_days=min_age_days,
                 )
             elif source == "regex":
@@ -1957,19 +1975,17 @@ def create_app() -> FastAPI:
                     raise CleanerError(
                         "Le resultat du scan n'est plus disponible. Relance un scan regex avant de deplacer."
                     )
-                safe_uids, scan_report, regex_rules, min_age_days, max_mails = job_context
-                if not safe_uids:
-                    raise CleanerError("Le scan termine ne contient aucun candidat a deplacer.")
+                scanned_uids, scan_report, regex_rules, min_age_days, max_mails = job_context
                 moved_count, report = move_scanned_regex_uids_to_trash(
                     settings,
-                    uids=safe_uids,
+                    uids=_requested_move_uids(selected_uid, scanned_uids),
                     min_age_days=min_age_days,
                 )
                 report.scanned_count = scan_report.scanned_count
             else:
                 moved_count, report = move_thunderbird_to_trash(
                     settings,
-                    uids=selected_uid,
+                    uids=_requested_move_uids(selected_uid),
                     min_age_days=min_age_days,
                     max_mails=max_mails,
                 )

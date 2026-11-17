@@ -576,20 +576,14 @@ function isSkippableMoveError(error: unknown): boolean {
   return message.includes("Aucun mail") || message.includes("ne passe les regles");
 }
 
-async function moveThunderbirdResults(fields?: Record<string, string | string[]>): Promise<number> {
+async function moveThunderbirdResults(fields: Record<string, string | string[]>): Promise<number> {
   if (!reportResult.value) return 0;
   showMovePanel();
   const data = new FormData();
-  if (fields) {
-    Object.entries(fields).forEach(([key, value]) => {
-      const values = Array.isArray(value) ? value : [value];
-      values.forEach((entry) => data.append(key, entry));
-    });
-  } else {
-    data.set("source", "regex");
-    data.set("regex_job_id", reportResult.value.regex_job_id);
-    data.set("confirm_move", "yes");
-  }
+  Object.entries(fields).forEach(([key, value]) => {
+    const values = Array.isArray(value) ? value : [value];
+    values.forEach((entry) => data.append(key, entry));
+  });
   data.set("confirm_thunderbird_closed", "yes");
   const response = await fetch("/cleaner/move-thunderbird-to-trash/start", {
     method: "POST",
