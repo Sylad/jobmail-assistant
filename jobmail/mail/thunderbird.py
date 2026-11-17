@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from datetime import datetime, timezone
-from email.header import decode_header, make_header
+from email.header import Header, decode_header
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from ..models import RawEmail
 from .mbox_reader import iter_with_offsets
 from .parser import html_to_text, normalize_body
+
+_ENCODED_WORD = re.compile(r"=\?[^?\s]+\?[bBqQ]\?[^?\s]*\?=")
+_BETWEEN_WORDS = re.compile(r"(?<=\?=)[ \t\r\n]+(?==\?[^?\s]+\?[bBqQ]\?)")
 
 
 def read_mbox(
@@ -36,11 +40,12 @@ def read_mbox(
                 continue
 
         body_text, body_html = _extract_bodies(msg)
+        charset = _declared_charset(msg)
         yield RawEmail(
             uid=f"mbox-{offset}",
-            message_id=_decode_hdr(msg.get("Message-Id", f"mbox-{offset}@local")),
-            subject=_decode_hdr(msg.get("Subject", "")),
-            sender=_decode_hdr(msg.get("From", "")),
+            message_id=_decode_hdr(msg.get("Message-Id", f"mbox-{offset}@local"), charset),
+            subject=_decode_hdr(msg.get("Subject", ""), charset),
+            sender=_decode_hdr(msg.get("From", ""), charset),
             received_at=received_at,
             body_text=normalize_body(body_text),
             body_html=body_html,
@@ -90,15 +95,68 @@ def _has_attachment(msg) -> bool:
     return False
 
 
-def _decode_hdr(value) -> str:
-    """RFC 2047 decode + force to str. Mail headers can be Header objects
-    with =?UTF-8?Q?...?= encoded chunks; sqlite refuses non-str bindings."""
+def _declared_charset(msg) -> str | None:
+    """Charset declared by the message (its own Content-Type, else the first
+    text part). Used as a hint for raw 8-bit headers."""
+    charset = msg.get_content_charset()
+    if charset or not msg.is_multipart():
+        return charset
+    for part in msg.walk():
+        if part.get_content_maintype() == "text" and part.get_content_charset():
+            return part.get_content_charset()
+    return None
+
+
+def _decode_bytes(raw: bytes, *charsets: str | None) -> str:
+    """Decode with UTF-8 first, then each given charset, latin-1 last (never fails)."""
+    for charset in ("utf-8", *charsets):
+        if not charset:
+            continue
+        try:
+            return raw.decode(charset)
+        except (LookupError, UnicodeDecodeError):
+            continue
+    return raw.decode("latin-1")
+
+
+def _decode_word(match: re.Match, declared: str | None) -> str:
+    word = match.group(0)
+    try:
+        raw, charset = decode_header(word)[0]
+    except (ValueError, LookupError):  # malformed base64: keep the word as is
+        return word
+    if isinstance(raw, str):
+        return raw
+    try:
+        return raw.decode(charset or "ascii")
+    except (LookupError, UnicodeDecodeError):
+        return _decode_bytes(raw, declared)
+
+
+def _decode_hdr(value, charset: str | None = None) -> str:
+    """Header value to str (sqlite refuses non-str bindings).
+
+    Handles RFC 2047 encoded words (=?UTF-8?Q?...?=) AND raw 8-bit bytes that
+    some senders put in headers without encoding them. With the compat32
+    policy, such a header comes back as a Header object whose str() replaces
+    every non-ASCII byte with U+FFFD; we recover the original bytes and try
+    UTF-8, then `charset` (the one the message declares), then latin-1.
+    """
     if value is None:
         return ""
-    try:
-        return str(make_header(decode_header(str(value))))
-    except (LookupError, UnicodeDecodeError, ValueError):
-        return str(value)
+    if isinstance(value, Header):
+        # Header built by the parser from raw 8-bit bytes: get the bytes back.
+        text = "".join(
+            _decode_bytes(chunk, charset) if isinstance(chunk, bytes) else chunk
+            for chunk, _ in decode_header(value)
+        )
+    else:
+        text = str(value)
+        if any("\udc80" <= ch <= "\udcff" for ch in text):  # surrogateescape'd bytes
+            text = _decode_bytes(text.encode("utf-8", "surrogateescape"), charset)
+    # RFC 2047: whitespace between two adjacent encoded words is not displayed.
+    text = _BETWEEN_WORDS.sub("", text)
+    return _ENCODED_WORD.sub(lambda m: _decode_word(m, charset), text)
 
 
 def _decode(part) -> str:
