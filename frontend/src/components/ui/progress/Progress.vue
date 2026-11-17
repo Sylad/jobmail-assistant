@@ -4,14 +4,17 @@ import type { HTMLAttributes } from "vue";
 import { computed } from "vue";
 import { cn } from "@/lib/utils";
 
+// modelValue null = progression indéterminée : aucune valeur annoncée aux lecteurs d'écran,
+// la barre animée reste dessinée à mi-course.
 const props = withDefaults(defineProps<{
-  modelValue?: number;
+  modelValue?: number | null;
   class?: HTMLAttributes["class"];
 }>(), {
   modelValue: 0,
 });
 
-const safeValue = computed(() => Math.max(0, Math.min(100, props.modelValue)));
+const safeValue = computed(() => (props.modelValue === null ? null : Math.max(0, Math.min(100, props.modelValue))));
+const drawnValue = computed(() => safeValue.value ?? 46);
 </script>
 
 <template>
@@ -21,7 +24,7 @@ const safeValue = computed(() => Math.max(0, Math.min(100, props.modelValue)));
   >
     <ProgressIndicator
       class="vue-progress-indicator h-full w-full flex-1 bg-gradient-to-r from-violet-500 to-emerald-500 transition-transform"
-      :style="{ transform: `translateX(-${100 - safeValue}%)` }"
+      :style="{ transform: `translateX(-${100 - drawnValue}%)` }"
     />
   </ProgressRoot>
 </template>

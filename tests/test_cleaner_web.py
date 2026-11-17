@@ -44,11 +44,11 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     resp = client.get("/cleaner")
 
     assert resp.status_code == 200
-    assert "Mailbox cleaner" in resp.text
+    assert "Mailbox Cleaner" in resp.text
     assert "Backups Thunderbird" in resp.text
     assert "Nettoyer les anciens backups" in resp.text
     assert "js-pending-form" in resp.text
-    assert 'data-pending-label="Nettoyage en cours..."' in resp.text
+    assert 'data-pending-label="Nettoyage en cours…"' in resp.text
     assert 'aria-live="polite"' in resp.text
     assert 'id="cleaner-vue-root"' in resp.text
     assert "data-initial" in resp.text
@@ -92,8 +92,8 @@ def test_cleaner_backup_cleanup_runs_after_confirmation(monkeypatch, tmp_path):
 
     assert resp.status_code == 200
     assert calls == {"retention_days": 14}
-    assert "2 backup(s) supprime(s)" in resp.text
-    assert "2.0 KB liberes" in resp.text
+    assert "2 backup(s) supprimé(s)" in resp.text
+    assert "2.0 KB libérés" in resp.text
 
 
 def test_cleaner_temp_cleanup_requires_confirmation(monkeypatch, tmp_path):
@@ -128,7 +128,7 @@ def test_cleaner_temp_cleanup_runs_after_confirmation(monkeypatch, tmp_path):
 
     assert resp.status_code == 200
     assert calls["destination_root"].name == "JobMail-Thunderbird-Backups"
-    assert "2 temporaire(s) deplace(s)" in resp.text
+    assert "2 temporaire(s) déplacé(s)" in resp.text
 
 
 def test_cleaner_page_loads_saved_regex_rules(monkeypatch, tmp_path):
@@ -145,6 +145,20 @@ def test_cleaner_page_loads_saved_regex_rules(monkeypatch, tmp_path):
     assert resp.status_code == 200
     assert "store-news@amazon.fr" in resp.text
     assert "promo" in resp.text
+
+
+def test_cleaner_page_accepts_bare_list_regex_rules_file(monkeypatch, tmp_path):
+    """Un fichier de règles en liste nue (sans clé « rules ») ne fait plus planter la page (500)."""
+    client = _client(monkeypatch, tmp_path)
+    web_app.get_settings().cleaner_regex_rules_path.write_text(
+        '[{"sender_regex":"club\\\\.example","subject_regex":""}]',
+        encoding="utf-8",
+    )
+
+    resp = client.get("/cleaner")
+
+    assert resp.status_code == 200
+    assert "club" in resp.text
 
 
 def test_cleaner_regex_rules_can_be_saved_without_scan(monkeypatch, tmp_path):
@@ -464,7 +478,7 @@ def test_cleaner_move_calls_service_after_confirmation(monkeypatch, tmp_path):
 
     assert resp.status_code == 200
     assert calls == {"uids": ["101"], "min_age_days": 9, "max_mails": 12}
-    assert "1 mail(s) deplace(s)" in resp.text
+    assert "1 mail(s) déplacé(s)" in resp.text
 
 
 def test_cleaner_mbox_move_requires_both_confirmations(monkeypatch, tmp_path):
@@ -508,7 +522,7 @@ def test_cleaner_mbox_move_calls_service_after_confirmations(monkeypatch, tmp_pa
 
     assert resp.status_code == 200
     assert calls == {"uids": ["mbox:pop.example:0"], "min_age_days": 9, "max_mails": 12}
-    assert "1 mail(s) deplace(s)" in resp.text
+    assert "1 mail(s) déplacé(s)" in resp.text
 
 
 def test_cleaner_parsed_jobs_move_calls_dedicated_service(monkeypatch, tmp_path):
@@ -615,7 +629,7 @@ def test_cleaner_regex_move_reuses_finished_scan_job(monkeypatch, tmp_path):
 
     assert resp.status_code == 200
     assert calls == {"uids": ["mbox:pop.example:123"], "min_age_days": 9}
-    assert "2 mail(s) deplace(s)" in resp.text
+    assert "2 mail(s) déplacé(s)" in resp.text
 
 
 def test_cleaner_regex_move_progress_endpoints(monkeypatch, tmp_path):
@@ -684,7 +698,7 @@ def test_cleaner_regex_move_progress_endpoints(monkeypatch, tmp_path):
 
     result = client.get(f"/cleaner/move/status/{move_job_id}/result")
     assert result.status_code == 200
-    assert "1 mail(s) deplace(s)" in result.text
+    assert "1 mail(s) déplacé(s)" in result.text
     assert "corbeille Thunderbird" in result.text
 
 

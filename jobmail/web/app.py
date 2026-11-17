@@ -671,7 +671,7 @@ def _load_saved_regex_rules(settings) -> list[tuple[str, str]]:
         return []
     except (OSError, json.JSONDecodeError):
         return []
-    rules = raw.get("rules", raw if isinstance(raw, list) else [])
+    rules = raw.get("rules", []) if isinstance(raw, dict) else raw
     loaded: list[tuple[str, str]] = []
     if not isinstance(rules, list):
         return []

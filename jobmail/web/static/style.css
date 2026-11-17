@@ -1955,3 +1955,70 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 13px; 
 /* L'état est écrit en toutes lettres ; la couleur ne fait que le souligner. */
 .plan-state { color: var(--accent-pale); font-weight: 600; }
 .plan-lot[data-status="done"] .plan-state { color: var(--ok); }
+
+/* ── L4 : revue UX du nettoyeur ──
+   Contraste (WCAG 1.4.3) : sur ce fond, --fg-faint (#64748B) donne 2,80 à 3,75:1 ; --fg-mute (#94A3B8)
+   dépasse 6:1. Portée limitée aux blocs du nettoyeur, les autres écrans ont leur propre revue. */
+.tool-head p,
+.backup-panel .muted,
+.cleaner-app-shell .muted,
+.label-title,
+.compact-table th,
+.phase-card-head span,
+.phase-counts,
+.backup-retention-field label,
+.backup-roots > span { color: var(--fg-mute); }
+
+/* Focus visible (WCAG 2.4.7) : `.filter-form input:focus { outline: none }` masquait l'anneau. */
+.filter-form select:focus-visible,
+.filter-form input:focus-visible,
+.regex-rule-table input:focus-visible,
+.backup-retention-field input:focus-visible {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 2px;
+}
+
+/* Champs regex au style des autres champs (Nielsen 4), au lieu du rendu par défaut du navigateur. */
+.regex-rule-table input {
+  min-height: 34px;
+  background: rgba(15, 23, 42, 0.8);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+/* Aucun défilement horizontal de la page (WCAG 1.4.10) : chemins longs coupés, tableaux qui
+   défilent dans leur propre boîte. */
+.cleaner-source-note { overflow-wrap: anywhere; }
+.cleaner-table-scroll { max-width: 100%; overflow-x: auto; margin-bottom: 24px; }
+.cleaner-table-scroll > table { margin-bottom: 0; }
+.cleaner-table td.cleaner-date { white-space: nowrap; }
+.backup-cleanup-form > * { min-width: 0; }
+.backup-none-eligible { grid-column: 1 / -1; margin: 0; }
+.backup-root-list code, .cleaner-table td { overflow-wrap: anywhere; }
+
+.cleaner-app-shell input[type="checkbox"],
+.backup-panel input[type="checkbox"],
+.confirm-line { cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vue-progress-bar-active .vue-progress-indicator { animation: none; }
+}
+
+@media (max-width: 1200px) {
+  .backup-cleanup-form, .backup-temp-form { grid-template-columns: 1fr; }
+  .backup-action-slot { justify-content: flex-start; }
+}
+
+@media (max-width: 900px) {
+  /* Les candidats passent en cartes (table.offers) : chaque cellule porte son data-label. */
+  .cleaner-cards-scroll { overflow-x: visible; }
+  table.offers.cleaner-table td:first-child { width: auto; text-align: left; }
+  .regex-rule-table input { min-width: 160px; }
+  /* Le bouton « Déplacer toutes les phases sélectionnées » (nowrap) élargissait la page de 3 px à 320 px. */
+  .cleaner-action-bar { grid-template-columns: minmax(0, 1fr); }
+  .cleaner-action-controls button { white-space: normal; height: auto; min-height: 36px; text-align: left; }
+}

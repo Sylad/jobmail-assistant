@@ -18,7 +18,9 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
-const barValue = computed(() => props.progressValue ?? 46);
+// L4 : sans valeur connue, la barre est indéterminée pendant le travail et pleine une fois fini ;
+// elle n'annonce plus un faux « 46 % » à la fin d'un scan.
+const barValue = computed(() => props.progressValue ?? (props.active ? null : 100));
 </script>
 
 <template>
@@ -36,7 +38,7 @@ const barValue = computed(() => props.progressValue ?? 46);
           @click="emit('cancel')"
         >
           <Square :size="14" />
-          {{ cancelling ? "Arret demande" : "Arreter" }}
+          {{ cancelling ? "Arrêt demandé" : "Arrêter" }}
         </Button>
       </div>
     </div>

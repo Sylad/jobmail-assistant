@@ -23,22 +23,22 @@ const scanPhases: Array<{ source: CleanerPhaseSource; label: string; description
   {
     source: "thunderbird",
     label: "Pubs anciennes",
-    description: "Heuristique newsletters et publicites anciennes.",
+    description: "Heuristique newsletters et publicités anciennes.",
   },
   {
     source: "regex",
-    label: "Regles regex",
-    description: "Filtres expediteur/objet que tu pilotes.",
+    label: "Règles regex",
+    description: "Filtres expéditeur et objet que tu pilotes.",
   },
   {
     source: "parsed_jobs",
-    label: "Jobs cleanup",
-    description: "Mails de jobs deja extraits et peu utiles.",
+    label: "Offres déjà traitées",
+    description: "Mails d'offres déjà extraites et peu utiles.",
   },
   {
     source: "duplicates",
     label: "Doublons",
-    description: "Copies Orange deja presentes cote Gmail.",
+    description: "Copies Orange déjà présentes côté Gmail.",
   },
 ];
 
@@ -108,14 +108,14 @@ const scanPanel = reactive<ProgressPanelState>({
 
 const movePanel = reactive<ProgressPanelState>({
   visible: false,
-  title: "Deplacement en cours",
+  title: "Déplacement en cours",
   elapsedSeconds: 0,
   active: false,
   cancelling: false,
   progressValue: null,
   stats: [
-    { label: "Messages prevus", value: 0 },
-    { label: "Messages deplaces", value: 0 },
+    { label: "Messages prévus", value: 0 },
+    { label: "Messages déplacés", value: 0 },
   ],
 });
 
@@ -135,11 +135,18 @@ const totalSelectedCandidates = computed(() => {
   });
   return uids.size;
 });
+const emptyCandidatesMessage = computed(() => {
+  const report = currentReport.value;
+  if (reportResult.value?.source === "parsed_jobs" && report && report.scanned_count === 0) {
+    return "Aucun mail d'offre déjà extraite dans la base : cette phase n'a rien à proposer.";
+  }
+  return "Aucun candidat trouvé avec ces critères.";
+});
 const regexSaveLabel = computed(() => {
   if (regexSaveState.value === "saving") return "Sauvegarde...";
-  if (regexSaveState.value === "dirty") return "Modifications non sauvegardees";
+  if (regexSaveState.value === "dirty") return "Modifications non sauvegardées";
   if (regexSaveState.value === "error") return "Sauvegarde en erreur";
-  return "Regles sauvegardees";
+  return "Règles sauvegardées";
 });
 
 watch(
@@ -162,28 +169,28 @@ function normalizeRules(rules: RegexRule[]): RegexRule[] {
 
 function defaultScanStats() {
   return [
-    { label: "Mails scannes", value: 0 },
+    { label: "Mails scannés", value: 0 },
     { label: "Candidats", value: 0 },
     { label: "Factures avec PJ", value: 0 },
     { label: form.source === "regex" ? "Hors regex" : "Hors filtre", value: 0 },
-    { label: "Trop recents", value: 0 },
+    { label: "Trop récents", value: 0 },
   ];
 }
 
 function sourceDescription(source: CleanerSource): string {
   if (source === "parsed_jobs") {
-    return "Source SQLite : mails de jobs deja extraits. Seuls les mails associes a une offre ignored ou score <= 3 sont proposes.";
+    return "Source SQLite : mails d'offres déjà extraites. Seuls les mails liés à une offre ignorée ou notée 3 ou moins sont proposés.";
   }
   if (source === "duplicates") {
-    return "Source Thunderbird : propose uniquement les copies Orange dont le meme Message-Id existe dans une boite Gmail.";
+    return "Source Thunderbird : propose uniquement les copies Orange dont le même Message-Id existe dans une boîte Gmail.";
   }
   if (source === "regex") {
-    return "Les lignes regex sont combinees en OU global. Dans une ligne, les champs remplis doivent tous correspondre.";
+    return "Les lignes regex sont combinées en OU global. Dans une ligne, les champs remplis doivent tous correspondre.";
   }
   if (source === "imap") {
-    return props.initial.imap_enabled ? `Source IMAP configuree, deplacement vers ${props.initial.delete_folder}.` : "IMAP n'est pas configure.";
+    return props.initial.imap_enabled ? `Source IMAP configurée, déplacement vers ${props.initial.delete_folder}.` : "IMAP n'est pas configuré.";
   }
-  return `MBOX scannes : ${props.initial.mbox_patterns.join(", ")}`;
+  return `MBOX scannés : ${props.initial.mbox_patterns.join(", ")}`;
 }
 
 function addRegexRule(): void {
@@ -277,9 +284,13 @@ async function startFullScan(): Promise<void> {
     }
     const selectedPhase = firstCandidatePhase ?? firstResultPhase;
     if (selectedPhase) selectPhase(selectedPhase);
+    // L4 : une fois toutes les phases finies, le panneau (figé sur la dernière phase) contredirait
+    // les statistiques de la phase affichée ; les cartes de phase portent déjà les comptes.
+    if (scanPhases.every((phase) => phaseStatuses[phase.source] === "done")) scanPanel.visible = false;
   } catch (error) {
     scanPanel.title = error instanceof Error ? error.message : "Scan en erreur";
     scanPanel.active = false;
+    scanPanel.progressValue = 0;
   } finally {
     fullScanRunning.value = false;
   }
@@ -317,19 +328,21 @@ async function pollScan(jobId: string, source: CleanerSource): Promise<CleanerSc
   setScanProgress(payload, source);
 
   if (payload.status === "done") {
-    scanPanel.title = fullScanRunning.value ? `Phase terminee : ${phaseLabel(source)}` : "Scan termine";
+    scanPanel.title = fullScanRunning.value ? `Phase terminée : ${phaseLabel(source)}` : "Scan terminé";
     scanPanel.active = false;
     return await loadScanResult(payload.result_json_url, false);
   }
   if (payload.status === "cancelled") {
-    scanPanel.title = "Scan annule";
+    scanPanel.title = "Scan annulé";
     scanPanel.active = false;
+    scanPanel.progressValue = 0;
     scanPanel.cancelling = false;
     return null;
   }
   if (payload.status === "error") {
     scanPanel.title = payload.error || "Scan en erreur";
     scanPanel.active = false;
+    scanPanel.progressValue = 0;
     scanPanel.cancelling = false;
     throw new Error(scanPanel.title);
   }
@@ -369,7 +382,7 @@ async function loadScanResult(url: string, activate = true): Promise<CleanerScan
 async function cancelScan(): Promise<void> {
   if (!currentScanJobId) return;
   scanPanel.cancelling = true;
-  scanPanel.title = "Arret demande";
+  scanPanel.title = "Arrêt demandé";
   await fetch(`/cleaner/scan/cancel/${currentScanJobId}`, { method: "POST" }).catch(() => {});
 }
 
@@ -386,12 +399,12 @@ function showScanPanel(title: string): void {
 function setScanProgress(payload: CleanerScanJobPayload, source: CleanerSource = form.source): void {
   scanPanel.elapsedSeconds = payload.elapsed_seconds || 0;
   scanPanel.stats = [
-    { label: "Mails scannes", value: payload.scanned_count || 0 },
+    { label: "Mails scannés", value: payload.scanned_count || 0 },
     { label: "Candidats", value: payload.candidate_count || 0 },
     { label: "Factures avec PJ", value: payload.skipped_safety || 0 },
     { label: source === "regex" ? "Hors regex" : "Hors filtre", value: payload.skipped_no_match || 0 },
-    { label: "Trop recents", value: payload.skipped_too_recent || 0 },
-    ...(payload.current_mailbox ? [{ label: "Boite", value: payload.current_mailbox }] : []),
+    { label: "Trop récents", value: payload.skipped_too_recent || 0 },
+    ...(payload.current_mailbox ? [{ label: "Boîte", value: payload.current_mailbox }] : []),
   ];
 }
 
@@ -419,8 +432,8 @@ function phaseLabel(source: CleanerSource): string {
 
 function phaseStatusLabel(status: PhaseStatus): string {
   if (status === "running") return "En cours";
-  if (status === "done") return "Termine";
-  if (status === "cancelled") return "Annule";
+  if (status === "done") return "Terminé";
+  if (status === "cancelled") return "Annulé";
   if (status === "error") return "Erreur";
   return "En attente";
 }
@@ -503,7 +516,7 @@ async function moveAllSelections(): Promise<void> {
   actionError.value = "";
   actionMessage.value = "";
   if (!confirmMove.value || !confirmThunderbirdClosed.value) {
-    actionError.value = "Confirmation obligatoire avant tout deplacement.";
+    actionError.value = "Coche les deux confirmations avant de déplacer.";
     return;
   }
   if (totalSelectedCandidates.value <= 0) return;
@@ -543,14 +556,14 @@ async function moveAllSelections(): Promise<void> {
         if (!isSkippableMoveError(error)) throw error;
         moveAllSkipped.value += uids.length;
         moveAllBaseProcessed.value += uids.length;
-        setMoveAllSummaryProgress(error instanceof Error ? error.message : "Phase ignoree.");
+        setMoveAllSummaryProgress(error instanceof Error ? error.message : "Phase ignorée.");
       }
     }
     actionMessage.value = movePanel.cancelling
-      ? `${movedTotal} mail(s) deplace(s) avant l'arret demande.`
-      : `${movedTotal} mail(s) deplace(s) vers la corbeille Thunderbird depuis toutes les phases. ${moveAllSkipped.value} mail(s) ignore(s) car deja absents ou refuses.`;
+      ? `${movedTotal} mail(s) déplacé(s) avant l'arrêt demandé.`
+      : `${movedTotal} mail(s) déplacé(s) vers la corbeille Thunderbird depuis toutes les phases. ${moveAllSkipped.value} mail(s) ignoré(s) car déjà absents ou refusés.`;
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : "Deplacement en erreur.";
+    actionError.value = error instanceof Error ? error.message : "Déplacement en erreur.";
   } finally {
     moveAllRunning.value = false;
     moveAllCurrentPhase.value = null;
@@ -604,7 +617,7 @@ async function moveThunderbirdResults(fields?: Record<string, string | string[]>
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    movePanel.title = payload.detail || "Impossible de lancer le deplacement.";
+    movePanel.title = payload.detail || "Impossible de lancer le déplacement.";
     movePanel.active = false;
     throw new Error(movePanel.title);
   }
@@ -617,36 +630,36 @@ async function moveThunderbirdResults(fields?: Record<string, string | string[]>
 function showMovePanel(): void {
   movePanel.visible = true;
   movePanel.title = moveAllRunning.value && moveAllCurrentPhase.value
-    ? `Deplacement en cours : ${phaseLabel(moveAllCurrentPhase.value)}`
-    : "Deplacement en cours";
+    ? `Déplacement en cours : ${phaseLabel(moveAllCurrentPhase.value)}`
+    : "Déplacement en cours";
   movePanel.elapsedSeconds = 0;
   movePanel.active = true;
   movePanel.cancelling = false;
   movePanel.progressValue = null;
   movePanel.stats = [
-    { label: "Messages prevus", value: 0 },
-    { label: "Messages deplaces", value: 0 },
+    { label: "Messages prévus", value: 0 },
+    { label: "Messages déplacés", value: 0 },
   ];
 }
 
 async function pollMove(jobId: string): Promise<number> {
   const response = await fetch(`/cleaner/move/status/${jobId}`);
-  if (!response.ok) throw new Error("Impossible de lire le statut du deplacement.");
+  if (!response.ok) throw new Error("Impossible de lire le statut du déplacement.");
   const payload = await response.json() as CleanerMoveJobPayload;
   setMoveProgress(payload);
   if (payload.status === "done") {
-    movePanel.title = "Deplacement termine";
+    movePanel.title = "Déplacement terminé";
     movePanel.active = false;
     return await loadMoveResult(payload.result_json_url || `/cleaner/move/status/${jobId}/result-json`);
   }
   if (payload.status === "cancelled") {
-    movePanel.title = "Deplacement annule";
+    movePanel.title = "Déplacement annulé";
     movePanel.active = false;
     movePanel.cancelling = false;
     return payload.moved_count || 0;
   }
   if (payload.status === "error") {
-    movePanel.title = payload.error || "Deplacement en erreur";
+    movePanel.title = payload.error || "Déplacement en erreur";
     movePanel.active = false;
     movePanel.cancelling = false;
     throw new Error(movePanel.title);
@@ -659,7 +672,7 @@ async function loadMoveResult(url: string): Promise<number> {
   const response = await fetch(url);
   if (!response.ok) return 0;
   const payload = await response.json();
-  actionMessage.value = `${payload.moved_count} mail(s) deplace(s) vers ${payload.moved_destination}.`;
+  actionMessage.value = `${payload.moved_count} mail(s) déplacé(s) vers ${payload.moved_destination}.`;
   if (reportResult.value) {
     reportResult.value.source = payload.source ?? reportResult.value.source;
     reportResult.value.report = payload.report;
@@ -675,7 +688,7 @@ async function loadMoveResult(url: string): Promise<number> {
 async function cancelMove(): Promise<void> {
   if (!currentMoveJobId) return;
   movePanel.cancelling = true;
-  movePanel.title = "Arret demande";
+  movePanel.title = "Arrêt demandé";
   await fetch(`/cleaner/move/cancel/${currentMoveJobId}`, { method: "POST" }).catch(() => {});
 }
 
@@ -686,26 +699,26 @@ function setMoveProgress(payload: CleanerMoveJobPayload): void {
   if (moveAllRunning.value && moveAllCurrentPhase.value) {
     const globalMoved = moveAllBaseMoved.value + moved;
     const globalProcessed = moveAllBaseProcessed.value + moved;
-    movePanel.title = `Deplacement en cours : ${phaseLabel(moveAllCurrentPhase.value)}`;
+    movePanel.title = `Déplacement en cours : ${phaseLabel(moveAllCurrentPhase.value)}`;
     movePanel.progressValue = moveAllTotalPlanned.value > 0
       ? Math.round((globalProcessed / moveAllTotalPlanned.value) * 100)
       : null;
     movePanel.stats = [
       { label: "Phase", value: `${moveAllCurrentPhaseIndex.value}/${moveAllPhaseCount.value}` },
-      { label: "Etape", value: phaseLabel(moveAllCurrentPhase.value) },
-      { label: "Total prevu", value: moveAllTotalPlanned.value },
-      { label: "Total traite", value: globalProcessed },
-      { label: "Total deplace", value: globalMoved },
-      { label: "Ignores", value: moveAllSkipped.value },
-      { label: "Phase prevue", value: total },
-      { label: "Phase deplacee", value: moved },
+      { label: "Étape", value: phaseLabel(moveAllCurrentPhase.value) },
+      { label: "Total prévu", value: moveAllTotalPlanned.value },
+      { label: "Total traité", value: globalProcessed },
+      { label: "Total déplacé", value: globalMoved },
+      { label: "Ignorés", value: moveAllSkipped.value },
+      { label: "Phase prévue", value: total },
+      { label: "Phase déplacée", value: moved },
     ];
     return;
   }
   movePanel.progressValue = total > 0 ? Math.round((moved / total) * 100) : null;
   movePanel.stats = [
-    { label: "Messages prevus", value: total },
-    { label: "Messages deplaces", value: moved },
+    { label: "Messages prévus", value: total },
+    { label: "Messages déplacés", value: moved },
   ];
 }
 
@@ -718,11 +731,11 @@ function setMoveAllSummaryProgress(title: string): void {
     : null;
   movePanel.stats = [
     { label: "Phase", value: `${moveAllCurrentPhaseIndex.value}/${moveAllPhaseCount.value}` },
-    { label: "Etape", value: moveAllCurrentPhase.value ? phaseLabel(moveAllCurrentPhase.value) : "-" },
-    { label: "Total prevu", value: moveAllTotalPlanned.value },
-    { label: "Total traite", value: moveAllBaseProcessed.value },
-    { label: "Total deplace", value: moveAllBaseMoved.value },
-    { label: "Ignores", value: moveAllSkipped.value },
+    { label: "Étape", value: moveAllCurrentPhase.value ? phaseLabel(moveAllCurrentPhase.value) : "-" },
+    { label: "Total prévu", value: moveAllTotalPlanned.value },
+    { label: "Total traité", value: moveAllBaseProcessed.value },
+    { label: "Total déplacé", value: moveAllBaseMoved.value },
+    { label: "Ignorés", value: moveAllSkipped.value },
   ];
 }
 
@@ -738,12 +751,12 @@ function setMoveAllSummaryProgress(title: string): void {
         <div>
           <span class="label-title">Nettoyage complet</span>
           <p class="muted small">
-            Un seul scan lance les phases pubs anciennes, regex, jobs cleanup et doublons.
+            Un seul scan, en lecture seule, enchaîne les phases pubs anciennes, règles regex, offres déjà traitées et doublons. Rien n'est déplacé sans tes deux confirmations.
           </p>
         </div>
         <Button type="button" :disabled="fullScanRunning" @click="startFullScan">
           <Search :size="16" />
-          {{ fullScanRunning ? 'Scan en cours...' : 'Scanner le nettoyage' }}
+          {{ fullScanRunning ? 'Scan en cours…' : 'Scanner le nettoyage' }}
         </Button>
       </div>
 
@@ -753,7 +766,7 @@ function setMoveAllSummaryProgress(title: string): void {
           <input v-model.number="form.minAgeDays" type="number" min="1" max="3650">
         </label>
         <label>
-          Limite max-mails
+          Mails au plus par phase
           <input v-model.number="form.maxMails" type="number" min="0">
         </label>
         <label>
@@ -769,6 +782,7 @@ function setMoveAllSummaryProgress(title: string): void {
           type="button"
           class="phase-card"
           :class="[`phase-${phaseStatuses[phase.source]}`, { active: activePhase === phase.source }]"
+          :aria-pressed="activePhase === phase.source"
           @click="selectPhase(phase.source)"
         >
           <span class="phase-card-head">
@@ -778,21 +792,21 @@ function setMoveAllSummaryProgress(title: string): void {
           <span class="muted small">{{ phase.description }}</span>
           <span v-if="phaseResults[phase.source]" class="phase-counts">
             <strong>{{ phaseResults[phase.source]?.report.candidate_count }}</strong> candidat(s)
-            <span>{{ phaseResults[phase.source]?.report.scanned_count }} scannes</span>
+            <span>{{ phaseResults[phase.source]?.report.scanned_count }} scannés</span>
           </span>
           <span v-else-if="phaseErrors[phase.source]" class="phase-error">{{ phaseErrors[phase.source] }}</span>
         </button>
       </div>
-      <p class="muted small">{{ sourceDescription(activePhase) }}</p>
+      <p class="muted small cleaner-source-note">{{ sourceDescription(activePhase) }}</p>
     </section>
 
     <section class="vue-panel">
       <div class="regex-rule-list">
         <div class="regex-rule-head">
-          <span class="label-title">Regles regex</span>
+          <span class="label-title">Règles regex</span>
           <Button type="button" variant="ghost" size="sm" @click="addRegexRule">
             <Plus :size="14" />
-            Ajouter une regle
+            Ajouter une règle
           </Button>
           <span class="muted small" :class="`regex-save-${regexSaveState}`">{{ regexSaveLabel }}</span>
         </div>
@@ -800,22 +814,22 @@ function setMoveAllSummaryProgress(title: string): void {
           <table class="compact-table regex-rule-table">
             <thead>
               <tr>
-                <th>Expediteur</th>
+                <th>Expéditeur</th>
                 <th>Objet</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(rule, index) in regexRules" :key="index">
-                <td><input v-model="rule.sender_regex" type="text" placeholder="amazon|googleplay"></td>
-                <td><input v-model="rule.subject_regex" type="text" placeholder="promo|soldes|recommande"></td>
+                <td><input v-model="rule.sender_regex" type="text" placeholder="amazon|googleplay" :aria-label="`Regex expéditeur, ligne ${index + 1}`"></td>
+                <td><input v-model="rule.subject_regex" type="text" placeholder="promo|soldes|recommande" :aria-label="`Regex objet, ligne ${index + 1}`"></td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
       <p class="muted small">
-        Dans une ligne, les champs remplis doivent tous correspondre. Les lignes sont combinees en OU global.
-        Ces regles sont sauvegardees automatiquement et utilisees pendant la phase Regex Thunderbird.
+        Dans une ligne, les champs remplis doivent tous correspondre. Les lignes sont combinées en OU global.
+        Ces règles sont sauvegardées automatiquement et utilisées pendant la phase Règles regex.
       </p>
     </section>
 
@@ -833,15 +847,15 @@ function setMoveAllSummaryProgress(title: string): void {
     <section v-if="reportResult && currentReport" class="cleaner-report vue-report">
       <div class="stats-grid report-stats">
         <div class="stat-box">
-          <span class="muted">Mails scannes</span>
+          <span class="muted">Mails scannés</span>
           <strong>{{ currentReport.scanned_count }}</strong>
         </div>
         <div v-if="reportResult.source === 'thunderbird' && reportResult.scan_offset" class="stat-box">
-          <span class="muted">Mails ignores avant scan</span>
+          <span class="muted">Mails ignorés avant scan</span>
           <strong>{{ reportResult.scan_offset }}</strong>
         </div>
         <div class="stat-box">
-          <span class="muted">Candidats trouves</span>
+          <span class="muted">Candidats trouvés</span>
           <strong>{{ currentReport.candidate_count }}</strong>
         </div>
         <div class="stat-box">
@@ -853,7 +867,7 @@ function setMoveAllSummaryProgress(title: string): void {
           <strong>{{ currentReport.skipped_no_match }}</strong>
         </div>
         <div class="stat-box">
-          <span class="muted">Trop recents</span>
+          <span class="muted">Trop récents</span>
           <strong>{{ currentReport.skipped_too_recent }}</strong>
         </div>
       </div>
@@ -864,30 +878,30 @@ function setMoveAllSummaryProgress(title: string): void {
           <h2>{{ phaseLabel(reportResult.source) }}</h2>
         </div>
         <div class="bulk-actions">
-          <span class="muted small"><strong>{{ totalPhaseCandidates }}</strong> candidat(s) sur tout le nettoyage</span>
+          <span class="muted small"><strong>{{ totalPhaseCandidates }}</strong> candidat(s) toutes phases confondues</span>
           <Button type="button" variant="ghost" @click="exportCsv">
             <Download :size="16" />
-            Exporter cette phase CSV
+            Exporter cette phase en CSV
           </Button>
         </div>
       </div>
 
       <div v-if="totalPhaseCandidates" class="danger-action cleaner-action-bar">
         <div>
-          <strong>Action Thunderbird locale : toutes les phases scannees.</strong>
+          <strong>Action Thunderbird locale : toutes les phases scannées.</strong>
           <p class="muted">
-            {{ totalSelectedCandidates }} mail(s) selectionne(s) seront deplaces vers la corbeille Thunderbird.
-            Les doublons entre phases sont ignores pour ne pas traiter deux fois le meme message.
+            {{ totalSelectedCandidates }} mail(s) sélectionné(s) seront déplacés vers la corbeille Thunderbird.
+            Un mail trouvé par plusieurs phases n'est compté et déplacé qu'une fois.
           </p>
         </div>
         <div class="cleaner-action-controls">
           <label class="confirm-line">
             <input v-model="confirmThunderbirdClosed" type="checkbox">
-            Thunderbird est ferme.
+            Thunderbird est fermé.
           </label>
           <label class="confirm-line">
             <input v-model="confirmMove" type="checkbox">
-            Rapport relu, lancer le deplacement.
+            Rapport relu, lancer le déplacement.
           </label>
           <Button
             type="button"
@@ -896,7 +910,7 @@ function setMoveAllSummaryProgress(title: string): void {
             @click="moveAllSelections"
           >
             <Trash2 :size="16" />
-            {{ moveAllRunning ? 'Deplacement en cours...' : 'Deplacer toutes les phases selectionnees' }}
+            {{ moveAllRunning ? 'Déplacement en cours…' : 'Déplacer toutes les phases sélectionnées' }}
           </Button>
         </div>
 
@@ -912,16 +926,17 @@ function setMoveAllSummaryProgress(title: string): void {
         />
       </div>
 
-      <h2>Top expediteurs</h2>
+      <h2>Top expéditeurs</h2>
       <div v-if="currentReport.top_senders.length && reportResult.source !== 'regex'" class="bulk-actions">
-        <Button type="button" size="sm" @click="selectAllCandidates">Tout selectionner</Button>
+        <Button type="button" size="sm" @click="selectAllCandidates">Tout sélectionner</Button>
         <Button type="button" size="sm" variant="ghost" @click="clearSelection">Tout exclure</Button>
-        <span class="muted small"><strong>{{ selectedCount }}</strong> mail(s) selectionne(s)</span>
+        <span class="muted small"><strong>{{ selectedCount }}</strong> mail(s) sélectionné(s) dans cette phase</span>
       </div>
-      <table v-if="currentReport.top_senders.length" class="compact-table sender-table">
+      <div v-if="currentReport.top_senders.length" class="cleaner-table-scroll">
+      <table class="compact-table sender-table">
         <thead>
           <tr>
-            <th>Expediteur</th>
+            <th>Expéditeur</th>
             <th v-if="reportResult.source !== 'regex'">Actions</th>
             <th>Nombre</th>
           </tr>
@@ -942,16 +957,18 @@ function setMoveAllSummaryProgress(title: string): void {
           </tr>
         </tbody>
       </table>
-      <p v-else class="empty">Aucun expediteur candidat.</p>
+      </div>
+      <p v-else class="empty">Aucun expéditeur candidat.</p>
 
       <h2>Mails candidats</h2>
-      <table v-if="currentReport.candidates.length" class="offers cleaner-table">
+      <div v-if="currentReport.candidates.length" class="cleaner-table-scroll cleaner-cards-scroll">
+      <table class="offers cleaner-table">
         <thead>
           <tr>
-            <th>Selection</th>
+            <th>Sélection</th>
             <th>Source</th>
             <th>Date</th>
-            <th>Expediteur</th>
+            <th>Expéditeur</th>
             <th>Sujet</th>
             <th v-if="reportResult.source === 'parsed_jobs'">Offre</th>
             <th v-if="reportResult.source === 'duplicates'">Doublon</th>
@@ -960,38 +977,40 @@ function setMoveAllSummaryProgress(title: string): void {
         </thead>
         <tbody>
           <tr v-for="candidate in currentReport.candidates" :key="candidate.uid">
-            <td>
+            <td data-label="Sélection">
               <span v-if="reportResult.source === 'regex'" class="chip">regex</span>
               <input
                 v-else-if="candidate.can_move"
                 type="checkbox"
+                :aria-label="`Sélectionner : ${candidate.subject || candidate.sender}`"
                 :checked="selectedUids.has(candidate.uid)"
                 @change="toggleCandidate(candidate.uid, ($event.target as HTMLInputElement).checked)"
               >
-              <span v-else class="muted small">scan only</span>
+              <span v-else class="muted small">lecture seule</span>
             </td>
-            <td>
+            <td data-label="Source">
               <span class="chip">{{ candidate.source }}</span>
               <span v-if="candidate.mailbox" class="muted small">{{ candidate.mailbox }}</span>
             </td>
-            <td class="muted small">{{ candidate.received_date }}</td>
-            <td>{{ candidate.sender }}</td>
-            <td>{{ candidate.subject }}</td>
-            <td v-if="reportResult.source === 'parsed_jobs'">
+            <td class="muted small cleaner-date" data-label="Date">{{ candidate.received_date }}</td>
+            <td data-label="Expéditeur">{{ candidate.sender }}</td>
+            <td data-label="Sujet">{{ candidate.subject }}</td>
+            <td v-if="reportResult.source === 'parsed_jobs'" data-label="Offre">
               <a v-if="candidate.offer_id" class="btn btn-sm btn-ghost" :href="`/offers/${candidate.offer_id}`">
                 <ExternalLink :size="13" />
                 Voir
               </a>
               <span v-else class="muted small">-</span>
             </td>
-            <td v-if="reportResult.source === 'duplicates'">
+            <td v-if="reportResult.source === 'duplicates'" data-label="Doublon">
               <span class="muted small">{{ candidate.duplicate_of }}</span>
             </td>
-            <td><span class="chip">{{ candidate.reason }}</span></td>
+            <td data-label="Raison"><span class="chip">{{ candidate.reason }}</span></td>
           </tr>
         </tbody>
       </table>
-      <p v-else class="empty">Aucun candidat trouve avec ces criteres.</p>
+      </div>
+      <p v-else class="empty">{{ emptyCandidatesMessage }}</p>
 
     </section>
   </div>
