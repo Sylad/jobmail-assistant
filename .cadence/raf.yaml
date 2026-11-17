@@ -32,17 +32,18 @@ lots:
     finished: 2026-11-01
   - id: L3
     title: Revue UX — Fiche offre
-    status: doing
+    status: done
     visible: true
     estimate: 0.25
     created: 2026-09-28
     started: 2026-11-17
     tasks:
-      - { id: t1, title: "Offre introuvable : page 404 en français dans le gabarit, avec un lien de retour au tableau de bord, au lieu du JSON brut {\"detail\":\"Offer not found\"} (Nielsen 9)", status: todo }
+      - { id: t1, title: "Offre introuvable : page 404 en français dans le gabarit, avec un lien de retour au tableau de bord, au lieu du JSON brut {\"detail\":\"Offer not found\"} (Nielsen 9)", status: done }
       - { id: t2, title: "Feuille de style commune : media query prefers-reduced-motion qui coupe animations et transitions (pulse-dot, translateY sur :active) — à faire avec L5", status: done }
-      - { id: t3, title: "Fiche offre au toucher : cibles .btn-sm de 28 px à porter à 40 px minimum sous 900 px (recommandation 44 px, WCAG 2.5.8 déjà tenu à 24 px)", status: todo }
+      - { id: t3, title: "Fiche offre au toucher : cibles .btn-sm de 28 px à porter à 40 px minimum sous 900 px (recommandation 44 px, WCAG 2.5.8 déjà tenu à 24 px)", status: done }
     review: { date: 2026-11-17, verdict: "conforme : t1 (404 HTML en français, API JSON inchangée) et t3 (cibles 40 px sous 900 px) testés, aucune donnée personnelle", commit: 7ee7e29bdaef61981c2994c31be2d4bb654b2bd3 }
     ux: { date: 2026-11-17, verdict: "conforme (lead, captures 390 px) : 404 claire avec retour au tableau de bord ; boutons d'action à 40 px sur téléphone ; reste t2 avec L5" }
+    finished: 2026-11-17
   - id: L4
     title: "Revue UX — Nettoyeur de boîte : scan, phases, déplacement"
     status: done
