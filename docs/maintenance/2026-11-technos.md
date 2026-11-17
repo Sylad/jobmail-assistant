@@ -29,6 +29,9 @@ Nouvelle dépendance transitive : `opentelemetry-api` 1.45.2, tirée par fastapi
 les correctifs de sécurité — `fastapi>=0.163`, `starlette>=1.3.1` (dépendance
 de FastAPI, déclarée pour son plancher), `python-multipart>=0.0.31`,
 `pydantic-settings>=2.14.2`.
+Bornes hautes `soupsieve<3` et `websockets<17` écrites aussi dans
+`pyproject.toml`, pour qu'une installation neuve (`pip install -e .`, Dockerfile)
+ne prenne pas ces majeures non testées.
 
 ## Frontend (`frontend/`, `npm update` dans les plages `^`)
 
@@ -47,12 +50,27 @@ recompilé.
 
 ## Régressions
 
-Aucune trouvée.
+- **`ruff check .` : 101 constats avec ruff 0.17.5, 0 avec 0.15.14**, sur du
+  code inchangé. Cause : le projet ne fixait pas `select`, et ruff 0.17 a
+  élargi son jeu de règles par défaut (UP017 29, LOG015 19, FURB167 16, B008 9,
+  I001 9, BLE001 7, PLW1510 5…). Détection : revue du lot. Correction :
+  `[tool.ruff.lint] select = ["E4", "E7", "E9", "F"]` dans `pyproject.toml`,
+  exactement les règles par défaut de 0.15.14 (liste comparée avec
+  `ruff check --show-settings` sous les deux versions : 59 règles identiques).
+  Corriger les 101 constats n'était pas mécanique : 43 n'ont pas de correctif
+  automatique et plusieurs sont des choix voulus (B008 sur les `Form()` de
+  FastAPI, BLE001 sur des `except Exception` de protection). Adopter des règles
+  en plus est un lot à part. Après correction : `ruff check .` propre avec 0.17.5.
+- Avertissement nouveau à chaque `pytest` (pas d'échec) : starlette 1.10 émet
+  `StarletteDeprecationWarning: Using httpx with starlette.testclient is
+  deprecated; install httpx2`. Dette connue, à traiter quand le TestClient de
+  FastAPI suivra.
+
+Autres contrôles :
 
 - `pytest` : 217 tests verts avant et après (tests JS `node --test` compris).
-- `ruff check .` : propre avant et après. `ruff format --check` signale
-  35 fichiers avec ruff 0.15.14 comme avec 0.17.5 : écart antérieur, non
-  imposé par le dépôt, inchangé.
+- `ruff format --check` signale 35 fichiers avec ruff 0.15.14 comme avec
+  0.17.5 : écart antérieur, non imposé par le dépôt, inchangé.
 - `vue-tsc --noEmit` et `vite build` : verts.
 - Écran `/cleaner` sur une instance de démonstration vide : capture pleine page
   à 1440 px avec l'ancien bundle puis avec le nouveau, **identiques au pixel**,
@@ -79,5 +97,5 @@ Jinja2, uvicorn, pydantic, imap-tools, beautifulsoup4, pytest, Vue ou Vite.
 ## Après fusion
 
 Le venv de l'instance locale (`http://localhost:8765`) n'est pas mis à jour par
-ce lot : y lancer `.venv/bin/pip install -U -e ".[dev]" "soupsieve<3" "websockets<17"`
+ce lot : y lancer `.venv/bin/pip install -U -e ".[dev]"` (les bornes sont dans `pyproject.toml`)
 puis relancer `jobmail serve`.
