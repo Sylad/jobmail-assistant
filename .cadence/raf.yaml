@@ -63,7 +63,7 @@ lots:
     finished: 2026-11-17
   - id: L5
     title: "Revue UX — Gabarit commun : navigation, en-tête, pied, rendu téléphone"
-    status: doing
+    status: done
     visible: true
     estimate: 0.25
     created: 2026-09-28
@@ -74,10 +74,11 @@ lots:
       - { id: t3, title: "Icône Ollama toujours ambre (couleur d'avertissement) alors qu'aucun état n'est dit : couleur neutre ou état réel écrit (Nielsen 1) — quel état afficher, à trancher par Sylvain", status: done }
       - { id: t4, title: "Libellé anglais « Mailbox Cleaner » (navigation, titre, h1 de /cleaner) : nom de produit ou « Nettoyage des mails » ? (Nielsen 2, WCAG 3.1.2) — à trancher par Sylvain", status: done }
       - { id: t5, title: "Sous 900 px, l'état du traitement et les connexions disparaissent avec la barre latérale, sans remplaçant (Nielsen 1) : ligne d'état compacte dans la barre du haut ? — à trancher par Sylvain", status: done }
-    review: { date: 2026-11-17, verdict: "conforme (correction relue par le lead) : rechargement par l'adresse GET sans fragment, ou la page GET donnée par le serveur après un POST, jamais le renvoi du formulaire ; tests des deux cas", commit: 2e62cd3ca9f2d82b36d87493138d1faa9a45e41e }
+    review: { date: 2026-11-17, verdict: "conforme (t4, relu par le lead) : « Nettoyeur de boîte » partout, plus aucune occurrence de « Mailbox Cleaner » hors des tests qui l'interdisent ; route /cleaner inchangée", commit: c52a3291b558d3d83b20a920d8116bc545c8ece2 }
     ux: { date: 2026-11-17, verdict: "conforme (lead, capture 390 regardée) : lien actif distinct par la graisse et le trait, navigation lisible ; t1-t5 ouvertes (dont t4 : libellé « Mailbox Cleaner », choix de Sylvain)" }
     notes:
       - { date: 2026-11-17, text: "17-11 23:17 : Sylvain tranche t4 — libellé « Nettoyeur de boîte » au lieu de « Mailbox Cleaner »" }
+    finished: 2026-11-17
   - id: L6
     title: Page Nouveautés branchée sur cadence news (raf news → page), signature commune des apps
     public: Une page Nouveautés raconte ce qui change dans l'application
