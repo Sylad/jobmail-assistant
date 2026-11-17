@@ -3,6 +3,13 @@ import { computed, reactive, ref, watch } from "vue";
 import { Download, ExternalLink, Plus, Search, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import ProgressPanel from "./ProgressPanel.vue";
+import {
+  countPlannedMoves,
+  emptyCandidatesMessage as emptyMessageFor,
+  initialPhaseSelection,
+  planPhaseMoves,
+  scanPanelVisibleAfterFullScan,
+} from "./cleaner-core";
 import type {
   CleanerInitialState,
   CleanerMoveJobPayload,
@@ -123,25 +130,11 @@ const currentReport = computed<CleanerReportPayload | null>(() => reportResult.v
 const movableCandidates = computed(() => currentReport.value?.candidates.filter((candidate) => candidate.can_move) ?? []);
 const selectedCount = computed(() => selectedUids.value.size);
 const totalPhaseCandidates = computed(() => scanPhases.reduce((sum, phase) => sum + (phaseResults[phase.source]?.report.candidate_count ?? 0), 0));
-const totalSelectedCandidates = computed(() => {
-  const uids = new Set<string>();
-  scanPhases.forEach((phase) => {
-    const result = phaseResults[phase.source];
-    if (!result) return;
-    const selected = phase.source === "regex"
-      ? result.report.candidates.map((candidate) => candidate.uid)
-      : phaseSelections[phase.source];
-    selected.forEach((uid) => uids.add(uid));
-  });
-  return uids.size;
-});
-const emptyCandidatesMessage = computed(() => {
-  const report = currentReport.value;
-  if (reportResult.value?.source === "parsed_jobs" && report && report.scanned_count === 0) {
-    return "Aucun mail d'offre déjà extraite dans la base : cette phase n'a rien à proposer.";
-  }
-  return "Aucun candidat trouvé avec ces critères.";
-});
+const phaseOrder = scanPhases.map((phase) => phase.source);
+// L4/t1 : le total annoncé et ce qui part au déplacement viennent du même calcul
+// (cleaner-core.ts), sélection par phase comprise pour « Règles regex ».
+const totalSelectedCandidates = computed(() => countPlannedMoves(phaseOrder, phaseResults, phaseSelections));
+const emptyCandidatesMessage = computed(() => emptyMessageFor(reportResult.value));
 const regexSaveLabel = computed(() => {
   if (regexSaveState.value === "saving") return "Sauvegarde...";
   if (regexSaveState.value === "dirty") return "Modifications non sauvegardées";
@@ -286,7 +279,7 @@ async function startFullScan(): Promise<void> {
     if (selectedPhase) selectPhase(selectedPhase);
     // L4 : une fois toutes les phases finies, le panneau (figé sur la dernière phase) contredirait
     // les statistiques de la phase affichée ; les cartes de phase portent déjà les comptes.
-    if (scanPhases.every((phase) => phaseStatuses[phase.source] === "done")) scanPanel.visible = false;
+    scanPanel.visible = scanPanelVisibleAfterFullScan(phaseOrder, phaseStatuses, scanPanel.visible);
   } catch (error) {
     scanPanel.title = error instanceof Error ? error.message : "Scan en erreur";
     scanPanel.active = false;
@@ -494,7 +487,7 @@ function setActiveSelection(next: Set<string>): void {
 }
 
 function initializePhaseSelection(source: CleanerPhaseSource, result: CleanerScanResultPayload): void {
-  phaseSelections[source] = result.report.candidates.filter((candidate) => candidate.can_move).map((candidate) => candidate.uid);
+  phaseSelections[source] = initialPhaseSelection(result);
 }
 
 function senderState(sender: string): string {
@@ -526,17 +519,11 @@ async function moveAllSelections(): Promise<void> {
   moveAllBaseProcessed.value = 0;
   moveAllSkipped.value = 0;
   moveAllCurrentPhase.value = null;
-  const alreadyQueued = new Set<string>();
-  const phaseMoves = scanPhases.flatMap((phase) => {
-    const result = phaseResults[phase.source];
-    if (!result) return [];
-    const uids = selectedUidsForMove(phase.source, result).filter((uid) => {
-      if (alreadyQueued.has(uid)) return false;
-      alreadyQueued.add(uid);
-      return true;
-    });
-    return uids.length ? [{ phase, result, uids }] : [];
-  });
+  const phaseMoves = planPhaseMoves(phaseOrder, phaseResults, phaseSelections).map(({ source, uids }) => ({
+    phase: scanPhases.find((phase) => phase.source === source)!,
+    result: phaseResults[source]!,
+    uids,
+  }));
   moveAllTotalPlanned.value = phaseMoves.reduce((sum, move) => sum + move.uids.length, 0);
   moveAllPhaseCount.value = phaseMoves.length;
   let movedTotal = 0;
@@ -568,13 +555,6 @@ async function moveAllSelections(): Promise<void> {
     moveAllRunning.value = false;
     moveAllCurrentPhase.value = null;
   }
-}
-
-function selectedUidsForMove(source: CleanerPhaseSource, result: CleanerScanResultPayload): string[] {
-  if (source === "regex") {
-    return result.report.candidates.map((candidate) => candidate.uid);
-  }
-  return phaseSelections[source];
 }
 
 function moveFieldsForPhase(result: CleanerScanResultPayload, uids: string[]): Record<string, string | string[]> {

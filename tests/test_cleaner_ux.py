@@ -69,3 +69,23 @@ def test_cleaner_labels_are_written_with_their_accents():
 
 def test_disabled_backup_button_says_why():
     assert 'aria-describedby="backup-none-eligible"' in TEMPLATE
+
+
+CORE = (ROOT / "frontend" / "src" / "cleaner" / "cleaner-core.ts").read_text(encoding="utf-8")
+
+
+def test_cleaner_component_uses_the_tested_core_logic():
+    # La logique est testée par tests/js/cleaner-core.test.mjs ; ici, le composant doit bien
+    # passer par elle (sinon un calcul recopié dans le .vue échapperait aux tests).
+    assert 'from "./cleaner-core"' in VUE
+    for call in (
+        "countPlannedMoves(phaseOrder, phaseResults, phaseSelections)",  # total annoncé (t1)
+        "planPhaseMoves(phaseOrder, phaseResults, phaseSelections)",  # UID envoyés (t1)
+        "scanPanel.visible = scanPanelVisibleAfterFullScan(phaseOrder, phaseStatuses, scanPanel.visible)",
+        "emptyMessageFor(reportResult.value)",
+    ):
+        assert call in VUE, call
+    # Plus de chemin qui envoie tous les candidats regex en ignorant la sélection (t1).
+    assert "report.candidates.map((candidate) => candidate.uid)" not in VUE + CORE
+    # Le bundle commité suit ces sources.
+    assert "cette phase n'a rien à proposer" in BUNDLE
