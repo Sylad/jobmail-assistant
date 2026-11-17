@@ -56,7 +56,7 @@ lots:
       - { id: t3, title: Liste des candidats repliable ou paginée au téléphone (≈ 12 000 px de haut à 390 px), status: todo }
       - { id: t4, title: "Message de confirmation manquante affiché près du bouton Déplacer, pas en haut de l'écran", status: todo }
       - { id: t5, title: "Extension Thunderbird « Corbeille scan JobMail » : latest-request (app.py:411) et background.js:345 envoient à la corbeille TOUS les candidats des scans en mémoire, exclusions ignorées — n'envoyer que la sélection confirmée (revue L4 du 17-11, antérieur au lot)", status: done }
-      - { id: t6, title: "Extension : « Corbeille candidats » met à la corbeille tous les candidats du scan de l'extension (jusqu'à 500, 8 affichés) sans sélection mail par mail — afficher et faire confirmer la liste entière, ou passer par la sélection de l'écran (revue L4/t5 du 17-11, antérieur au lot)", status: todo }
+      - { id: t6, title: "Extension : « Corbeille candidats » met à la corbeille tous les candidats du scan de l'extension (jusqu'à 500, 8 affichés) sans sélection mail par mail — afficher et faire confirmer la liste entière, ou passer par la sélection de l'écran (revue L4/t5 du 17-11, antérieur au lot)", status: done }
     review: { date: 2026-11-17, verdict: "conforme (t5) : résolution par Message-Id seulement sur « Corbeille scan JobMail », introuvable compté et jamais remplacé, demande consommée dès qu'elle est servie ; 85 pytest + 33 node, 6 node et 2 pytest rouges avant", commit: b0c9182233c8a91e30654742203929d648ba09dc }
     ux: { date: 2026-11-17, verdict: "conforme (lead, capture 390 px regardée) : écran lisible, explications et confirmations visibles, aucun débordement ; 4 écarts en t1-t4" }
   - id: L5

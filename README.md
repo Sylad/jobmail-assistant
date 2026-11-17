@@ -352,9 +352,11 @@ local `.xpi` during development. It is deliberately thin:
 - imports selected mails into JobMail;
 - imports unread recent mails manually or on a timer;
 - reads cleaner configuration from `/cleaner/state`;
-- can run a lightweight cleaner scan from Thunderbird Inbox folders;
-- can move the selection confirmed in `/cleaner` ("Confier la sélection à
-  l'extension Thunderbird", `POST /api/thunderbird/cleaner/request`), read
+- can run a lightweight cleaner scan from Thunderbird Inbox folders, as a
+  preview only ("Aperçu nettoyage"): it moves nothing and keeps no list to move
+  (the former "Corbeille candidats" bulk action was removed);
+- can move — its only move path — the selection confirmed in `/cleaner`
+  ("Confier la sélection à l'extension Thunderbird", `POST /api/thunderbird/cleaner/request`), read
   through `/api/thunderbird/cleaner/latest-request`: only the mails named by
   that confirmed selection, never every scan candidate; no confirmed selection
   → 400 and nothing moves; the request is single-use (consumed as soon as it is

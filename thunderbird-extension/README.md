@@ -21,12 +21,12 @@ propres API, JobMail decide quoi importer ou nettoyer.
 4. Pour automatiser doucement, utiliser `Importer les non lus`, ou activer
    `Import auto`. L'extension cherchera seulement les mails non lus recents et
    laissera JobMail dedupliquer cote serveur.
-5. Pour le nettoyage, utiliser d'abord `Scanner nettoyage`. JobMail renvoie les
-   candidats, puis `Corbeille candidats` demande confirmation et laisse
-   Thunderbird effectuer le deplacement. Le nettoyage n'est jamais automatique ;
-   l'anciennete et la limite de scan viennent de la configuration JobMail.
-6. Si le scan a deja ete lance dans l'interface JobMail : dans `/cleaner`,
-   cocher les mails voulus, cocher `Rapport relu`, puis cliquer
+5. `Aperçu nettoyage` donne une idee du nettoyage possible : JobMail renvoie le
+   nombre de candidats et la fenetre en affiche un extrait (8 au plus). C'est
+   un apercu seulement : il ne deplace rien et ne prepare aucun deplacement.
+   L'anciennete et la limite de scan viennent de la configuration JobMail.
+6. Pour deplacer des mails, passer par l'interface JobMail : dans `/cleaner`,
+   lancer le scan, cocher les mails voulus, cocher `Rapport relu`, puis cliquer
    `Confier la sélection à l'extension Thunderbird`. Ensuite seulement,
    `Corbeille scan JobMail` recupere cette selection confirmee, retrouve les
    messages dans Thunderbird par `Message-Id` seulement, puis deplace ceux qui
@@ -47,8 +47,10 @@ boites MBOX pendant que Thunderbird les utilise.
   message a ete deplace, supprime, n'a pas de `Message-Id` ou si celui-ci
   differe, l'extension le signale comme introuvable et ne le remplace jamais
   par un autre mail (aucun repli par sujet, expediteur ou date).
-- `Corbeille candidats` agit sur le dernier scan lance depuis l'extension.
-  `Corbeille scan JobMail` agit seulement sur la selection confirmee dans
+- L'ancien bouton `Corbeille candidats` est retire : il envoyait a la corbeille
+  tous les candidats du scan de l'extension (jusqu'a 500, dont 8 affiches), sans
+  selection mail par mail. Seuls partent des mails vus et confirmes.
+- `Corbeille scan JobMail` est le seul bouton qui deplace ; il agit seulement sur la selection confirmee dans
   l'ecran `/cleaner` de JobMail (jamais sur tous les candidats des scans) ;
   les exclusions et les cases decochees sont respectees.
 - Ce chemin ne cree pas de sauvegarde `.mbox` : c'est Thunderbird qui deplace

@@ -1,6 +1,10 @@
 const DEFAULT_ENDPOINT = "http://127.0.0.1:8765";
 const api = typeof messenger !== "undefined" ? messenger : browser;
 
+// L4/t6 : la fenêtre n'affiche qu'un extrait des candidats ; aucun mail ne part d'ici sans avoir
+// été coché et confirmé dans l'écran /cleaner de JobMail.
+const PREVIEW_ONLY = "Aperçu seulement : pour déplacer, coche et confirme les mails dans /cleaner de JobMail.";
+
 const statusEl = document.querySelector("#status");
 const cleanerStatusEl = document.querySelector("#cleaner-status");
 const cleanerCandidatesEl = document.querySelector("#cleaner-candidates");
@@ -16,7 +20,6 @@ const cleanerMaxMessagesEl = document.querySelector("#cleaner-max-messages");
 const importButton = document.querySelector("#import");
 const importUnreadButton = document.querySelector("#import-unread");
 const scanCleanerButton = document.querySelector("#scan-cleaner");
-const trashCleanerButton = document.querySelector("#trash-cleaner");
 const trashJobMailCleanerButton = document.querySelector("#trash-jobmail-cleaner");
 const saveButton = document.querySelector("#save");
 
@@ -61,34 +64,17 @@ importUnreadButton.addEventListener("click", async () => {
 
 scanCleanerButton.addEventListener("click", async () => {
   scanCleanerButton.disabled = true;
-  cleanerStatusEl.textContent = "Scan nettoyage...";
+  cleanerStatusEl.textContent = "Aperçu du nettoyage...";
   try {
     const result = await api.runtime.sendMessage({ type: "scan-cleaner" });
-    cleanerStatusEl.textContent = `${result.candidate_count || 0} candidat(s) sur ${result.scanned_count || 0} mail(s).`;
+    // L4/t6 : ce scan ne déplace rien et ne prépare aucun déplacement.
+    cleanerStatusEl.textContent = `${result.candidate_count || 0} candidat(s) sur ${result.scanned_count || 0} mail(s). ${PREVIEW_ONLY}`;
     renderCleanerCandidates(result.candidates || []);
   } catch (error) {
     cleanerStatusEl.textContent = error.message || "Scan impossible.";
     renderCleanerCandidates([]);
   } finally {
     scanCleanerButton.disabled = false;
-  }
-});
-
-trashCleanerButton.addEventListener("click", async () => {
-  const ok = window.confirm("Envoyer les candidats du dernier scan a la corbeille Thunderbird ?");
-  if (!ok) {
-    return;
-  }
-  trashCleanerButton.disabled = true;
-  cleanerStatusEl.textContent = "Deplacement...";
-  try {
-    const result = await api.runtime.sendMessage({ type: "trash-cleaner-candidates" });
-    cleanerStatusEl.textContent = `${result.moved_count || 0} mail(s) envoyes a la corbeille.`;
-    renderCleanerCandidates([]);
-  } catch (error) {
-    cleanerStatusEl.textContent = error.message || "Deplacement impossible.";
-  } finally {
-    trashCleanerButton.disabled = false;
   }
 });
 
@@ -195,7 +181,7 @@ async function refreshCleanerState() {
     const state = await response.json();
     cleanerAgeDaysEl.value = state.min_age_days || "";
     cleanerMaxMessagesEl.value = state.max_mails || "";
-    cleanerStatusEl.textContent = "Nettoyage manuel, configuration lue depuis JobMail.";
+    cleanerStatusEl.textContent = "Nettoyage manuel : seule la sélection confirmée dans /cleaner peut partir.";
   } catch (_error) {
     cleanerAgeDaysEl.value = "";
     cleanerMaxMessagesEl.value = "";

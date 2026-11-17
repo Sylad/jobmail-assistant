@@ -17,9 +17,6 @@ api.runtime.onMessage.addListener((message) => {
   if (message?.type === "scan-cleaner") {
     return scanCleanerCandidates();
   }
-  if (message?.type === "trash-cleaner-candidates") {
-    return trashCleanerCandidates();
-  }
   if (message?.type === "trash-jobmail-cleaner-request") {
     return trashJobMailCleanerRequest();
   }
@@ -229,8 +226,13 @@ async function scanCleanerCandidates() {
     throw new Error(`JobMail a refuse le scan (${response.status}): ${detail}`);
   }
   const result = await response.json();
-  await api.storage.local.set({ cleanerCandidates: result.candidates || [] });
-  await notify("JobMail cleaner", `${result.candidate_count || 0} candidat(s) trouve(s).`);
+  // L4/t6 : ce scan est un apercu. Il ne garde aucune liste a deplacer (l'action « Corbeille
+  // candidats » est retiree) et efface celle qu'une version precedente aurait laissee.
+  await api.storage.local.remove("cleanerCandidates");
+  await notify(
+    "JobMail cleaner",
+    `${result.candidate_count || 0} candidat(s) trouve(s). Apercu seulement : rien n'est deplace.`
+  );
   return result;
 }
 
@@ -321,27 +323,8 @@ async function getCleanerState() {
   };
 }
 
-async function trashCleanerCandidates() {
-  const stored = await api.storage.local.get({ cleanerCandidates: [] });
-  const ids = (stored.cleanerCandidates || [])
-    .map((candidate) => Number.parseInt(candidate.id, 10))
-    .filter((id) => Number.isFinite(id));
-  if (!ids.length) {
-    await notify("JobMail cleaner", "Aucun candidat a deplacer.");
-    return { moved_count: 0 };
-  }
-
-  await api.messages.delete(ids, {
-    deletePermanently: false,
-    isUserAction: true,
-  });
-  await api.storage.local.set({ cleanerCandidates: [] });
-  await reportBridgeEvent("cleaner_move", { moved_count: ids.length });
-  await notify("JobMail cleaner", `${ids.length} mail(s) envoyes a la corbeille.`);
-  return { moved_count: ids.length };
-}
-
 // L4/t5 : ne part a la corbeille que la selection confirmee dans l'ecran /cleaner de JobMail.
+// L4/t6 : c'est le SEUL chemin de mise a la corbeille de l'extension.
 // Sans selection confirmee (400 du serveur) ou devant toute autre reponse, rien n'est deplace.
 const NO_CONFIRMED_SELECTION =
   "Aucune sélection confirmée dans JobMail : dans /cleaner, coche les mails puis « Confier la sélection à l'extension Thunderbird ».";

@@ -20,8 +20,10 @@ const DEFAULT_BOX = [
 // `box` : les mails de la fausse boîte. `queryByMessageId` remplace la recherche par Message-Id
 // (pour simuler une requête qui échoue ou qui répond à côté). Toute autre recherche (sujet,
 // expéditeur, dates : l'ancien repli) rend les mails de l'Inbox, comme le ferait Thunderbird.
-function loadExtension({ latestRequest, box = DEFAULT_BOX, queryByMessageId = null }) {
-  const calls = { deleted: [], events: [], notifications: [], fetched: [], queries: [] };
+// `stored` : ce que le stockage local de l'extension contient déjà ; `scanResult` : la réponse du
+// faux serveur à un scan lancé depuis l'extension (t6).
+function loadExtension({ latestRequest = { status: 400, body: {} }, box = DEFAULT_BOX, queryByMessageId = null, stored = {}, scanResult = null }) {
+  const calls = { deleted: [], events: [], notifications: [], fetched: [], queries: [], stored: [], removed: [] };
   let onMessage = null;
   const noop = { addListener() {} };
   const strip = (value) => String(value || "").replace(/^<|>$/g, "");
@@ -29,7 +31,13 @@ function loadExtension({ latestRequest, box = DEFAULT_BOX, queryByMessageId = nu
     runtime: { onMessage: { addListener: (fn) => { onMessage = fn; } }, onStartup: noop, onInstalled: noop },
     alarms: { onAlarm: noop, clear: async () => {}, create() {} },
     menus: { create() {}, onClicked: noop },
-    storage: { local: { get: async (defaults) => ({ ...defaults }), set: async () => {} } },
+    storage: {
+      local: {
+        get: async (defaults) => ({ ...defaults, ...stored }),
+        set: async (values) => { calls.stored.push(values); },
+        remove: async (keys) => { calls.removed.push(...[].concat(keys)); },
+      },
+    },
     notifications: { create: async (options) => { calls.notifications.push(options.message); } },
     accounts: { list: async () => [{ folders: [INBOX, TRASH] }] },
     messages: {
@@ -44,6 +52,8 @@ function loadExtension({ latestRequest, box = DEFAULT_BOX, queryByMessageId = nu
         return { messages: box.filter((header) => header.folder === INBOX) };
       },
       continueList: async () => ({ messages: [] }),
+      getFull: async () => ({ headers: {}, parts: [] }),
+      listAttachments: async () => [],
       delete: async (ids, options) => { calls.deleted.push({ ids: [...ids], options }); },
     },
   };
@@ -55,6 +65,12 @@ function loadExtension({ latestRequest, box = DEFAULT_BOX, queryByMessageId = nu
     if (url.endsWith("/api/thunderbird/bridge/event")) {
       calls.events.push(JSON.parse(options.body));
       return { ok: true, status: 200, json: async () => ({}) };
+    }
+    if (url.includes("/cleaner/state")) {
+      return { ok: true, status: 200, json: async () => ({ min_age_days: 7, max_mails: 500 }) };
+    }
+    if (url.endsWith("/api/thunderbird/cleaner/scan") && scanResult) {
+      return { ok: true, status: 200, json: async () => scanResult };
     }
     throw new Error(`appel inattendu : ${url}`);
   };
@@ -213,4 +229,65 @@ test("les mails retrouvés partent, le non retrouvé est compté et rien ne le r
   assert.equal(result.requested_count, 2);
   assert.equal(result.moved_count, 1);
   assert.equal(result.missing_count, 1);
+});
+
+// ── L4/t6 : l'action « Corbeille candidats » est retirée ──
+// Avant : elle envoyait à la corbeille TOUS les candidats du dernier scan lancé depuis l'extension
+// (jusqu'à 500, dont 8 seulement affichés dans la fenêtre), sans sélection mail par mail. Le seul
+// chemin de déplacement de l'extension est désormais la sélection confirmée dans /cleaner.
+
+const read = (name) => readFileSync(new URL(`../../thunderbird-extension/${name}`, import.meta.url), "utf8");
+const SCAN_CANDIDATES = [{ id: "11", subject: "Promotion" }, { id: "12", subject: "Promotion" }];
+
+test("t6 : l'ancien message « trash-cleaner-candidates » ne déplace plus rien, même avec des candidats en mémoire", async () => {
+  const { calls, send } = loadExtension({ stored: { cleanerCandidates: SCAN_CANDIDATES } });
+
+  await send("trash-cleaner-candidates");
+
+  assert.deepEqual(calls.deleted, []);
+  assert.deepEqual(calls.events, []);
+});
+
+test("t6 : le scan lancé depuis l'extension est un aperçu, il ne garde aucune liste à déplacer", async () => {
+  const { calls, send } = loadExtension({
+    scanResult: { scanned_count: 2, candidate_count: 2, candidates: SCAN_CANDIDATES },
+  });
+
+  const result = await send("scan-cleaner");
+
+  assert.equal(result.candidate_count, 2);
+  assert.deepEqual(calls.deleted, []);
+  assert.deepEqual(calls.stored.filter((values) => "cleanerCandidates" in values), []);
+  // Une liste laissée par une version précédente de l'extension est effacée.
+  assert.ok(calls.removed.includes("cleanerCandidates"));
+});
+
+test("t6 : l'extension n'a qu'un seul appel de mise à la corbeille, celui de la sélection confirmée", () => {
+  const source = read("background.js");
+  assert.equal(source.split("api.messages.delete(").length - 1, 1);
+  assert.doesNotMatch(source, /trashCleanerCandidates|trash-cleaner-candidates/);
+  const start = source.indexOf("async function trashJobMailCleanerRequest");
+  const end = source.indexOf("async function getLatestCleanerRequest");
+  assert.ok(start > 0 && end > start);
+  assert.ok(source.slice(start, end).includes("api.messages.delete("));
+});
+
+test("t6 : la fenêtre de l'extension n'a plus le bouton « Corbeille candidats » et dit où se fait le déplacement", () => {
+  const html = read("popup.html");
+  const script = read("popup.js");
+  assert.doesNotMatch(html, /Corbeille candidats|id="trash-cleaner"/);
+  assert.doesNotMatch(script, /trash-cleaner-candidates|#trash-cleaner"/);
+  // Le seul bouton de corbeille restant est celui de la sélection confirmée.
+  assert.deepEqual(html.match(/<button[^>]*class="danger"[^>]*>[^<]*/g).map((b) => b.replace(/<[^>]*>/, "")), ["Corbeille scan JobMail"]);
+  // Le scan de l'extension s'annonce comme un aperçu et renvoie vers /cleaner.
+  assert.match(html, /Aperçu nettoyage/);
+  assert.match(script, /Aperçu seulement/);
+  assert.match(script, /\/cleaner/);
+});
+
+test("t6 : le README de l'extension ne propose plus « Corbeille candidats »", () => {
+  const readme = read("README.md");
+  assert.doesNotMatch(readme, /`Corbeille candidats` (demande|agit)/);
+  assert.match(readme, /`Aperçu nettoyage`/);
+  assert.match(readme, /retir/);
 });
