@@ -210,3 +210,34 @@ def test_R16_etat_et_connexions_au_telephone():
     # Affichée sous 900 px seulement, avec la barre du haut qui la contient.
     block = re.search(r"@media \(max-width: 900px\) \{\n  \.mobile-bar \{(.*?)\n\}", CSS, re.S).group(1)
     assert re.search(r"\.mobile-status \{\s*display: flex;", block)
+
+
+# Correction de revue L5 : « Traitement terminé · recharger la page » recharge par un GET.
+def _reload_link(html: str) -> tuple[str, str]:
+    m = re.search(r'id="jm-shell-reload" data-method="([A-Z]+)" data-href="([^"]*)"', html)
+    assert m, "adresse de rechargement absente"
+    return m.group(1), m.group(2)
+
+
+def test_R20_page_get_rechargee_par_son_adresse():
+    client = TestClient(web_app.create_app())
+    html = client.get("/?status=new").text
+    assert _reload_link(html) == ("GET", "/?status=new")
+    assert _reload_link(client.get("/nouveautes").text) == ("GET", "/nouveautes")
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/cleaner/scan", "/cleaner/backups/cleanup", "/cleaner/temp/cleanup", "/cleaner/move-to-delete"],
+)
+def test_R21_page_rendue_par_un_post_rechargee_par_un_get_qui_existe(path):
+    client = TestClient(web_app.create_app())
+    response = client.post(path, data={})
+    assert "data-shell-done" in response.text, path
+    method, href = _reload_link(response.text)
+    assert method == "POST"
+    assert href == "/cleaner"
+    # Le GET de l'adresse POST donnerait 405 (ou une redirection) ; celle-ci répond la page.
+    reloaded = client.get(href, follow_redirects=False)
+    assert reloaded.status_code == 200
+    assert "data-shell-done" in reloaded.text

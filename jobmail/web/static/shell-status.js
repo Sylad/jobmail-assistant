@@ -38,7 +38,22 @@
     return Math.max(0, Math.min(100, Math.round(status.progress)));
   }
 
+  /**
+   * Adresse du lien « Traitement terminé · recharger la page » (correction de revue L5).
+   * Page venue d'un GET : son adresse SANS #fragment (un lien vers la même adresse avec
+   * fragment ne fait que défiler, sans recharger). Page rendue par un POST : la page GET
+   * donnée par le serveur (`_shell_reload_target`), jamais le renvoi du formulaire (405).
+   */
+  function reloadHref(locationHref, method, fallback) {
+    if (method === 'GET') {
+      var hash = String(locationHref).indexOf('#');
+      return hash >= 0 ? String(locationHref).slice(0, hash) : String(locationHref);
+    }
+    return fallback || '/';
+  }
+
   var api = {
+    reloadHref: reloadHref,
     nextDelay: nextDelay,
     justFinished: justFinished,
     connClass: connClass,
@@ -87,7 +102,7 @@
     });
     if (finished) {
       document.querySelectorAll('[data-shell-done]').forEach(function (link) {
-        link.href = window.location.href;
+        link.href = reloadHref(window.location.href, reload.method, reload.href);
         link.hidden = false;
       });
     }
@@ -98,6 +113,11 @@
     current = JSON.parse(document.getElementById('jm-shell-status').textContent);
   } catch (_e) {
     current = null;
+  }
+  var reload = { method: 'GET', href: '/' };
+  var reloadEl = document.getElementById('jm-shell-reload');
+  if (reloadEl) {
+    reload = { method: reloadEl.getAttribute('data-method') || 'GET', href: reloadEl.getAttribute('data-href') || '/' };
   }
   var timer = null;
 

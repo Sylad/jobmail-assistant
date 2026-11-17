@@ -236,6 +236,8 @@
 
   {# L5/t2 — état initial du gabarit, puis scrutation de /api/shell-status (pas de rechargement). #}
   <script type="application/json" id="jm-shell-status">{{ shell | tojson }}</script>
+  {# Correction de revue L5 : le lien « recharger la page » vise un GET, jamais le renvoi d'un POST. #}
+  <div id="jm-shell-reload" data-method="{{ shell_reload.method }}" data-href="{{ shell_reload.href }}" hidden></div>
   <script src="/static/shell-status.js?v={{ static_version }}"></script>
 
   {% block scripts %}{% endblock %}

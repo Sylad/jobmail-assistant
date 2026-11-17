@@ -260,7 +260,38 @@ templates.env.filters["contract_fr"] = lambda v: _CONTRACT_FR.get(str(v), str(v)
 # L6 — la pastille du lien Nouveautés a besoin des slugs et dates sur chaque page.
 templates.env.globals["news_index"] = lambda: news_mod.news_index()
 # L5/t1 — l'état du gabarit est fourni à toutes les pages, au même endroit.
-templates.context_processors.append(lambda request: {"shell": _shell_status(get_settings())})
+templates.context_processors.append(
+    lambda request: {"shell": _shell_status(get_settings()), "shell_reload": _shell_reload_target(request)}
+)
+
+
+def _shell_reload_target(request: Request) -> dict[str, str]:
+    """Correction de revue L5 : adresse du lien « Traitement terminé · recharger la page ».
+
+    Une page venue d'un GET se recharge par un GET de sa propre adresse (le navigateur en
+    retire le #fragment, static/shell-status.js). Une page rendue par un POST (rapport de
+    scan, nettoyage des sauvegardes…) ne doit jamais renvoyer son formulaire, et le GET de
+    son adresse répond 405 : on vise la page GET la plus proche (préfixe de chemin le plus
+    long servi en HTML par une route GET sans paramètre), à défaut l'accueil.
+    """
+    path = request.url.path
+    if request.method == "GET":
+        query = request.url.query
+        return {"method": "GET", "href": f"{path}?{query}" if query else path}
+    html_get_paths = {
+        route.path
+        for route in request.app.routes
+        if "GET" in (getattr(route, "methods", None) or ())
+        and getattr(route, "response_class", None) is HTMLResponse
+        and "{" not in route.path
+    }
+    segments = [s for s in path.split("/") if s]
+    while segments:
+        candidate = "/" + "/".join(segments)
+        if candidate in html_get_paths:
+            return {"method": request.method, "href": candidate}
+        segments.pop()
+    return {"method": request.method, "href": "/"}
 
 
 @dataclass
