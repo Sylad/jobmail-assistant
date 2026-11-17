@@ -62,10 +62,11 @@ lots:
     finished: 2026-11-17
   - id: L5
     title: "Revue UX — Gabarit commun : navigation, en-tête, pied, rendu téléphone"
-    status: todo
+    status: doing
     visible: true
     estimate: 0.25
     created: 2026-09-28
+    started: 2026-11-17
   - id: L6
     title: Page Nouveautés branchée sur cadence news (raf news → page), signature commune des apps
     public: Une page Nouveautés raconte ce qui change dans l'application
