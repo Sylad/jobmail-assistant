@@ -8,22 +8,40 @@ import vm from "node:vm";
 
 const SOURCE = readFileSync(new URL("../../thunderbird-extension/background.js", import.meta.url), "utf8");
 
-function loadExtension({ latestRequest }) {
-  const calls = { deleted: [], events: [], notifications: [], fetched: [] };
+// Fausse boîte par défaut : deux mails de l'Inbox, connus par leur Message-Id (Thunderbird
+// range `headerMessageId` sans chevrons).
+const INBOX = { type: "inbox", path: "/Inbox", name: "Inbox" };
+const TRASH = { type: "trash", path: "/Trash", name: "Trash" };
+const DEFAULT_BOX = [
+  { id: 11, headerMessageId: "one@example.test", folder: INBOX },
+  { id: 12, headerMessageId: "two@example.test", folder: INBOX },
+];
+
+// `box` : les mails de la fausse boîte. `queryByMessageId` remplace la recherche par Message-Id
+// (pour simuler une requête qui échoue ou qui répond à côté). Toute autre recherche (sujet,
+// expéditeur, dates : l'ancien repli) rend les mails de l'Inbox, comme le ferait Thunderbird.
+function loadExtension({ latestRequest, box = DEFAULT_BOX, queryByMessageId = null }) {
+  const calls = { deleted: [], events: [], notifications: [], fetched: [], queries: [] };
   let onMessage = null;
   const noop = { addListener() {} };
+  const strip = (value) => String(value || "").replace(/^<|>$/g, "");
   const messenger = {
     runtime: { onMessage: { addListener: (fn) => { onMessage = fn; } }, onStartup: noop, onInstalled: noop },
     alarms: { onAlarm: noop, clear: async () => {}, create() {} },
     menus: { create() {}, onClicked: noop },
     storage: { local: { get: async (defaults) => ({ ...defaults }), set: async () => {} } },
     notifications: { create: async (options) => { calls.notifications.push(options.message); } },
-    accounts: { list: async () => [] },
+    accounts: { list: async () => [{ folders: [INBOX, TRASH] }] },
     messages: {
-      // Chaque Message-Id connu de la fausse boîte donne un identifiant Thunderbird.
-      query: async ({ headerMessageId }) => {
-        const id = { "<two@example.test>": 12, "<one@example.test>": 11 }[headerMessageId];
-        return { messages: id ? [{ id, folder: { type: "inbox", path: "/Inbox", name: "Inbox" } }] : [] };
+      query: async (queryInfo) => {
+        calls.queries.push(queryInfo);
+        if (queryInfo.headerMessageId !== undefined) {
+          if (queryByMessageId) {
+            return queryByMessageId(queryInfo.headerMessageId);
+          }
+          return { messages: box.filter((header) => header.headerMessageId === strip(queryInfo.headerMessageId)) };
+        }
+        return { messages: box.filter((header) => header.folder === INBOX) };
       },
       continueList: async () => ({ messages: [] }),
       delete: async (ids, options) => { calls.deleted.push({ ids: [...ids], options }); },
@@ -44,7 +62,17 @@ function loadExtension({ latestRequest }) {
   return { calls, send: (type) => onMessage({ type }) };
 }
 
-const candidate = (messageId) => ({ uid: `mbox:a:${messageId}`, message_id: messageId, subject: "Promotion", sender: "n@example.test" });
+const candidate = (messageId) => ({
+  uid: `mbox:a:${messageId}`,
+  message_id: messageId,
+  subject: "Promotion",
+  sender: "n@example.test",
+  received_at: "2026-05-01T08:30:00",
+});
+const confirmed = (...candidates) => ({
+  status: 200,
+  body: { request_id: "req", source: "confirmed_selection", candidate_count: candidates.length, candidates },
+});
 
 test("sans sélection confirmée (400 du serveur), rien ne part à la corbeille", async () => {
   const { calls, send } = loadExtension({
@@ -85,7 +113,7 @@ test("seuls les mails de la sélection confirmée partent, en corbeille et non e
   assert.deepEqual(calls.deleted[0].ids, [12]);
   assert.equal(calls.deleted[0].options.deletePermanently, false);
   assert.equal(result.moved_count, 1);
-  // Le serveur apprend quelle demande a été exécutée : il la consomme, pas de rejeu.
+  // Le compte rendu nomme la demande exécutée (le serveur l'a déjà consommée en la servant).
   assert.equal(calls.events[0].event, "cleaner_move");
   assert.equal(calls.events[0].payload.request_id, "req-1");
 });
@@ -102,5 +130,87 @@ test("une sélection confirmée introuvable dans Thunderbird ne déplace rien", 
 
   assert.deepEqual(calls.deleted, []);
   assert.equal(result.moved_count, 0);
+  assert.equal(result.missing_count, 1);
+});
+
+// ── Revue L4/t5, M1 : un mail se résout par son Message-Id, et par rien d'autre ──
+// Avant : quand le Message-Id ne donnait rien, un repli prenait dans l'Inbox le premier mail de
+// même sujet et de même expéditeur à ±2 jours, c'est-à-dire un mail que personne n'a sélectionné.
+
+// Le numéro voisin d'une newsletter : même sujet, même expéditeur, le lendemain, autre Message-Id.
+const NEIGHBOUR = {
+  id: 99,
+  headerMessageId: "voisin@example.test",
+  subject: "Promotion",
+  author: "Newsletter <n@example.test>",
+  date: new Date("2026-05-02T08:30:00"),
+  folder: INBOX,
+};
+
+test("un mail sélectionné déjà en corbeille n'est pas remplacé par son voisin de même sujet", async () => {
+  const { calls, send } = loadExtension({
+    latestRequest: confirmed(candidate("<two@example.test>")),
+    box: [{ id: 12, headerMessageId: "two@example.test", subject: "Promotion", folder: TRASH }, NEIGHBOUR],
+  });
+
+  const result = await send("trash-jobmail-cleaner-request");
+
+  assert.deepEqual(calls.deleted, []);
+  assert.equal(result.moved_count, 0);
+  assert.equal(result.missing_count, 1);
+  assert.equal(result.missing[0].subject, "Promotion");
+});
+
+test("un candidat sans Message-Id est compté non trouvé, sans recherche par sujet ni expéditeur", async () => {
+  const { calls, send } = loadExtension({
+    latestRequest: confirmed({ ...candidate(""), uid: "mbox:a:sans-id" }),
+    box: [NEIGHBOUR],
+  });
+
+  const result = await send("trash-jobmail-cleaner-request");
+
+  assert.deepEqual(calls.deleted, []);
+  assert.equal(result.missing_count, 1);
+  // Aucune requête autre que par Message-Id n'est même posée à Thunderbird.
+  assert.deepEqual(calls.queries.filter((query) => query.headerMessageId === undefined), []);
+});
+
+test("une recherche par Message-Id qui échoue ne déplace rien", async () => {
+  const { calls, send } = loadExtension({
+    latestRequest: confirmed(candidate("<two@example.test>")),
+    box: [NEIGHBOUR],
+    queryByMessageId: async () => { throw new Error("requête refusée"); },
+  });
+
+  const result = await send("trash-jobmail-cleaner-request");
+
+  assert.deepEqual(calls.deleted, []);
+  assert.equal(result.missing_count, 1);
+});
+
+test("un mail rendu par la recherche avec un autre Message-Id n'est pas déplacé", async () => {
+  // Une recherche qui répondrait à côté (filtre ignoré) ne doit pas désigner un autre mail.
+  const { calls, send } = loadExtension({
+    latestRequest: confirmed(candidate("<two@example.test>")),
+    queryByMessageId: async () => ({ messages: [NEIGHBOUR] }),
+  });
+
+  const result = await send("trash-jobmail-cleaner-request");
+
+  assert.deepEqual(calls.deleted, []);
+  assert.equal(result.missing_count, 1);
+});
+
+test("les mails retrouvés partent, le non retrouvé est compté et rien ne le remplace", async () => {
+  const { calls, send } = loadExtension({
+    latestRequest: confirmed(candidate("<one@example.test>"), candidate("<absent@example.test>")),
+    box: [...DEFAULT_BOX, NEIGHBOUR],
+  });
+
+  const result = await send("trash-jobmail-cleaner-request");
+
+  assert.deepEqual(calls.deleted.map((call) => call.ids), [[11]]);
+  assert.equal(result.requested_count, 2);
+  assert.equal(result.moved_count, 1);
   assert.equal(result.missing_count, 1);
 });

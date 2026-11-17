@@ -357,7 +357,9 @@ local `.xpi` during development. It is deliberately thin:
   l'extension Thunderbird", `POST /api/thunderbird/cleaner/request`), read
   through `/api/thunderbird/cleaner/latest-request`: only the mails named by
   that confirmed selection, never every scan candidate; no confirmed selection
-  → 400 and nothing moves; the request is single-use and a new scan cancels it;
+  → 400 and nothing moves; the request is single-use (consumed as soon as it is
+  served to the extension) and a new scan cancels it; a mail is resolved by its
+  `Message-Id` only — one that is not found is reported missing, never replaced;
 - moves messages via Thunderbird's `messages.delete(..., deletePermanently:
   false)` API, so the account's trash behavior is honored.
 

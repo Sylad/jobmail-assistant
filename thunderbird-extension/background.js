@@ -420,73 +420,28 @@ async function resolveCleanerRequestMessageIds(candidates) {
   };
 }
 
+// Revue L4/t5 (M1) : un mail de la selection ne se resout QUE par son Message-Id. Pas de repli
+// par sujet, expediteur ou date : un mail non retrouve (deja en corbeille, sans Message-Id,
+// recherche en echec) est compte « non trouve » et n'est jamais remplace par un autre.
 async function findMessageIdForCandidate(candidate) {
-  const byMessageId = await findByHeaderMessageId(candidate.message_id || "");
-  if (byMessageId) {
-    return byMessageId;
-  }
-  return findByCandidateFallback(candidate);
-}
-
-async function findByHeaderMessageId(messageId) {
-  const clean = String(messageId || "").trim();
-  if (!clean || !api.messages?.query) {
+  const wanted = normalizeMessageId(candidate.message_id);
+  if (!wanted || !api.messages?.query) {
     return 0;
   }
-  for (const value of [clean, clean.replace(/^<|>$/g, "")]) {
-    try {
-      const page = await api.messages.query({ headerMessageId: value, messagesPerPage: 10 });
-      const match = (page.messages || []).find((header) => !isExcludedCleanerFolder(header.folder));
-      if (match?.id) {
-        return match.id;
-      }
-    } catch (_error) {
-      return 0;
-    }
+  try {
+    const page = await api.messages.query({ headerMessageId: wanted, messagesPerPage: 10 });
+    const match = (page.messages || []).find(
+      (header) => normalizeMessageId(header.headerMessageId) === wanted && !isExcludedCleanerFolder(header.folder)
+    );
+    return match?.id || 0;
+  } catch (_error) {
+    return 0;
   }
-  return 0;
 }
 
-async function findByCandidateFallback(candidate) {
-  const folders = await getInboxFolders();
-  const received = candidate.received_at ? new Date(candidate.received_at) : null;
-  const fromDate = received ? new Date(received.getTime() - 2 * 24 * 60 * 60 * 1000) : undefined;
-  const toDate = received ? new Date(received.getTime() + 2 * 24 * 60 * 60 * 1000) : undefined;
-  const queryBase = {
-    subject: candidate.subject || undefined,
-    author: candidate.sender || undefined,
-    fromDate,
-    toDate,
-    maxMessages: 20,
-  };
-
-  for (const folder of folders) {
-    const headers = await queryMessagesPage({ ...queryBase, folder });
-    const match = headers.find((header) => candidateMatchesHeader(candidate, header));
-    if (match?.id) {
-      return match.id;
-    }
-  }
-  return 0;
-}
-
-function candidateMatchesHeader(candidate, header) {
-  const subject = String(candidate.subject || "").trim();
-  const sender = String(candidate.sender || "").toLowerCase();
-  const headerSubject = String(header.subject || "").trim();
-  const headerAuthor = String(header.author || "").toLowerCase();
-  if (subject && headerSubject && subject !== headerSubject) {
-    return false;
-  }
-  if (sender && headerAuthor && !headerAuthor.includes(extractEmail(sender))) {
-    return false;
-  }
-  return true;
-}
-
-function extractEmail(value) {
-  const match = String(value || "").match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
-  return match ? match[0].toLowerCase() : String(value || "").toLowerCase();
+// Thunderbird range et cherche `headerMessageId` sans chevrons.
+function normalizeMessageId(value) {
+  return String(value || "").trim().replace(/^<|>$/g, "");
 }
 
 async function reportBridgeEvent(event, payload) {

@@ -266,21 +266,40 @@ def test_a_refused_confirmation_cancels_the_previous_request(tmp_path):
     assert client.get("/api/thunderbird/cleaner/latest-request").status_code == 400
 
 
-def test_cleaner_request_is_consumed_by_the_extension_move_event(tmp_path):
+def test_cleaner_request_is_consumed_as_soon_as_it_is_served(tmp_path):
+    # Revue L4/t5, n1 : l'usage unique ne dépend plus du compte rendu de l'extension (qui peut
+    # se perdre). Avant : la demande restait servie tant que `cleaner_move` n'était pas rapporté.
     client = _client(tmp_path)
     _three_candidate_scans()
     request_id = _confirm(client, ["mbox:a:1"]).json()["request_id"]
 
-    # Un déplacement de l'autre bouton de l'extension (sans request_id) ne consomme rien.
-    client.post("/api/thunderbird/bridge/event", json={"event": "cleaner_move", "payload": {"moved_count": 2}})
+    first = client.get("/api/thunderbird/cleaner/latest-request")
+    assert first.status_code == 200
+    assert first.json()["request_id"] == request_id
+    assert [c["uid"] for c in first.json()["candidates"]] == ["mbox:a:1"]
+
+    # Aucun compte rendu de l'extension : un second clic ne rejoue pourtant pas la demande.
+    second = client.get("/api/thunderbird/cleaner/latest-request")
+    assert second.status_code == 400
+    assert second.json()["detail"] == web_app.NO_SELECTION_MESSAGE
+
+
+def test_a_served_request_can_only_be_replaced_by_a_new_confirmation(tmp_path):
+    client = _client(tmp_path)
+    _three_candidate_scans()
+    _confirm(client, ["mbox:a:1"])
     assert client.get("/api/thunderbird/cleaner/latest-request").status_code == 200
 
+    # Le compte rendu (avec ou sans identifiant) ne ressuscite rien.
     client.post(
         "/api/thunderbird/bridge/event",
-        json={"event": "cleaner_move", "payload": {"request_id": request_id, "moved_count": 1}},
+        json={"event": "cleaner_move", "payload": {"request_id": "x", "moved_count": 1}},
     )
-    # Un second clic dans l'extension ne rejoue pas la demande.
     assert client.get("/api/thunderbird/cleaner/latest-request").status_code == 400
+
+    assert _confirm(client, ["mbox:a:2"]).status_code == 200
+    payload = client.get("/api/thunderbird/cleaner/latest-request").json()
+    assert [c["uid"] for c in payload["candidates"]] == ["mbox:a:2"]
 
 
 def test_a_new_scan_cancels_the_confirmed_request(tmp_path, monkeypatch):

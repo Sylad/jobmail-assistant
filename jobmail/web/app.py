@@ -356,7 +356,7 @@ _refresh_lock = threading.Lock()
 _thunderbird_bridge_state = ThunderbirdBridgeState()
 _thunderbird_bridge_lock = threading.Lock()
 # L4/t5 : la seule demande que l'extension Thunderbird peut exécuter — la sélection confirmée
-# dans /cleaner. Absente tant que l'écran n'a rien confirmé ; consommée après usage.
+# dans /cleaner. Absente tant que l'écran n'a rien confirmé ; consommée dès qu'elle est servie.
 _thunderbird_cleaner_request: dict | None = None
 _thunderbird_cleaner_request_lock = threading.Lock()
 
@@ -409,19 +409,14 @@ def _record_thunderbird_bridge_event(event: str, payload: dict) -> dict:
             _thunderbird_bridge_state.last_error = str(payload.get("message") or "")
         else:
             raise HTTPException(status_code=400, detail="Evenement Thunderbird inconnu.")
-    if event == "cleaner_move" and payload.get("request_id"):
-        # La demande confirmée vient d'être exécutée : un second clic ne la rejoue pas.
-        _clear_thunderbird_cleaner_request(str(payload["request_id"]))
     return _thunderbird_bridge_payload()
 
 
-def _clear_thunderbird_cleaner_request(request_id: str | None = None) -> None:
-    """Oublie la demande confirmée (toute demande, ou seulement celle de cet identifiant)."""
+def _clear_thunderbird_cleaner_request() -> None:
+    """Oublie la demande confirmée."""
     global _thunderbird_cleaner_request
     with _thunderbird_cleaner_request_lock:
-        current = _thunderbird_cleaner_request
-        if current is not None and request_id in (None, current["request_id"]):
-            _thunderbird_cleaner_request = None
+        _thunderbird_cleaner_request = None
 
 
 def _confirm_thunderbird_cleaner_request(selected_uid: list[str]) -> dict:
@@ -468,12 +463,20 @@ def _confirm_thunderbird_cleaner_request(selected_uid: list[str]) -> dict:
         return request
 
 
-def _latest_thunderbird_cleaner_request() -> dict:
-    """La demande confirmée dans /cleaner, jamais « tous les candidats des scans » (L4/t5)."""
+def _take_thunderbird_cleaner_request() -> dict:
+    """Sert la demande confirmée dans /cleaner et la consomme du même geste (L4/t5).
+
+    Jamais « tous les candidats des scans ». L'usage unique est tenu ici, sous le verrou : il ne
+    dépend pas du compte rendu de l'extension, et deux lectures simultanées ne reçoivent pas la
+    même demande. Pour rejouer, il faut confirmer à nouveau la sélection dans /cleaner.
+    """
+    global _thunderbird_cleaner_request
     with _thunderbird_cleaner_request_lock:
-        if _thunderbird_cleaner_request is None:
-            raise CleanerError(NO_SELECTION_MESSAGE)
-        return dict(_thunderbird_cleaner_request)
+        request = _thunderbird_cleaner_request
+        _thunderbird_cleaner_request = None
+    if request is None:
+        raise CleanerError(NO_SELECTION_MESSAGE)
+    return request
 
 
 def _refresh_payload(job: RefreshJob | None) -> dict:
@@ -1213,7 +1216,7 @@ def create_app() -> FastAPI:
     @app.get("/api/thunderbird/cleaner/latest-request")
     def api_thunderbird_cleaner_latest_request():
         try:
-            return _latest_thunderbird_cleaner_request()
+            return _take_thunderbird_cleaner_request()
         except CleanerError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
