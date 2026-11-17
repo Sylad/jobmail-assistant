@@ -150,8 +150,15 @@ h2 { font-size: 1rem; font-weight: 600; margin: 0 0 10px; }
   overflow-y: auto;
 }
 
+/* L5 : la navigation et les connexions sont deux blocs distincts dans .sidebar-nav. */
+.sidebar-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .sidebar-nav-label {
-  font-size: 9.5px;
+  font-size: 11px; /* L5 : était 9,5 px */
   font-weight: 700;
   letter-spacing: 0.12em;
   color: var(--fg-mute); /* 7,34:1 (était --fg-very-faint, 2,48:1) */
@@ -213,7 +220,7 @@ h2 { font-size: 1rem; font-weight: 600; margin: 0 0 10px; }
 
 .sidebar-connection-sub {
   font-size: 11px;
-  color: var(--fg-faint);
+  color: var(--fg-mute); /* L5 : 7,34:1 (était --fg-faint, 3,96:1) */
   margin-top: 1px;
 }
 
@@ -236,15 +243,15 @@ h2 { font-size: 1rem; font-weight: 600; margin: 0 0 10px; }
 
 .sidebar-status-detail {
   font-size: 11px;
-  color: var(--fg-very-faint);
+  color: var(--fg-mute); /* L5 : 7,34:1 (était --fg-very-faint, 2,48:1) */
   font-family: var(--font-mono);
   margin-top: 1px;
 }
 
 .sidebar-footer-meta {
   margin-top: 6px;
-  font-size: 10px;
-  color: var(--fg-very-faint);
+  font-size: 11px;
+  color: var(--fg-mute); /* L5 : 7,34:1 (était --fg-very-faint, 2,48:1) */
   font-family: var(--font-mono);
   padding-left: 18px;
 }
@@ -870,10 +877,11 @@ tr.row-status-replied { background: rgba(245, 158, 11, 0.03); }
   padding: 14px 32px;
   color: var(--fg-mute); /* 6,96:1 (était --fg-very-faint, 2,36:1) */
   border-top: 1px solid var(--border-soft);
-  font-size: 11px;
+  font-size: 12px; /* L5 : le <small> tombait à 9,17 px */
   font-family: var(--font-mono);
   flex-shrink: 0;
 }
+.footer small { font-size: inherit; }
 
 /* ═══════════════════════════════════════════
    PAGINATION
@@ -1292,7 +1300,8 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 13px; 
 
 .phase-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  /* L5 : auto-fit, sinon 4 × 160 px débordent de 77 px entre 901 et 980 px (barre latérale). */
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
   margin: 14px 0 10px;
 }
@@ -1585,6 +1594,22 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 13px; 
   border: 0;
 }
 
+/* L5 : lien d'évitement (WCAG 2.4.1), hors écran tant qu'il n'a pas le focus. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -100px;
+  z-index: 1000;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--accent-pale);
+  color: var(--bg);
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus { top: 8px; }
+main.container:focus { outline: none; }
+
 .sidebar-nav-item:focus-visible,
 .mobile-nav-item:focus-visible,
 .mobile-bar-brand:focus-visible {
@@ -1670,6 +1695,9 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 13px; 
     background: var(--accent-bg);
     border-color: var(--accent-border);
     color: var(--accent-pale);
+    /* L5 : repère qui ne tient pas qu'à la couleur (WCAG 1.4.1) : graisse et trait à gauche. */
+    font-weight: 700;
+    box-shadow: inset 3px 0 0 var(--accent-light);
   }
   .mobile-nav-item i { font-size: 17px; flex-shrink: 0; }
   /* Pastille posée sur le coin haut-droit du lien : hors du flux, elle ne prend pas de
@@ -2024,8 +2052,18 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 13px; 
 .cleaner-candidates-count { flex: 1 1 auto; }
 .cleaner-candidates-foot { display: flex; justify-content: flex-end; padding-top: 10px; }
 
+/* L5 / L3/t2 : mouvement réduit demandé (WCAG 2.3.3) — ni pulsation, ni enfoncement des
+   boutons, ni transitions ni animations nulle part. */
 @media (prefers-reduced-motion: reduce) {
   .vue-progress-bar-active .vue-progress-indicator { animation: none; }
+  .live-dot { animation: none; }
+  .btn:active { transform: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @media (max-width: 1200px) {

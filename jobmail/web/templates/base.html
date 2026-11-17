@@ -16,11 +16,18 @@
   {% endif %}
 </head>
 <body>
+  {# L5 — lien d'évitement (WCAG 2.4.1) : visible seulement au focus clavier. #}
+  <a class="skip-link" href="#contenu">Aller au contenu</a>
   <div class="app-shell">
 
     {# ── Sidebar ────────────────────────────── #}
     {% set _path = request.url.path %}
     {% set _is_dashboard = _path == '/' or _path.startswith('/offers/') %}
+    {#
+      L5 — « page » seulement sur la page elle-même ; une fiche offre (ou sa 404) est dans la
+      rubrique Tableau de bord sans être cette page : aria-current="true".
+    #}
+    {% set _dashboard_current = 'page' if _path == '/' else 'true' %}
     {% set _is_cleaner   = _path.startswith('/cleaner') %}
     {% set _is_news      = _path.startswith('/nouveautes') %}
     {% set _is_plan      = _path.startswith('/plan-de-travail') %}
@@ -31,7 +38,7 @@
       vues, posée par static/news.js) et Plan de travail.
     #}
     {% macro nav_links(item_class) %}
-        <a href="/" class="{{ item_class }} {% if _is_dashboard %}active{% endif %}"{% if _is_dashboard %} aria-current="page"{% endif %}>
+        <a href="/" class="{{ item_class }} {% if _is_dashboard %}active{% endif %}"{% if _is_dashboard %} aria-current="{{ _dashboard_current }}"{% endif %}>
           <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
           <span class="nav-label">Tableau de bord</span>
         </a>
@@ -66,16 +73,21 @@
       </div>
 
       {# Navigation #}
-      <nav class="sidebar-nav" aria-label="Navigation principale">
+      <div class="sidebar-nav">
+      <nav class="sidebar-nav-group" aria-label="Navigation principale">
         <div class="sidebar-nav-label">Navigation</div>
 
 {{ nav_links('sidebar-nav-item') }}
+      </nav>
 
         <div class="sidebar-divider"></div>
-        <div class="sidebar-nav-label">Connexions</div>
+
+      {# L5 — les connexions ne sont pas de la navigation (WCAG 1.3.1). #}
+      <section class="sidebar-nav-group" aria-labelledby="sidebar-connections-title">
+        <div class="sidebar-nav-label" id="sidebar-connections-title">Connexions</div>
 
         <div class="sidebar-connection">
-          <i class="ti ti-brain" style="color: var(--warn)"></i>
+          <i class="ti ti-brain" style="color: var(--warn)" aria-hidden="true"></i>
           <div>
             <div class="sidebar-connection-label">Ollama</div>
             <div class="sidebar-connection-sub">{{ provider | default('–') }}</div>
@@ -85,14 +97,16 @@
         {% if imap_enabled is defined %}
         <div class="sidebar-connection">
           <i class="ti ti-mail{% if not imap_enabled %}-off{% endif %}"
-             style="color: {% if imap_enabled %}var(--ok){% else %}var(--fg-faint){% endif %}"></i>
+             style="color: {% if imap_enabled %}var(--ok){% else %}var(--fg-faint){% endif %}" aria-hidden="true"></i>
           <div>
-            <div class="sidebar-connection-label" style="color: {% if imap_enabled %}var(--fg-2){% else %}var(--fg-faint){% endif %}">IMAP</div>
+            {# L5 — désactivé : seule l'icône est grisée ; le texte reste à 7,34:1 (WCAG 1.4.3). #}
+            <div class="sidebar-connection-label" style="color: {% if imap_enabled %}var(--fg-2){% else %}var(--fg-mute){% endif %}">IMAP</div>
             <div class="sidebar-connection-sub">{{ 'Activé' if imap_enabled else 'Désactivé' }}</div>
           </div>
         </div>
         {% endif %}
-      </nav>
+      </section>
+      </div>
 
       {# Footer — status indicator #}
       <div class="sidebar-footer">
@@ -112,7 +126,7 @@
             <div class="sidebar-status">
               <div class="live-dot live-dot-idle"></div>
               <div>
-                <div class="sidebar-status-label" style="color: var(--ok)">Idle</div>
+                <div class="sidebar-status-label" style="color: var(--ok)">Au repos</div>
                 <div class="sidebar-status-detail">{{ stats.emails }} mails ingérés</div>
               </div>
             </div>
@@ -124,7 +138,7 @@
           <div class="sidebar-status">
             <div class="live-dot live-dot-idle"></div>
             <div>
-              <div class="sidebar-status-label" style="color: var(--fg-faint)">Idle</div>
+              <div class="sidebar-status-label" style="color: var(--fg-mute)">Au repos</div>
             </div>
           </div>
         {% endif %}
@@ -153,7 +167,7 @@
       </div>
       {% endif %}
 
-      <main class="container">
+      <main class="container" id="contenu" tabindex="-1">
         {% block content %}{% endblock %}
       </main>
 
