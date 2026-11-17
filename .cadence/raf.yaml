@@ -45,7 +45,7 @@ lots:
     ux: { date: 2026-11-17, verdict: "conforme (lead, captures 390 px) : 404 claire avec retour au tableau de bord ; boutons d'action à 40 px sur téléphone ; reste t2 avec L5" }
   - id: L4
     title: "Revue UX — Nettoyeur de boîte : scan, phases, déplacement"
-    status: doing
+    status: done
     visible: true
     estimate: 0.25
     created: 2026-09-28
@@ -57,8 +57,9 @@ lots:
       - { id: t4, title: "Message de confirmation manquante affiché près du bouton Déplacer, pas en haut de l'écran", status: done }
       - { id: t5, title: "Extension Thunderbird « Corbeille scan JobMail » : latest-request (app.py:411) et background.js:345 envoient à la corbeille TOUS les candidats des scans en mémoire, exclusions ignorées — n'envoyer que la sélection confirmée (revue L4 du 17-11, antérieur au lot)", status: done }
       - { id: t6, title: "Extension : « Corbeille candidats » met à la corbeille tous les candidats du scan de l'extension (jusqu'à 500, 8 affichés) sans sélection mail par mail — afficher et faire confirmer la liste entière, ou passer par la sélection de l'écran (revue L4/t5 du 17-11, antérieur au lot)", status: done }
-    review: { date: 2026-11-17, verdict: "conforme (t2, relu par le lead) : en-têtes 8 bits décodés UTF-8 puis jeu déclaré puis latin-1, RFC 2047 inchangé, tests sur en-têtes fictifs ; Message-Id ASCII inchangé", commit: df673046be83d6e7cf9bdbbb4c72713f4a6e564d }
-    ux: { date: 2026-11-17, verdict: "conforme (lead, capture 390 px regardée) : écran lisible, explications et confirmations visibles, aucun débordement ; 4 écarts en t1-t4" }
+    review: { date: 2026-11-17, verdict: "conforme (t3, t4, relus par le lead d'après le rapport et les captures) : liste repliable par phase avec compte visible (12 700 → 3 634 px à 390), message de confirmation sous les boutons et lié par aria-describedby ; pytest complet et ruff verts ; sélection envoyée inchangée", commit: 218be4a65ac642287eafd5bd916ac207a53ee13f }
+    ux: { date: 2026-11-17, verdict: "conforme (lead, captures 390 regardées) : message de confirmation sous les boutons de déplacement, liste repliable avec son compte" }
+    finished: 2026-11-17
   - id: L5
     title: "Revue UX — Gabarit commun : navigation, en-tête, pied, rendu téléphone"
     status: todo
