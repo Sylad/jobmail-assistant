@@ -32,10 +32,11 @@ lots:
     finished: 2026-11-01
   - id: L3
     title: Revue UX — Fiche offre
-    status: todo
+    status: doing
     visible: true
     estimate: 0.25
     created: 2026-09-28
+    started: 2026-11-17
   - id: L4
     title: "Revue UX — Nettoyeur de boîte : scan, phases, déplacement"
     status: todo
