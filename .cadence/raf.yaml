@@ -57,7 +57,7 @@ lots:
       - { id: t4, title: "Message de confirmation manquante affiché près du bouton Déplacer, pas en haut de l'écran", status: todo }
       - { id: t5, title: "Extension Thunderbird « Corbeille scan JobMail » : latest-request (app.py:411) et background.js:345 envoient à la corbeille TOUS les candidats des scans en mémoire, exclusions ignorées — n'envoyer que la sélection confirmée (revue L4 du 17-11, antérieur au lot)", status: done }
       - { id: t6, title: "Extension : « Corbeille candidats » met à la corbeille tous les candidats du scan de l'extension (jusqu'à 500, 8 affichés) sans sélection mail par mail — afficher et faire confirmer la liste entière, ou passer par la sélection de l'écran (revue L4/t5 du 17-11, antérieur au lot)", status: done }
-    review: { date: 2026-11-17, verdict: "conforme (t6, relu par le lead) : action « Corbeille candidats » retirée de l'extension, un seul chemin de mise à la corbeille (sélection confirmée dans /cleaner), plus de liste conservée ; popup en « Aperçu nettoyage »", commit: 8595882cee9d438312fc98add65d99ffc2e24dda }
+    review: { date: 2026-11-17, verdict: "conforme (t2, relu par le lead) : en-têtes 8 bits décodés UTF-8 puis jeu déclaré puis latin-1, RFC 2047 inchangé, tests sur en-têtes fictifs ; Message-Id ASCII inchangé", commit: df673046be83d6e7cf9bdbbb4c72713f4a6e564d }
     ux: { date: 2026-11-17, verdict: "conforme (lead, capture 390 px regardée) : écran lisible, explications et confirmations visibles, aucun débordement ; 4 écarts en t1-t4" }
   - id: L5
     title: "Revue UX — Gabarit commun : navigation, en-tête, pied, rendu téléphone"
