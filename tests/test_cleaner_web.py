@@ -46,7 +46,9 @@ def test_cleaner_page_renders(monkeypatch, tmp_path):
     resp = client.get("/cleaner")
 
     assert resp.status_code == 200
-    assert "Mailbox Cleaner" in resp.text
+    assert "<h1>Nettoyeur de boîte</h1>" in resp.text
+    assert "<title>Nettoyeur de boîte — JobMail</title>" in resp.text
+    assert "Mailbox Cleaner" not in resp.text
     assert "Backups Thunderbird" in resp.text
     assert "Nettoyer les anciens backups" in resp.text
     assert "js-pending-form" in resp.text

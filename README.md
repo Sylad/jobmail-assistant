@@ -38,7 +38,7 @@ JobMail Assistant has two complementary workflows:
 1. **Job-offer triage** — reads mails from IMAP or Thunderbird MBOX, classifies
    them locally, sends only job-related mails to the selected LLM provider, then
    stores structured offers in SQLite.
-2. **Mailbox cleaner** — scans old newsletters/promotional mails in dry-run,
+2. **Nettoyeur de boîte** (mailbox cleaner) — scans old newsletters/promotional mails in dry-run,
    displays a reviewable report, then moves explicitly confirmed selections to a
    quarantine/trash folder without permanent deletion.
 
@@ -269,7 +269,7 @@ lignes du log (`~/.jobmail/jobmail.log`).
 
 ## Frontend assets
 
-The dashboard is server-rendered with Jinja, and the Mailbox cleaner is a
+The dashboard is server-rendered with Jinja, and the « Nettoyeur de boîte » (mailbox cleaner) is a
 Vue 3/Vite/TypeScript mini-app embedded in the page. It handles scans,
 progress/cancellation, regex rule editing, reports, sender filters, candidate
 selection, and move feedback without leaving the cleaner screen. The frontend
@@ -301,7 +301,7 @@ python -m jobmail dry-run
 python -m jobmail classify
 ```
 
-## Mailbox cleaner
+## Nettoyeur de boîte (mailbox cleaner)
 
 Open `/cleaner` in the dashboard to scan old promotional/newsletter mails from
 Thunderbird POP3 MBOX files, IMAP, or already parsed job mails. The primary

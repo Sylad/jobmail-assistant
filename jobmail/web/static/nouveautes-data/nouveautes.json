@@ -73,7 +73,7 @@
       "captures": [
         "captures/L6-menu-nouveautes-pastille.png"
       ],
-      "html": "<p>JobMail a maintenant sa page <strong>Nouveautés</strong> : chaque évolution visible y est décrite en quelques lignes, avec une capture d'écran, la plus récente en haut.</p>\n<ul><li>Tu la trouves dans le menu, sous <strong>Mailbox Cleaner</strong>.</li><li>Une <strong>pastille</strong> sur le lien compte les nouveautés parues depuis ta première visite ; elle s'éteint quand tu ouvres la page.</li><li>Sur la page, les entrées que tu n'as pas encore vues portent la mention <strong>Nouveau</strong>.</li><li>Chaque nouveauté a un bouton <strong>Copier le lien</strong>, qui mène directement à elle.</li><li>Une capture s'agrandit au clic ou avec Entrée ; Échap la referme.</li><li>Rien ne sort de ta machine : la trace de ta dernière visite reste dans ton navigateur.</li></ul>"
+      "html": "<p>JobMail a maintenant sa page <strong>Nouveautés</strong> : chaque évolution visible y est décrite en quelques lignes, avec une capture d'écran, la plus récente en haut.</p>\n<ul><li>Tu la trouves dans le menu, sous <strong>Nettoyeur de boîte</strong>.</li><li>Une <strong>pastille</strong> sur le lien compte les nouveautés parues depuis ta première visite ; elle s'éteint quand tu ouvres la page.</li><li>Sur la page, les entrées que tu n'as pas encore vues portent la mention <strong>Nouveau</strong>.</li><li>Chaque nouveauté a un bouton <strong>Copier le lien</strong>, qui mène directement à elle.</li><li>Une capture s'agrandit au clic ou avec Entrée ; Échap la referme.</li><li>Rien ne sort de ta machine : la trace de ta dernière visite reste dans ton navigateur.</li></ul>"
     }
   ]
 }
