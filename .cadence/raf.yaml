@@ -53,8 +53,8 @@ lots:
     tasks:
       - { id: t1, title: "Exclure un expéditeur doit aussi l'exclure de la phase Règles regex au déplacement (mesuré : exclure un expéditeur fait passer la phase de 48 à 40 mails, mais le total à déplacer reste 48 : selectedUidsForMove)", status: done }
       - { id: t2, title: "Sujets en UTF-8 non encodé affichés avec des caractères de remplacement (_decode_hdr, jobmail/mail/thunderbird.py)", status: done }
-      - { id: t3, title: Liste des candidats repliable ou paginée au téléphone (≈ 12 000 px de haut à 390 px), status: todo }
-      - { id: t4, title: "Message de confirmation manquante affiché près du bouton Déplacer, pas en haut de l'écran", status: todo }
+      - { id: t3, title: Liste des candidats repliable ou paginée au téléphone (≈ 12 000 px de haut à 390 px), status: done }
+      - { id: t4, title: "Message de confirmation manquante affiché près du bouton Déplacer, pas en haut de l'écran", status: done }
       - { id: t5, title: "Extension Thunderbird « Corbeille scan JobMail » : latest-request (app.py:411) et background.js:345 envoient à la corbeille TOUS les candidats des scans en mémoire, exclusions ignorées — n'envoyer que la sélection confirmée (revue L4 du 17-11, antérieur au lot)", status: done }
       - { id: t6, title: "Extension : « Corbeille candidats » met à la corbeille tous les candidats du scan de l'extension (jusqu'à 500, 8 affichés) sans sélection mail par mail — afficher et faire confirmer la liste entière, ou passer par la sélection de l'écran (revue L4/t5 du 17-11, antérieur au lot)", status: done }
     review: { date: 2026-11-17, verdict: "conforme (t2, relu par le lead) : en-têtes 8 bits décodés UTF-8 puis jeu déclaré puis latin-1, RFC 2047 inchangé, tests sur en-têtes fictifs ; Message-Id ASCII inchangé", commit: df673046be83d6e7cf9bdbbb4c72713f4a6e564d }
