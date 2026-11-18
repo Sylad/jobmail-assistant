@@ -103,9 +103,10 @@ lots:
     finished: 2026-10-02
   - id: L8
     title: "Tailles de texte en rem avec une racine à 100 % (la racine est fixée à 14 px : la taille de police choisie dans le navigateur est ignorée) ; barre du haut au téléphone sur une seule rangée (169 px de haut à 390 px) ; tableau de bord qui déborde de 2 à 14 px entre 300 et 310 px (revue UX des pages Nouveautés et Plan)"
-    status: todo
+    status: doing
     estimate: 0.5
     created: 2026-10-02
+    started: 2026-11-18
   - id: L9
     title: "Nettoyage récurrent des fichiers de travail devenus inutiles (consigne Sylvain 02-10) : dossier tmp partagé (captures, scripts de mesure, builds de démonstration), documents périmés (specs et plans de lots livrés, audits dépassés), scripts jetables, captures non référencées, dépendances et fichiers générés orphelins — lister avant de supprimer, ne rien effacer hors tmp sans l'avoir regardé, garder ce que les Nouveautés ou la doc référencent ; à refaire à chaque clôture de vague, rouvrir ce lot ou en créer un nouveau"
     status: todo
