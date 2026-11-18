@@ -107,6 +107,7 @@ lots:
     estimate: 0.5
     created: 2026-10-02
     started: 2026-11-18
+    review: { date: 2026-11-18, verdict: "conforme (revue de code : 0 bloquant ; plus aucune taille de texte en px, 121 conversions exactes sur la racine de 14 px, test_tailles_rem.py échoue sur 4 mutations) ; suite : pastille Nouveautés à 17 px fixes qui déborde à 200 % → lot à part", commit: b32e766149567c1d6ece6c9bc493e2f451fa8a98 }
   - id: L9
     title: "Nettoyage récurrent des fichiers de travail devenus inutiles (consigne Sylvain 02-10) : dossier tmp partagé (captures, scripts de mesure, builds de démonstration), documents périmés (specs et plans de lots livrés, audits dépassés), scripts jetables, captures non référencées, dépendances et fichiers générés orphelins — lister avant de supprimer, ne rien effacer hors tmp sans l'avoir regardé, garder ce que les Nouveautés ou la doc référencent ; à refaire à chaque clôture de vague, rouvrir ce lot ou en créer un nouveau"
     status: todo
