@@ -128,6 +128,8 @@ lots:
     started: 2026-11-18
     review: { date: 2026-11-18, verdict: "conforme (revue du lead, 2 fichiers de workflow) : build-and-push.yml retiré, ci.yml joue ruff et pytest sous Python 3.12 + Node 22, permissions contents: read ; porte rejouée verte à 457aca8 ; CI GitHub à constater après le push", commit: 457aca8b2d2cf2f40e08c6530fcf16de16cc6a85 }
     finished: 2026-11-18
+    notes:
+      - { date: 2026-11-18, text: "18-11 : CI GitHub verte sur 2798f73 (workflow CI, success) — vérifié sur la vraie sortie ; fait sur mini-blue" }
   - id: L12
     title: "config cadence : porte de tests — orchestrate.test (pytest via le venv du projet .venv/bin/python -m pytest, plus la suite frontend si elle existe ; vérifiée verte sur main avant d'être déclarée ; un test qui touche les vrais MBOX Thunderbird ou Ollama est exclu et dit) et orchestrate.build (ruff check . puis build frontend vue-tsc + vite, vérifié vert), dans cadence.yaml avec un commentaire ; precheck: true ; CLAUDE.md si la section cadence le décrit"
     status: done
