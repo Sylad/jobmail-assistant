@@ -347,6 +347,12 @@ h2 { font-size: 0.875rem; font-weight: 600; margin: 0 0 10px; }
    repos et faisait déborder le panneau d'analyse sous 311 px). */
 .btn[hidden] { display: none; }
 
+/* Texte agrandi (WCAG 1.4.4 / 1.4.10) : ces libellés passent à la ligne plutôt que d'être rognés
+   par leur panneau ou de sortir de l'écran (« Ré-analyser avec Ollama » sous #reanalysis-panel,
+   overflow: hidden ; « Nettoyer les anciens backups »). Mesuré par tests/test_texte_agrandi.py. */
+.reanalysis-actions .btn,
+.backup-action-slot .btn { white-space: normal; max-width: 100%; text-align: center; }
+
 .btn:focus-visible,
 input:focus-visible,
 select:focus-visible {
@@ -447,6 +453,8 @@ select:focus-visible {
 
 .kpi-card-top {
   display: flex;
+  flex-wrap: wrap; /* texte agrandi : la pastille passe sous l'icône au lieu d'être rognée */
+  gap: 6px;
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 14px;
@@ -576,6 +584,7 @@ select:focus-visible {
 .reanalysis-actions {
   grid-column: 2;
   grid-row: 1;
+  min-width: 0;
   display: flex;
   gap: 8px;
   align-items: center;
@@ -677,6 +686,7 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   min-height: 26px;
+  max-width: 100%;
   padding: 3px 11px;
   background: transparent;
   border: 1px solid var(--border);
@@ -684,7 +694,6 @@ select:focus-visible {
   font-size: 0.71875rem;
   color: var(--fg-faint);
   transition: all 0.15s;
-  white-space: nowrap;
 }
 
 .chip-link:hover {
@@ -1244,6 +1253,7 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
 
 .backup-details summary {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1342,6 +1352,7 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
   border-radius: var(--radius);
   padding: 12px;
   min-height: 118px;
+  min-width: 0;
   cursor: pointer;
 }
 
@@ -1352,6 +1363,7 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
 
 .phase-card-head {
   display: flex;
+  flex-wrap: wrap; /* texte agrandi : l'état passe sous le nom de la phase */
   justify-content: space-between;
   gap: 10px;
   align-items: center;
@@ -1784,6 +1796,9 @@ main.container:focus { outline: none; }
 /* L8 : sous 340 px, le lien « Tableau » mène déjà à l'accueil ; le logo cède sa place aux
    onglets. Sous 480 px, le nom « JobMail » reste lu mais n'est plus affiché. */
 @media (max-width: 339px) { .mobile-bar-brand { display: none; } }
+/* Seuil en em : il suit la taille de police du navigateur (288 px à 16 px, 576 px à 32 px).
+   Texte agrandi sur un écran étroit : une carte KPI par rangée, étiquettes entières. */
+@media (max-width: 18em) { .kpi-grid { grid-template-columns: 1fr; } }
 @media (max-width: 479px) {
   .mobile-bar-brand .sidebar-logo-name {
     position: absolute;
@@ -1874,6 +1889,7 @@ main.container:focus { outline: none; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
   min-height: 28px;
   padding: 0 10px;
   border: 1px solid var(--accent-border);
@@ -1888,7 +1904,7 @@ main.container:focus { outline: none; }
 .news-copy:focus-visible { outline: 2px solid var(--accent-pale); outline-offset: 2px; }
 .news-copy i { font-size: 0.9375rem; }
 .news-copy-labels { display: inline-grid; }
-.news-copy-label { grid-area: 1 / 1; white-space: nowrap; }
+.news-copy-label { grid-area: 1 / 1; }
 .news-copy-label.is-hidden { visibility: hidden; }
 /* Tableau de bord (L16) : un seul ordre partout, bureau compris : le document suit l'écran (liste des
    offres, puis panneaux Pont Thunderbird et Analyse Ollama), sans `order`. 20 px séparent la liste
