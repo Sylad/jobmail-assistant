@@ -195,6 +195,12 @@ lots:
     started: 2026-11-17
     review: { date: 2026-11-17, verdict: "conforme : 1re revue bloquante (ruff 0.17 : 101 constats, note fausse) corrigée par 8bb390b — règles ruff figées aux défauts de 0.15, bornes soupsieve<3 et websockets<17 dans pyproject.toml, note rectifiée ; relu par le lead", commit: 8bb390be2fbb084247bba3b9298a5572beeb4888 }
     finished: 2026-11-17
+  - id: L19
+    title: "Revue UX — bonnes pratiques d'une appli web standard (D-13 du registre parent) : chaque page en vrai navigateur à 390 et 1440 px, au clavier, contre WCAG 2.2 AA, les heuristiques de Nielsen et la skill interface-utilisable (tailles de texte en rem ≥ 12 px, cibles ≥ 24 px, contrastes, focus visible, états vides et d'erreur) ; constats mesurés, sous-lots proposés"
+    status: todo
+    estimate: 0.5
+    visible: true
+    created: 2026-11-18
 acknowledged:
   - { sha: 2451f61971a86025ad35b3fc833393a169f87b47, subject: "plan: visible: true sur les lots « Revue UX — » (règle raf check de cadence L271)", date: 2026-10-23, reason: "plan seul : pose visible: true sur les revues UX, cite un lot du dépôt cadence" }
   - { sha: 0e0502c8025fe78d3c5953d7940013fede6a736d, subject: "config: la documentation suit le code (docs.sync) et l'étude de cas du projet est déclarée (docs.articles) — outillage cadence, lead 24-10", date: 2026-10-24, reason: "réglage d'outillage cadence (docs.sync, docs.articles), pas un lot du projet — lead 24-10" }
