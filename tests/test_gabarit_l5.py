@@ -82,9 +82,10 @@ def test_R7_bandeau_des_phases_ne_deborde_pas_a_cote_de_la_barre_laterale():
 
 
 def test_R8_textes_du_gabarit_pas_trop_petits():
-    assert "font-size: 12px" in _rules(".footer")[0]
+    # L8 : en rem sur une racine de 16 px (12 px = 0.75rem, 11 px = 0.6875rem).
+    assert "font-size: 0.75rem" in _rules(".footer")[0]
     assert "font-size: inherit" in _rules(".footer small")[0]
-    assert "font-size: 11px" in _rules(".sidebar-nav-label")[0]
+    assert "font-size: 0.6875rem" in _rules(".sidebar-nav-label")[0]
 
 
 # ── L5/t1, t2, t3, t5 : un seul état, le même partout, tenu à jour sans recharger ─────────

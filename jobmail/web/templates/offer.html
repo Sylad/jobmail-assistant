@@ -12,7 +12,7 @@
   {% if offer.is_esn %}<span class="chip chip-esn company-chip" title="ESN/presta : {{ offer.esn_match }}">ESN</span>{% endif %}
   {% if offer.extraction.location %}
   <span class="offer-meta-sep">·</span>
-  <span class="offer-meta-loc"><i class="ti ti-map-pin" aria-hidden="true" style="font-size:12px; vertical-align:-1px"></i> {{ offer.extraction.location }}</span>
+  <span class="offer-meta-loc"><i class="ti ti-map-pin" aria-hidden="true" style="font-size:0.75rem; vertical-align:-1px"></i> {{ offer.extraction.location }}</span>
   {% endif %}
   <span class="offer-meta-sep">·</span>
   <span class="status status-{{ offer.status.value }}">
@@ -24,19 +24,19 @@
 <div class="offer-actions-row">
   {% if offer_links %}
   <a class="btn btn-primary btn-sm" href="{{ offer_links[0].url }}" target="_blank" rel="noopener noreferrer">
-    <i class="ti ti-external-link" aria-hidden="true" style="font-size:13px"></i> Voir l'offre
+    <i class="ti ti-external-link" aria-hidden="true" style="font-size:0.8125rem"></i> Voir l'offre
   </a>
   {% endif %}
   {% if recruiter_email %}
   <a class="btn btn-sm" href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}">
-    <i class="ti ti-mail-forward" aria-hidden="true" style="font-size:13px"></i> Répondre par mail
+    <i class="ti ti-mail-forward" aria-hidden="true" style="font-size:0.8125rem"></i> Répondre par mail
   </a>
   <a class="btn btn-sm btn-ghost"
      href="mailto:{{ recruiter_email }}?subject=Re:%20{{ offer.subject | urlencode }}&body={{ 'Bonjour,%0A%0AVotre offre m%27int%C3%A9resse. Je suis disponible pour un %C3%A9change.%0A%0ACordialement,%0ASylvain Ladoire' | safe }}">
-    <i class="ti ti-template" aria-hidden="true" style="font-size:13px"></i> Réponse template
+    <i class="ti ti-template" aria-hidden="true" style="font-size:0.8125rem"></i> Réponse template
   </a>
   <button type="button" class="btn btn-sm btn-ghost" id="copy-email" data-email="{{ recruiter_email }}">
-    <i class="ti ti-copy" aria-hidden="true" style="font-size:13px"></i> <span class="copy-label">Copier l'email</span>
+    <i class="ti ti-copy" aria-hidden="true" style="font-size:0.8125rem"></i> <span class="copy-label">Copier l'email</span>
   </button>
   <span id="copy-email-status" class="copy-status" role="status" aria-live="polite"></span>
   {% endif %}
@@ -105,7 +105,7 @@
         <div class="link-actions">
           {% for link in offer_links %}
           <a class="btn btn-sm btn-ghost offer-link" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
-            <i class="ti ti-external-link" aria-hidden="true" style="font-size:12px"></i> {{ link.label }}
+            <i class="ti ti-external-link" aria-hidden="true" style="font-size:0.75rem"></i> {{ link.label }}
           </a>
           {% endfor %}
         </div>
@@ -136,7 +136,7 @@
         <h2><i class="ti ti-robot" aria-hidden="true" style="color:var(--accent-light); margin-right:6px; vertical-align:-2px"></i>Résumé LLM</h2>
       </div>
       <div class="offer-card-body" style="position:relative; z-index:1">
-        <p style="margin:0; font-size:14px; line-height:1.7; color:var(--fg-2)">
+        <p style="margin:0; font-size:0.875rem; line-height:1.7; color:var(--fg-2)">
           {{ offer.extraction.summary or '(aucun résumé)' }}
         </p>
       </div>
@@ -172,7 +172,7 @@
           <button type="submit" name="status" value="{{ s }}"
                   aria-pressed="{{ 'true' if current else 'false' }}"
                   class="btn status-btn status-{{ s }}{% if current %} active{% endif %}">
-            {% if current %}<i class="ti ti-check" aria-hidden="true" style="font-size:13px"></i> {% endif %}{% if s == 'interesting' %}★ {% endif %}{{ s | status_fr }}{% if current %}<span class="sr-only"> (statut actuel)</span>{% endif %}
+            {% if current %}<i class="ti ti-check" aria-hidden="true" style="font-size:0.8125rem"></i> {% endif %}{% if s == 'interesting' %}★ {% endif %}{{ s | status_fr }}{% if current %}<span class="sr-only"> (statut actuel)</span>{% endif %}
           </button>
           {% endfor %}
         </form>

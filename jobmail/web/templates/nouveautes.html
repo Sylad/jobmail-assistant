@@ -60,7 +60,7 @@
         <div class="news-captures">
           {% for c in e.captures %}
           <a href="{{ c.url }}" class="news-capture" data-lightbox
-             {% if c.width and c.height %}style="width: min(100%, {{ c.width }}px, calc(30rem * {{ c.width }} / {{ c.height }}))"{% endif %}>
+             {% if c.width and c.height %}style="width: min(100%, {{ c.width }}px, calc(26.25rem * {{ c.width }} / {{ c.height }}))"{% endif %}>
             <img src="{{ c.url }}" alt="{{ c.alt }}" loading="lazy" decoding="async"
                  {% if c.width and c.height %}width="{{ c.width }}" height="{{ c.height }}" style="aspect-ratio: {{ c.width }} / {{ c.height }}"{% endif %}>
             <span class="sr-only">(agrandir)</span>

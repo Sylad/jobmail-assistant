@@ -34,21 +34,26 @@
       Liens de navigation, partagés par la barre latérale (bureau) et la barre du haut
       (téléphone, sous 900 px). L6/L7 : Nouveautés (avec pastille du nombre d'entrées non
       vues, posée par static/news.js) et Plan de travail.
+      L8 : au téléphone, la barre tient sur une rangée ; chaque lien y montre son libellé court
+      (début du libellé complet, qui reste le nom accessible — WCAG 2.5.3).
     #}
     {% macro nav_links(item_class) %}
         <a href="/" class="{{ item_class }} {% if _is_dashboard %}active{% endif %}"{% if _is_dashboard %} aria-current="{{ _dashboard_current }}"{% endif %}>
           <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
           <span class="nav-label">Tableau de bord</span>
+          <span class="nav-label-short" aria-hidden="true">Tableau</span>
         </a>
 
         <a href="/cleaner" class="{{ item_class }} {% if _is_cleaner %}active{% endif %}"{% if _is_cleaner %} aria-current="page"{% endif %}>
           <i class="ti ti-inbox" aria-hidden="true"></i>
           <span class="nav-label">Nettoyeur de boîte</span>
+          <span class="nav-label-short" aria-hidden="true">Nettoyeur</span>
         </a>
 
         <a href="/nouveautes" class="{{ item_class }} {% if _is_news %}active{% endif %}" data-news-link{% if _is_news %} aria-current="page"{% endif %}>
           <i class="ti ti-sparkles" aria-hidden="true"></i>
           <span class="nav-label">Nouveautés</span>
+          <span class="nav-label-short" aria-hidden="true">Nouveautés</span>
           <span class="news-badge" data-news-badge aria-hidden="true"></span>
           <span class="sr-only" data-news-badge-sr></span>
         </a>
@@ -56,6 +61,7 @@
         <a href="/plan-de-travail" class="{{ item_class }} {% if _is_plan %}active{% endif %}"{% if _is_plan %} aria-current="page"{% endif %}>
           <i class="ti ti-list-check" aria-hidden="true"></i>
           <span class="nav-label">Plan de travail</span>
+          <span class="nav-label-short" aria-hidden="true">Plan</span>
         </a>
     {% endmacro %}
 
@@ -123,6 +129,7 @@
 
       {# Barre du haut au téléphone : la barre latérale est masquée sous 900 px. #}
       <header class="mobile-bar">
+        <div class="mobile-bar-row">
         <a href="/" class="mobile-bar-brand">
           <img class="app-logo app-logo-small" src="/static/favicon.svg" alt="" width="30" height="30">
           <span class="sidebar-logo-name">JobMail</span>
@@ -130,6 +137,7 @@
         <nav class="mobile-nav" aria-label="Navigation principale">
 {{ nav_links('mobile-nav-item') }}
         </nav>
+        </div>
         {# L5/t5 — sous 900 px, l'état et les connexions tiennent sur une ligne compacte. #}
         <div class="mobile-status{% if shell.running %} is-running{% endif %}" data-shell-status>
           <div class="live-dot{% if not shell.running %} live-dot-idle{% endif %}" aria-hidden="true"></div>

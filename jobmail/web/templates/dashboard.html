@@ -19,7 +19,7 @@
   <div class="page-header-actions">
     <form method="post" action="/refresh" style="display:inline" data-refresh-form>
       <button type="submit" class="btn btn-primary">
-        <i class="ti ti-refresh" style="font-size:15px"></i>
+        <i class="ti ti-refresh" style="font-size:0.9375rem"></i>
         Nouveaux mails
       </button>
     </form>
@@ -120,7 +120,7 @@
       </select>
     </label>
     <button type="submit" class="btn">
-      <i class="ti ti-filter" style="font-size:13px"></i> Filtrer
+      <i class="ti ti-filter" style="font-size:0.8125rem"></i> Filtrer
     </button>
     <a href="/" class="btn btn-ghost">Réinitialiser</a>
   </form>
@@ -193,7 +193,7 @@
           <td data-label="Lieu">{{ o.extraction.location }}</td>
           <td data-label="Mode" class="col-mode">{{ o.extraction.work_mode.value | mode_fr }}</td>
           <td data-label="Contrat">
-            <span style="font-size:11px; background:var(--surface-hover); color:var(--fg-mute); padding:2px 7px; border-radius:5px">
+            <span style="font-size:0.6875rem; background:var(--surface-hover); color:var(--fg-mute); padding:2px 7px; border-radius:5px">
               {{ o.extraction.contract_type.value | contract_fr }}
             </span>
           </td>
@@ -217,7 +217,7 @@
                       class="btn btn-icon {% if o.status.value == 'ignored' %}active-ignored{% endif %}">⊘</button>
             </form>
             <a class="btn btn-sm btn-ghost" href="/offers/{{ o.id }}" title="Voir le détail" aria-label="Voir le détail de l’offre : {{ (o.extraction.title or o.subject) | e }}">
-              <i class="ti ti-eye" style="font-size:14px"></i>
+              <i class="ti ti-eye" style="font-size:0.875rem"></i>
             </a>
           </td>
         </tr>
@@ -336,7 +336,7 @@
   </div>
   <div class="reanalysis-actions">
     <button type="button" class="btn btn-primary" id="reanalyze-start">
-      <i class="ti ti-sparkles" style="font-size:14px"></i>
+      <i class="ti ti-sparkles" style="font-size:0.875rem"></i>
       Ré-analyser avec Ollama
     </button>
     <button type="button" class="btn btn-ghost" id="reanalyze-cancel" hidden>Arrêter</button>
