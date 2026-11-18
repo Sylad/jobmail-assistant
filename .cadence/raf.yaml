@@ -121,10 +121,12 @@ lots:
     finished: 2026-10-24
   - id: L11
     title: "CI rouge depuis le 28-09 : l'étape build-push échoue à « Login GHCR » (denied) — jobmail tourne en local, l'image GHCR ne sert pas : retirer l'étape build-push du workflow (ou lui donner le droit packages: write si une image est voulue), garder les tests ; CI verte"
-    status: doing
+    status: done
     estimate: 0.1
     created: 2026-10-24
     started: 2026-11-18
+    review: { date: 2026-11-18, verdict: "conforme (revue du lead, 2 fichiers de workflow) : build-and-push.yml retiré, ci.yml joue ruff et pytest sous Python 3.12 + Node 22, permissions contents: read ; porte rejouée verte à 457aca8 ; CI GitHub à constater après le push", commit: 457aca8b2d2cf2f40e08c6530fcf16de16cc6a85 }
+    finished: 2026-11-18
   - id: L12
     title: "config cadence : porte de tests — orchestrate.test (pytest via le venv du projet .venv/bin/python -m pytest, plus la suite frontend si elle existe ; vérifiée verte sur main avant d'être déclarée ; un test qui touche les vrais MBOX Thunderbird ou Ollama est exclu et dit) et orchestrate.build (ruff check . puis build frontend vue-tsc + vite, vérifié vert), dans cadence.yaml avec un commentaire ; precheck: true ; CLAUDE.md si la section cadence le décrit"
     status: done
