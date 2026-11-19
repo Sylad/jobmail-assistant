@@ -206,10 +206,21 @@ lots:
     created: 2026-11-18
   - id: L20
     title: "Pastille Nouveautés : hauteur fixe de 17 px et interligne en px — le chiffre déborde quand le texte est agrandi à 200 % (WCAG 1.4.4) ; hauteur et interligne en em (suite de la revue de L8)"
-    status: todo
+    status: done
     estimate: 0.1
     visible: true
     created: 2026-11-18
+    started: 2026-11-19
+    review: { date: 2026-11-19, verdict: "conforme : pastille en em, chiffre entier à 200 % (test échoue de 5 px sur l'ancien CSS), 100 % identique, JSON = build-news.sh", commit: 53a038934fb8a23006de77c6f93ff04cd7804751 }
+    ux: { date: 2026-11-19, verdict: "conforme : à 1440 et 390 px, 200 %, pastille 53×34 avec 4 px de marge (avant : chiffre coupé de 5 px), 100 % identique octet pour octet à 1440 ; captures avant/après vues par le lead ; défaut antérieur (pastille sur « Nouveautés » à 1024-1440 px, 200 %) en lot à part" }
+    finished: 2026-11-19
+  - id: L21
+    title: "Barre latérale à 1024-1440 px, texte à 200 % : la pastille 9+ recouvre la fin du libellé Nouveautés (53 × 33 px, WCAG 1.4.4 ; antérieur à L20, aggravé de 7 px) — libellé non rétréci ou pastille à la ligne, test d'intersection dans test_texte_agrandi.py (revue UX de L20)"
+    public: Le libellé Nouveautés reste lisible quand le texte est agrandi
+    status: todo
+    estimate: 1
+    visible: true
+    created: 2026-11-19
 acknowledged:
   - { sha: 2451f61971a86025ad35b3fc833393a169f87b47, subject: "plan: visible: true sur les lots « Revue UX — » (règle raf check de cadence L271)", date: 2026-10-23, reason: "plan seul : pose visible: true sur les revues UX, cite un lot du dépôt cadence" }
   - { sha: 0e0502c8025fe78d3c5953d7940013fede6a736d, subject: "config: la documentation suit le code (docs.sync) et l'étude de cas du projet est déclarée (docs.articles) — outillage cadence, lead 24-10", date: 2026-10-24, reason: "réglage d'outillage cadence (docs.sync, docs.articles), pas un lot du projet — lead 24-10" }
