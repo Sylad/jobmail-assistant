@@ -1671,14 +1671,16 @@ main.container:focus { outline: none; }
   display: inline-block;
   box-sizing: border-box;
   min-width: 2.1em;
-  height: 17px;
-  padding: 0 6px;
+  /* Hauteur, interligne et marges en em (17 px et 6 px à 11 px de police) : la pastille
+     grandit avec le texte agrandi au lieu de laisser déborder le chiffre (WCAG 1.4.4). */
+  height: 1.5455em;
+  padding: 0 0.5455em;
   border-radius: 999px;
   background: var(--accent-pale);
   color: #0F172A;
   font-size: 0.6875rem;
   font-weight: 700;
-  line-height: 17px;
+  line-height: 1.5455em;
   text-align: center;
   visibility: hidden;
 }

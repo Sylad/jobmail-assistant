@@ -216,3 +216,40 @@ def test_la_police_emulee_agrandit_bien_le_texte(page, base_url):
     # Garde-fou de la mesure : si Page.setFontSizes restait sans effet, tout passerait.
     _open(page, base_url, "/", 390, 32)
     assert page.eval("parseFloat(getComputedStyle(document.documentElement).fontSize)") == 32
+
+
+# L20 — pastille Nouveautés : le chiffre reste entier dans sa pastille quand le texte grandit.
+# Elle est allumée avec « 9+ » (le texte le plus large qu'elle affiche) sur le lien visible
+# (barre latérale sur ordinateur, barre du bas au téléphone), puis on compare la boîte du texte
+# (Range) à celle de la pastille, dans les deux sens.
+BADGE = r"""
+(() => {
+  const b = [...document.querySelectorAll('[data-news-badge]')]
+    .find((el) => el.closest('a').getClientRects().length);
+  b.classList.add('is-on');
+  b.textContent = '9+';
+  const box = b.getBoundingClientRect();
+  const range = document.createRange();
+  range.selectNodeContents(b);
+  const text = range.getBoundingClientRect();
+  return {
+    height: box.height,
+    fontSize: parseFloat(getComputedStyle(b).fontSize),
+    over: Math.max(box.top - text.top, text.bottom - box.bottom,
+                   box.left - text.left, text.right - box.right),
+  };
+})()
+"""
+
+
+@pytest.mark.parametrize("width", [1440, 390])
+@pytest.mark.parametrize("font", [16, 32])
+def test_pastille_nouveautes_contient_son_chiffre(page, base_url, width, font):
+    _open(page, base_url, "/", width, font)
+    badge = page.eval(BADGE)
+    assert badge["fontSize"] == pytest.approx(11 * font / 16), "la police émulée n'a pas pris"
+    assert badge["over"] <= 0, (
+        f"pastille à {width} px, police {font} px : le chiffre dépasse de {badge['over']} px"
+    )
+    # Rendu à 100 % inchangé : la pastille garde ses 17 px ; elle grandit avec le texte.
+    assert badge["height"] == pytest.approx(17 * font / 16, abs=0.5)
