@@ -200,10 +200,11 @@ lots:
     finished: 2026-11-17
   - id: L19
     title: "Revue UX — bonnes pratiques d'une appli web standard (D-13 du registre parent) : chaque page en vrai navigateur à 390 et 1440 px, au clavier, contre WCAG 2.2 AA, les heuristiques de Nielsen et la skill interface-utilisable (tailles de texte en rem ≥ 12 px, cibles ≥ 24 px, contrastes, focus visible, états vides et d'erreur) ; constats mesurés, sous-lots proposés"
-    status: todo
+    status: doing
     estimate: 0.5
     visible: true
     created: 2026-11-18
+    started: 2026-11-20
   - id: L20
     title: "Pastille Nouveautés : hauteur fixe de 17 px et interligne en px — le chiffre déborde quand le texte est agrandi à 200 % (WCAG 1.4.4) ; hauteur et interligne en em (suite de la revue de L8)"
     status: done
