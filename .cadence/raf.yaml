@@ -205,6 +205,12 @@ lots:
     visible: true
     created: 2026-11-18
     started: 2026-11-20
+    tasks:
+      - { id: t1, title: "33 tailles de texte sous 12 px et boutons du nettoyeur à 10,5 px : revoir la typographie écran par écran (texte ≥ 12 px en rem)", status: todo }
+      - { id: t2, title: "Téléphone : la liste des offres commence à 1 129 px sur un écran de 844 px — replier les filtres derrière un bouton (maquette et avis de Sylvain d'abord)", status: todo }
+      - { id: t3, title: "État vide : « ne matche ce filtre » même base vide et sans filtre — distinguer les deux cas, renvoi vers « Nouveaux mails »", status: todo }
+      - { id: t4, title: "Téléphone : le tableau des règles regex défile en largeur et la colonne Expéditeur est coupée", status: todo }
+      - { id: t5, title: "Nettoyeur : cases « Je confirme » à 13 px et en-tête « Backups Thunderbird » à 17 px de haut — cibles de 44 px visées", status: todo }
   - id: L20
     title: "Pastille Nouveautés : hauteur fixe de 17 px et interligne en px — le chiffre déborde quand le texte est agrandi à 200 % (WCAG 1.4.4) ; hauteur et interligne en em (suite de la revue de L8)"
     status: done
