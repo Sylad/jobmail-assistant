@@ -14,3 +14,4 @@ build/
 frontend/node_modules/
 .idea/
 .vscode/
+.playwright-mcp/
