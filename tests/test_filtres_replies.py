@@ -121,7 +121,7 @@ def test_ouvert_au_toucher_tout_tient_dans_la_largeur(page, base_url, width):
     query = "/?status=new&since_days=7&min_score=5&esn=hide"
     _open(page, base_url, query, width, 800)
     m = page.eval(STATE)
-    assert m["summaryText"] == "Filtres 4 actifs : Nouvelle, 7 derniers jours, score ≥ 5, sans ESN"
+    assert m["summaryText"] == "Filtres 4 actifs : Nouvelle, 7 derniers jours, score ≥ 5, Sans ESN"
     assert m["summaryHeight"] >= 44 and m["minFont"] >= 12
     page.eval("document.querySelector('[data-filters-fold] summary').click()")
     m = page.eval(STATE)

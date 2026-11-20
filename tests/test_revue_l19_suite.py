@@ -187,7 +187,7 @@ def test_t2_filtres_dans_un_bloc_repliable_rendu_ouvert(tmp_path):
     ("?min_score=7", "1 actif : score ≥ 7"),
     ("?since_days=7&min_score=5", "2 actifs : 7 derniers jours, score ≥ 5"),
     ("?status=new&techno=Python&sender=exemple.test&esn=hide",
-     "4 actifs : Nouvelle, Python, exemple.test, sans ESN"),
+     "4 actifs : Nouvelle, Python, exemple.test, Sans ESN"),
     ("?esn=only", "1 actif : ESN seulement"),
 ])
 def test_t2_le_resume_dit_quels_filtres_sont_actifs(tmp_path, query, expected):

@@ -77,13 +77,16 @@
 {# L19/t2 : au téléphone (≤ 600 px de large, ou ≤ 500 px de haut), formulaire et raccourcis
    passent derrière « Filtres », replié par défaut ; le résumé dit quels filtres sont actifs.
    Rendu ouvert (sans JS, rien ne change) ; le script qui suit le referme au téléphone. #}
+{# L22 : un seul libellé par choix du filtre ESN, partagé par l'option, le raccourci et le
+   résumé ; formulé comme un état (« Sans ESN », « ESN seulement »), comme les autres filtres. #}
+{% set esn_labels = {"hide": "Sans ESN", "only": "ESN seulement"} %}
 {% set active_filters = [
   current_status and current_status | status_fr,
   current_techno,
   current_sender,
   current_since_days and current_since_days ~ " derniers jours",
   current_min_score and "score ≥ " ~ current_min_score,
-  {"hide": "sans ESN", "only": "ESN seulement"}.get(current_esn),
+  esn_labels.get(current_esn),
 ] | select | list %}
 <details class="filters filters-fold" open data-filters-fold>
   <summary class="filters-fold-summary">
@@ -133,8 +136,8 @@
       ESN / presta
       <select name="esn">
         <option value="all" {% if current_esn == 'all' %}selected{% endif %}>— toutes —</option>
-        <option value="hide" {% if current_esn == 'hide' %}selected{% endif %}>Masquer ESN</option>
-        <option value="only" {% if current_esn == 'only' %}selected{% endif %}>ESN seulement</option>
+        <option value="hide" {% if current_esn == 'hide' %}selected{% endif %}>{{ esn_labels.hide }}</option>
+        <option value="only" {% if current_esn == 'only' %}selected{% endif %}>{{ esn_labels.only }}</option>
       </select>
     </label>
     <button type="submit" class="btn">
@@ -156,9 +159,9 @@
     <a class="chip-link {% if current_status == 'interesting' %}chip-link-active{% endif %}"
        href="?status=interesting">★ Intéressantes</a>
     <a class="chip-link {% if current_esn == 'hide' %}chip-link-active{% endif %}"
-       href="?esn=hide">Masquer ESN</a>
+       href="?esn=hide">{{ esn_labels.hide }}</a>
     <a class="chip-link {% if current_esn == 'only' %}chip-link-active{% endif %}"
-       href="?esn=only">ESN seulement</a>
+       href="?esn=only">{{ esn_labels.only }}</a>
   </div>
 </details>
 <script>

@@ -1,6 +1,6 @@
 {
   "project": "jobmail-assistant",
-  "generated": "2026-11-20 15:00",
+  "generated": "2026-11-20 13:40",
   "entries": [
     {
       "slug": "2026-11-20-au-telephone-les-filtres-se-replient-et-la-liste-arrive-plus-tot",
@@ -33,6 +33,16 @@
         "Règles regex du nettoyeur au téléphone : une carte par règle, avec les champs Expéditeur et Objet l'un sous l'autre"
       ],
       "html": "<p>Les plus petits textes de l'application (étiquettes, statuts, menus, boutons du nettoyeur) passent à 12 pixels au moins.</p>\n<ul><li>Quand aucune offre n'est encore enregistrée, le tableau de bord le dit et propose le bouton « Nouveaux mails » ; quand ce sont les filtres qui ne gardent rien, il rappelle le nombre total d'offres et propose de tout afficher.</li><li>Au téléphone, chaque règle regex du nettoyeur tient dans sa propre carte : plus besoin de faire défiler le tableau sur le côté.</li><li>Les cases « Je confirme » du nettoyeur sont plus grandes, et leur phrase comme l'en-tête « Backups Thunderbird » se touchent plus facilement.</li></ul>"
+    },
+    {
+      "slug": "2026-11-20-un-seul-nom-pour-le-filtre-sans-esn",
+      "title": "Un seul nom pour le filtre « Sans ESN »",
+      "date": "2026-11-20",
+      "lots": [
+        "L22"
+      ],
+      "captures": [],
+      "html": "<p>Au tableau de bord, le filtre qui écarte les offres d'ESN s'appelle maintenant « Sans ESN » partout : dans la liste « ESN / presta », dans les raccourcis et dans le résumé des filtres actifs, qui disait jusqu'ici « sans ESN » à côté d'un bouton « Masquer ESN ».</p>"
     },
     {
       "slug": "2026-11-20-une-page-claire-pour-une-adresse-inconnue",
