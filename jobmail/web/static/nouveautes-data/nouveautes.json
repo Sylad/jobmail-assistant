@@ -1,6 +1,6 @@
 {
   "project": "jobmail-assistant",
-  "generated": "2026-11-20 10:00",
+  "generated": "2026-11-20 10:20",
   "entries": [
     {
       "slug": "2026-11-20-une-page-claire-pour-une-adresse-inconnue",
@@ -13,7 +13,7 @@
         "captures/L19-page-introuvable-telephone.png"
       ],
       "alts": [
-        "Page Page introuvable au téléphone : menu de l'application en haut, titre, phrase d'explication et bouton Retour au tableau de bord"
+        "Page introuvable au téléphone : menu de l'application en haut, titre, phrase d'explication et bouton Retour au tableau de bord"
       ],
       "html": "<p>Une adresse qui n'existe pas affiche maintenant une page de JobMail, avec le menu, une phrase qui explique le problème et un bouton pour revenir au tableau de bord, au lieu d'un texte technique en anglais.</p>\n<ul><li>Les petites étiquettes des cartes du tableau de bord, les raccourcis du filtre et le message « Aucune offre » sont plus contrastés.</li><li>Le lien « Tout afficher » est souligné, et le lien « Retour au tableau de bord » de la fiche offre est plus facile à toucher.</li></ul>"
     },

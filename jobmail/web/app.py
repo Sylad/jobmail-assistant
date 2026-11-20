@@ -11,6 +11,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+from http import HTTPStatus
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request
@@ -1096,6 +1097,17 @@ def create_app() -> FastAPI:
         wants_html = "text/html" in request.headers.get("accept", "")
         api_path = request.url.path.startswith(("/api/", "/static/"))
         if exc.status_code == 404 and request.method == "GET" and wants_html and not api_path:
+            # L19/t6 : une route existante qui lève son propre 404 (scan ou déplacement
+            # expiré) garde son message ; seule l'adresse inconnue (détail par défaut de
+            # Starlette, « Not Found ») reçoit le texte générique.
+            detail = exc.detail if isinstance(exc.detail, str) else ""
+            if detail and detail != HTTPStatus.NOT_FOUND.phrase:
+                nf_text = f"{detail} Le lien a peut-être expiré : repartez du tableau de bord."
+            else:
+                nf_text = (
+                    "Cette adresse ne correspond à aucune page de JobMail : "
+                    "le lien est peut-être ancien ou mal recopié."
+                )
             return templates.TemplateResponse(
                 request,
                 "not_found.html",
@@ -1103,8 +1115,7 @@ def create_app() -> FastAPI:
                     "provider": settings.llm_provider,
                     "imap_enabled": settings.imap_enabled,
                     "nf_title": "Page introuvable",
-                    "nf_text": "Cette adresse ne correspond à aucune page de JobMail : "
-                    "le lien est peut-être ancien ou mal recopié.",
+                    "nf_text": nf_text,
                 },
                 status_code=404,
             )
@@ -2030,7 +2041,7 @@ def create_app() -> FastAPI:
         with _cleaner_move_jobs_lock:
             job = _cleaner_move_jobs.get(job_id)
             if job is None:
-                raise HTTPException(status_code=404, detail="Deplacement introuvable.")
+                raise HTTPException(status_code=404, detail="Déplacement introuvable.")
             return _move_job_payload(job)
 
     @app.post("/cleaner/move/cancel/{job_id}")
@@ -2038,7 +2049,7 @@ def create_app() -> FastAPI:
         with _cleaner_move_jobs_lock:
             job = _cleaner_move_jobs.get(job_id)
             if job is None:
-                raise HTTPException(status_code=404, detail="Deplacement introuvable.")
+                raise HTTPException(status_code=404, detail="Déplacement introuvable.")
             if job.status != "running":
                 return _move_job_payload(job)
             job.cancel_requested = True
@@ -2049,7 +2060,7 @@ def create_app() -> FastAPI:
         with _cleaner_move_jobs_lock:
             job = _cleaner_move_jobs.get(job_id)
             if job is None:
-                raise HTTPException(status_code=404, detail="Deplacement introuvable.")
+                raise HTTPException(status_code=404, detail="Déplacement introuvable.")
             if job.status == "error":
                 return templates.TemplateResponse(
                     request,
@@ -2106,7 +2117,7 @@ def create_app() -> FastAPI:
         with _cleaner_move_jobs_lock:
             job = _cleaner_move_jobs.get(job_id)
             if job is None:
-                raise HTTPException(status_code=404, detail="Deplacement introuvable.")
+                raise HTTPException(status_code=404, detail="Déplacement introuvable.")
             if job.status == "error":
                 raise HTTPException(status_code=400, detail=job.error)
             if job.status == "cancelled":

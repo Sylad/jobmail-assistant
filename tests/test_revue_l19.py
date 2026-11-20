@@ -63,6 +63,7 @@ def test_adresse_inconnue_page_html_en_francais():
     assert '<h1 id="not-found-title" class="page-header-title">Page introuvable</h1>' in html
     assert 'href="/" class="btn btn-primary not-found-back"' in html
     assert '"detail"' not in html
+    assert "mal recopié" in html
 
 
 def test_offre_introuvable_garde_son_message():
@@ -70,6 +71,25 @@ def test_offre_introuvable_garde_son_message():
     assert resp.status_code == 404
     assert "<title>Offre introuvable — JobMail</title>" in resp.text
     assert "Cette offre n'existe pas ou plus" in resp.text
+
+
+def test_scan_ou_deplacement_expire_garde_son_message():
+    # L19/t6 : un 404 levé par une route existante affiche son propre détail, pas le
+    # texte « lien mal recopié » réservé aux adresses inconnues.
+    client = _client()
+    for path, message in (
+        ("/cleaner/scan/result/inconnu", "Scan introuvable."),
+        ("/cleaner/move/status/inconnu/result", "Déplacement introuvable."),
+    ):
+        resp = client.get(path, headers={"accept": "text/html"})
+        assert resp.status_code == 404, path
+        assert "<title>Page introuvable — JobMail</title>" in resp.text
+        assert message in resp.text, path
+        assert "mal recopié" not in resp.text, path
+    # Les clients JSON reçoivent le même détail.
+    resp = client.get("/cleaner/scan/status/inconnu", headers={"accept": "application/json"})
+    assert resp.status_code == 404
+    assert resp.json() == {"detail": "Scan introuvable."}
 
 
 def test_api_et_clients_non_html_gardent_le_json():
