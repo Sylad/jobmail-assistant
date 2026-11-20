@@ -211,9 +211,11 @@ lots:
       - { id: t3, title: "État vide : « ne matche ce filtre » même base vide et sans filtre — distinguer les deux cas, renvoi vers « Nouveaux mails »", status: todo }
       - { id: t4, title: "Téléphone : le tableau des règles regex défile en largeur et la colonne Expéditeur est coupée", status: todo }
       - { id: t5, title: "Nettoyeur : cases « Je confirme » à 13 px et en-tête « Backups Thunderbird » à 17 px de haut — cibles de 44 px visées", status: todo }
-      - { id: t6, title: "Page 404 : app.py:1090 ignore exc.detail (scan ou déplacement expiré ouvert au navigateur → « lien mal recopié » au lieu de « Scan introuvable. »), avec test ; alt de la capture Nouveautés « Page Page introuvable » ; docs/revues/L19-revue-ux.md:52-56 nomme L19/a-e au lieu de t1-t5", status: todo }
+      - { id: t6, title: "Page 404 : app.py:1090 ignore exc.detail (scan ou déplacement expiré ouvert au navigateur → « lien mal recopié » au lieu de « Scan introuvable. »), avec test ; alt de la capture Nouveautés « Page Page introuvable » ; docs/revues/L19-revue-ux.md:52-56 nomme L19/a-e au lieu de t1-t5", status: done }
     review: { date: 2026-11-20, verdict: "conforme : 404 HTML seulement pour GET Accept text/html, API et clients JSON intacts (HEAD, POST, */*, /static) ; contrastes 6,12-6,63:1 avec test qui échoue sur l'ancienne couleur ; dvh avec repli ; JSON Nouveautés = cadence news build hors generated ; mineurs → L19/t6 (revue r1 du 20-11)", commit: 2a6ef66ad5ae0c86b3cd1391ef808eb26f81875f }
     ux: { date: 2026-11-20, verdict: "conforme (lead, capture 390 de la page introuvable) : titre et explication en français, navigation présente, bouton de retour principal visible ; écarts plus larges en sous-lots t1-t5" }
+    notes:
+      - { date: 2026-11-20, text: "t6 revue r1 conforme (42c0496) : detail échappé, test qui échoue sans le correctif, JSON Nouveautés à jour" }
   - id: L20
     title: "Pastille Nouveautés : hauteur fixe de 17 px et interligne en px — le chiffre déborde quand le texte est agrandi à 200 % (WCAG 1.4.4) ; hauteur et interligne en em (suite de la revue de L8)"
     status: done
