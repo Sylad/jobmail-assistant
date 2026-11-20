@@ -206,11 +206,11 @@ lots:
     created: 2026-11-18
     started: 2026-11-20
     tasks:
-      - { id: t1, title: "33 tailles de texte sous 12 px et boutons du nettoyeur à 10,5 px : revoir la typographie écran par écran (texte ≥ 12 px en rem)", status: todo }
+      - { id: t1, title: "33 tailles de texte sous 12 px et boutons du nettoyeur à 10,5 px : revoir la typographie écran par écran (texte ≥ 12 px en rem)", status: done }
       - { id: t2, title: "Téléphone : la liste des offres commence à 1 129 px sur un écran de 844 px — replier les filtres derrière un bouton (maquette et avis de Sylvain d'abord)", status: todo }
-      - { id: t3, title: "État vide : « ne matche ce filtre » même base vide et sans filtre — distinguer les deux cas, renvoi vers « Nouveaux mails »", status: todo }
-      - { id: t4, title: "Téléphone : le tableau des règles regex défile en largeur et la colonne Expéditeur est coupée", status: todo }
-      - { id: t5, title: "Nettoyeur : cases « Je confirme » à 13 px et en-tête « Backups Thunderbird » à 17 px de haut — cibles de 44 px visées", status: todo }
+      - { id: t3, title: "État vide : « ne matche ce filtre » même base vide et sans filtre — distinguer les deux cas, renvoi vers « Nouveaux mails »", status: done }
+      - { id: t4, title: "Téléphone : le tableau des règles regex défile en largeur et la colonne Expéditeur est coupée", status: done }
+      - { id: t5, title: "Nettoyeur : cases « Je confirme » à 13 px et en-tête « Backups Thunderbird » à 17 px de haut — cibles de 44 px visées", status: done }
       - { id: t6, title: "Page 404 : app.py:1090 ignore exc.detail (scan ou déplacement expiré ouvert au navigateur → « lien mal recopié » au lieu de « Scan introuvable. »), avec test ; alt de la capture Nouveautés « Page Page introuvable » ; docs/revues/L19-revue-ux.md:52-56 nomme L19/a-e au lieu de t1-t5", status: done }
     review: { date: 2026-11-20, verdict: "conforme : t6 (42c0496) revu r1 le 20-11 — detail de la 404 échappé, test qui échoue sans le correctif, alt corrigé, JSON Nouveautés à jour", commit: 42c049671e7b9419905be6dfdaf921cdcc6473cc }
     ux: { date: 2026-11-20, verdict: "conforme (lead, capture 390 de la page introuvable) : titre et explication en français, navigation présente, bouton de retour principal visible ; écarts plus larges en sous-lots t1-t5" }

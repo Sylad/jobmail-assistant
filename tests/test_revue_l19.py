@@ -117,8 +117,7 @@ def test_etiquettes_kpi_et_raccourcis_contraste_4_5():
 
 def test_lien_dans_un_texte_gris_est_souligne():
     assert "text-decoration: underline" in _rules("p.muted a")[0]
-    html = _client().get("/?min_score=10").text
-    assert '<p class="muted">Aucune offre ne matche ce filtre. <a href="/">Tout afficher</a></p>' in html
+    # Le lien lui-même (état vide d'un filtre trop strict) : tests/test_revue_l19_suite.py (t3).
 
 
 def test_lien_retour_cible_de_24_px():

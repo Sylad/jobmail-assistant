@@ -62,3 +62,28 @@ Après correction : **0 violation axe sur les 63 couples page × taille**. Tests
 - États en cours (scan du nettoyeur, ré-analyse Ollama, import) et erreurs réseau : l'instance
   de démonstration n'a ni MBOX ni IMAP ni modèle.
 - Mode clair : l'application n'a qu'un thème sombre.
+
+## Sous-lots t1, t3, t4, t5 faits ; maquette t2 (2026-11-20)
+
+Mesures dans Chromium sur deux instances de démonstration (base vide ; 4 offres fictives),
+8 pages × 390 et 1440 px. Tests : `tests/test_revue_l19_suite.py` (12 tests, tous en échec sur
+le code d'avant).
+
+| Sous-lot | Avant | Après |
+|---|---|---|
+| t1 | Nœuds texte sous 12 px : 8 à 84 par page (10 à 11,9 px) ; `text-xs` Tailwind 10,5 px | 0 sur les 16 couples page × largeur ; plus aucune taille sous `0.75rem`, `code` en `max(0.75rem, 0.85em)`, `text-xs` à 12 px |
+| t3 | Base vide : « Aucune offre ne matche ce filtre. » ; « triées par score · desc » | Base vide : « Aucune offre pour l'instant. » et un bouton « Nouveaux mails » (même formulaire que celui du haut, suivi affiché sous le bouton) ; filtre trop strict : « Aucune offre ne correspond à ces filtres, sur N offres en tout. Tout afficher » ; « triées par score décroissant » |
+| t4 | 390 px : tableau de 370 px dans un cadre de 318, colonne Expéditeur coupée ; 1440 px : tableau borné à 760 px dans un cadre de 1092 | Sous 600 px, une carte par règle (« Règle n », Expéditeur puis Objet), 320 / 320 px ; 1440 px : 1092 / 1092 px |
+| t5 | Cases « Je confirme » 13 × 13 px ; en-tête « Backups Thunderbird » 17 px de haut (et titre centré par le marqueur ▸) | Lignes de confirmation de 44 px de haut (libellé compris), case de 20 px ; en-tête de 44 px, titre à gauche |
+
+**t2, maquette seulement** : `docs/maquettes/L19-t2-filtres-replies.html` (page du tableau de bord
+figée, données fictives, styles proposés dans la page). Au téléphone (≤ 600 px de large, ou
+≤ 500 px de haut en paysage), formulaire et raccourcis passent derrière un en-tête « Filtres »
+replié, qui dit combien de filtres sont actifs. Début de la liste : 390 × 844, 1 406 → 804 px
+(note de maquette comprise) ; 844 × 390, 1 226 → 688 px. Questions pour Sylvain : replier aussi
+en paysage ? garder les raccourcis visibles hors du repli ? À 390 px, les 4 cartes de compteurs
+occupent encore ~340 px avant la liste : les compacter serait un autre sous-lot.
+
+Non vérifié ici : lecteur d'écran réel, texte agrandi à 200 % sur les nouveaux écrans (couvert
+seulement pour la barre latérale par `tests/test_texte_agrandi.py`), relève réelle lancée depuis
+le bouton de l'état vide (instance sans MBOX).

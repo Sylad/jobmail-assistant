@@ -172,23 +172,32 @@
   <script>
     (() => {
       const form   = document.querySelector("[data-refresh-form]");
-      const status = document.querySelector("[data-refresh-status]");
-      if (!form || !status || !window.fetch) return;
+      // L'état vide du tableau de bord a son propre bouton et sa propre ligne d'état.
+      const statuses = [...document.querySelectorAll("[data-refresh-status]")];
+      if (!form || !statuses.length || !window.fetch) return;
 
-      const button = form.querySelector("button");
+      const buttons = [form.querySelector("button"), ...document.querySelectorAll(`button[form="${form.id}"]`)];
       let pollTimer = null;
 
+      function setStatus(text) {
+        statuses.forEach((el) => { el.textContent = text; });
+      }
+
       function setRunning(message) {
-        button.disabled = true;
-        button.textContent = "↻ Analyse…";
-        status.classList.add("refresh-status-running");
-        status.textContent = message;
+        buttons.forEach((button) => {
+          button.disabled = true;
+          button.textContent = "↻ Analyse…";
+        });
+        statuses.forEach((el) => el.classList.add("refresh-status-running"));
+        setStatus(message);
       }
 
       function clearRunning() {
-        button.disabled = false;
-        button.textContent = "↻ Nouveaux mails";
-        status.classList.remove("refresh-status-running");
+        buttons.forEach((button) => {
+          button.disabled = false;
+          button.textContent = "↻ Nouveaux mails";
+        });
+        statuses.forEach((el) => el.classList.remove("refresh-status-running"));
       }
 
       async function pollRefresh() {
@@ -210,11 +219,11 @@
         }
         if (payload.status === "error") {
           clearRunning();
-          status.textContent = `Erreur refresh : ${payload.error || "inconnue"}`;
+          setStatus(`Erreur refresh : ${payload.error || "inconnue"}`);
           return;
         }
         clearRunning();
-        status.textContent = "";
+        setStatus("");
       }
 
       if (new URLSearchParams(window.location.search).has("refreshing")) {
@@ -231,7 +240,7 @@
           await pollRefresh();
         } catch (_error) {
           clearRunning();
-          status.textContent = "Refresh indisponible — recharge la page et réessaie.";
+          setStatus("Refresh indisponible — recharge la page et réessaie.");
         }
       });
     })();

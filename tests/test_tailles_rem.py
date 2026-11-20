@@ -34,9 +34,10 @@ def test_aucune_taille_de_texte_en_pixels():
 
 
 def test_le_nettoyeur_vue_rend_les_memes_pixels():
-    # Tailwind compte en rem : ses jetons sont recomptés sur 16 px (3,5 px, 10,5 px, 12,25 px).
+    # Tailwind compte en rem : ses jetons sont recomptés sur 16 px (3,5 px, 12,25 px) ; text-xs
+    # passe de 10,5 à 12 px (L19/t1).
     built = (WEB / "static" / "assets" / "cleaner.css").read_text(encoding="utf-8")
-    for token in ("--spacing:.21875rem", "--text-xs:.65625rem", "--text-sm:.765625rem"):
+    for token in ("--spacing:.21875rem", "--text-xs:.75rem", "--text-sm:.765625rem"):
         assert token in built, token
 
 

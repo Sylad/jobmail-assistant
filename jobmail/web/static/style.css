@@ -83,7 +83,7 @@ code {
   padding: 2px 6px;
   border-radius: 4px;
   font-family: var(--font-mono);
-  font-size: 0.85em;
+  font-size: max(0.75rem, 0.85em); /* L19/t1 : jamais sous 12 px */
 }
 
 h1 { font-size: 1.3125rem; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; }
@@ -144,7 +144,7 @@ h2 { font-size: 0.875rem; font-weight: 600; margin: 0 0 10px; }
 }
 
 .sidebar-logo-sub {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--accent-light);
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -167,7 +167,7 @@ h2 { font-size: 0.875rem; font-weight: 600; margin: 0 0 10px; }
 }
 
 .sidebar-nav-label {
-  font-size: 0.6875rem; /* L5 : était 9,5 px */
+  font-size: 0.75rem; /* L5 : était 9,5 px */
   font-weight: 700;
   letter-spacing: 0.12em;
   color: var(--fg-mute); /* 7,34:1 (était --fg-very-faint, 2,48:1) */
@@ -237,7 +237,7 @@ h2 { font-size: 0.875rem; font-weight: 600; margin: 0 0 10px; }
 }
 
 .sidebar-connection-sub {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--fg-mute); /* L5 : 7,34:1 (était --fg-faint, 3,96:1) */
   margin-top: 1px;
 }
@@ -260,7 +260,7 @@ h2 { font-size: 0.875rem; font-weight: 600; margin: 0 0 10px; }
 }
 
 .sidebar-status-detail {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--fg-mute); /* L5 : 7,34:1 (était --fg-very-faint, 2,48:1) */
   font-family: var(--font-mono);
   margin-top: 1px;
@@ -287,7 +287,7 @@ h2 { font-size: 0.875rem; font-weight: 600; margin: 0 0 10px; }
 
 .sidebar-footer-meta {
   margin-top: 6px;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--fg-mute); /* L5 : 7,34:1 (était --fg-very-faint, 2,48:1) */
   font-family: var(--font-mono);
   padding-left: 18px;
@@ -486,7 +486,7 @@ select:focus-visible {
 .kpi-icon i { font-size: 1.125rem; }
 
 .kpi-tag {
-  font-size: 0.65625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   padding: 2px 8px;
   border-radius: 20px;
@@ -650,7 +650,7 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--fg-mute); /* 6,49:1 sur .filters (était --fg-very-faint, 2,20:1) */
   font-weight: 700;
   text-transform: uppercase;
@@ -686,7 +686,7 @@ select:focus-visible {
 }
 
 .quick-filters-label {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--fg-mute); /* 6,49:1 (était --fg-very-faint, 2,20:1) */
   font-weight: 700;
   text-transform: uppercase;
@@ -704,7 +704,7 @@ select:focus-visible {
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 20px;
-  font-size: 0.71875rem;
+  font-size: 0.75rem;
   color: var(--fg-mute); /* L19 : 3,49:1 avec --fg-faint (WCAG 1.4.3) */
   transition: all 0.15s;
 }
@@ -738,7 +738,7 @@ select:focus-visible {
 .section-header-accent { color: var(--accent-light); }
 
 .section-header-meta {
-  font-size: 0.71875rem;
+  font-size: 0.75rem;
   color: var(--fg-mute); /* 6,96:1 (était --fg-very-faint, 2,36:1) */
   font-family: var(--font-mono);
 }
@@ -761,7 +761,7 @@ table.offers th {
   text-align: left;
   background: rgba(255, 255, 255, 0.03);
   color: var(--fg-mute); /* 6,17:1 sur l'en-tête (était --fg-very-faint, 2,09:1) */
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -795,7 +795,7 @@ tr.score-0 td:first-child, tr.score-1 td:first-child, tr.score-2 td:first-child,
 tr.score-3 td:first-child, tr.score-4 td:first-child { color: var(--fg-mute); } /* 5,97:1 au survol (était --fg-faint, 3,22:1) */
 
 /* Date column */
-.muted.small { font-family: var(--font-mono); font-size: 0.71875rem; color: var(--fg-mute); } /* 6,63:1 sur la ligne (était --fg-faint, 3,57:1) */
+.muted.small { font-family: var(--font-mono); font-size: 0.75rem; color: var(--fg-mute); } /* 6,63:1 sur la ligne (était --fg-faint, 3,57:1) */
 td.col-mode { font-size: 0.75rem; color: var(--fg-mute); } /* 6,63:1 sur la ligne (était --fg-faint, 3,57:1) */
 
 /* Row status tints */
@@ -813,7 +813,7 @@ tr.row-status-replied { background: rgba(245, 158, 11, 0.03); }
   margin: 1px 3px 1px 0;
   background: var(--accent-bg);
   border-radius: 4px;
-  font-size: 0.65625rem;
+  font-size: 0.75rem;
   color: var(--accent-light);
   border: 1px solid var(--accent-border);
   font-family: var(--font-mono);
@@ -824,7 +824,7 @@ tr.row-status-replied { background: rgba(245, 158, 11, 0.03); }
   border-color: var(--warn-border);
   color: var(--warn);
   font-family: var(--font-sans);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 4px;
@@ -841,7 +841,7 @@ tr.row-status-replied { background: rgba(245, 158, 11, 0.03); }
   display: inline-block;
   padding: 3px 10px;
   border-radius: 20px;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -946,7 +946,7 @@ tr.row-status-replied { background: rgba(245, 158, 11, 0.03); }
 }
 
 .pagination-meta {
-  font-size: 0.71875rem;
+  font-size: 0.75rem;
   color: var(--fg-mute); /* 6,63:1 (était --fg-very-faint, 2,24:1) */
   font-family: var(--font-mono);
 }
@@ -1009,7 +1009,7 @@ tr.row-status-replied { background: rgba(245, 158, 11, 0.03); }
    ═══════════════════════════════════════════ */
 
 .muted { color: var(--fg-mute); font-weight: normal; } /* L19 : 3,57:1 avec --fg-faint sur la liste (WCAG 1.4.3) */
-.small { font-size: 0.74375rem; }
+.small { font-size: 0.75rem; }
 
 .empty {
   color: var(--fg-faint);
@@ -1107,7 +1107,7 @@ tr.row-status-replied { background: rgba(245, 158, 11, 0.03); }
 .offer-card-body { padding: 16px 18px; }
 
 .offer-card-label {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -1116,7 +1116,7 @@ tr.row-status-replied { background: rgba(245, 158, 11, 0.03); }
 
 /* Override h2 inside offer-detail sections */
 .offer-detail h2 {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -1136,7 +1136,7 @@ dl.grid {
 }
 
 dl.grid dt {
-  font-size: 0.65625rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1216,7 +1216,7 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
 
 .score-badge {
   margin-top: 10px;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 20px;
@@ -1305,7 +1305,7 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
 .label-title {
   display: block;
   margin-bottom: 6px;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--fg-faint);
   font-weight: 700;
   text-transform: uppercase;
@@ -1384,7 +1384,7 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
   margin-bottom: 8px;
 }
 
-.phase-card-head span { color: var(--fg-faint); font-size: 0.665rem; }
+.phase-card-head span { color: var(--fg-faint); font-size: 0.75rem; }
 .phase-running .phase-card-head span { color: var(--accent-light); }
 .phase-done .phase-card-head span { color: var(--ok); }
 .phase-error .phase-card-head span, .phase-error { color: var(--bad); }
@@ -1396,11 +1396,11 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
   gap: 6px;
   margin-top: 12px;
   color: var(--fg-faint);
-  font-size: 0.74375rem;
+  font-size: 0.75rem;
 }
 
 .phase-counts strong { color: var(--fg); font-size: 1.09375rem; }
-.phase-counts span { margin-left: auto; font-size: 0.6825rem; }
+.phase-counts span { margin-left: auto; font-size: 0.75rem; }
 
 .report-head-actions {
   display: flex;
@@ -1448,14 +1448,14 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
   background: rgba(255, 255, 255, 0.03);
   color: var(--fg-faint);
   font-weight: 600;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
 
 .sender-table td:last-child, .sender-table th:last-child { text-align: right; width: 90px; }
 .sender-actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; white-space: nowrap; }
-.sender-state { min-width: 54px; color: var(--ok); font-size: 0.6825rem; font-weight: 700; text-align: right; }
+.sender-state { min-width: 54px; color: var(--ok); font-size: 0.75rem; font-weight: 700; text-align: right; }
 .sender-table tr.sender-excluded { opacity: 0.55; background: rgba(148, 163, 184, 0.06); }
 .sender-table tr.sender-excluded .sender-state { color: var(--bad); }
 .sender-table tr.sender-excluded td:first-child { text-decoration: line-through; text-decoration-color: rgba(239, 68, 68, 0.6); }
@@ -1539,7 +1539,7 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
 
 .backup-retention-field { display: flex; flex-direction: column; gap: 6px; }
 .backup-retention-field label, .backup-roots > span {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--fg-faint);
   font-weight: 700;
   text-transform: uppercase;
@@ -1560,7 +1560,7 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
 .backup-confirm-line { min-height: 34px; margin: 0; align-items: center; line-height: 1.35; }
 .backup-confirm-line input { flex: 0 0 auto; }
 .backup-action-slot { display: flex; justify-content: flex-end; }
-.form-pending-message { grid-column: 1 / -1; min-height: 20px; margin: -2px 0 0; color: var(--accent-light); font-size: 0.74375rem; }
+.form-pending-message { grid-column: 1 / -1; min-height: 20px; margin: -2px 0 0; color: var(--accent-light); font-size: 0.75rem; }
 .js-pending-form.is-pending { opacity: 0.82; }
 .js-pending-form.is-pending .btn { cursor: wait; }
 .backup-temp-form { grid-template-columns: minmax(280px, 1fr) auto; margin-top: 12px; }
@@ -1606,7 +1606,7 @@ dl.grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 0.8125
   table.offers td[data-label]::before {
     content: attr(data-label);
     display: block;
-    font-size: 0.625rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--fg-mute);
@@ -1692,7 +1692,7 @@ main.container:focus { outline: none; }
   border-radius: 999px;
   background: var(--accent-pale);
   color: #0F172A;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.5455em;
   text-align: center;
@@ -1755,7 +1755,7 @@ main.container:focus { outline: none; }
     border-radius: var(--radius);
     background: var(--surface-alt);
     color: var(--fg-2);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-weight: 500;
     line-height: 1.2;
     white-space: nowrap;
@@ -1894,7 +1894,7 @@ main.container:focus { outline: none; }
   border-radius: 999px;
   background: var(--accent-pale);
   color: #0F172A;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -2201,3 +2201,64 @@ main.container:focus { outline: none; }
   .cleaner-candidates-head button, .cleaner-candidates-foot button { min-height: 44px; }
   .cleaner-candidates-count { flex-basis: 100%; order: 3; }
 }
+
+/* ── L19/t5 : cibles du nettoyeur (WCAG 2.5.5, 44 px visés) ──
+   Cases « Je confirme » : 13 px de côté, et l'en-tête « Backups Thunderbird » : 17 px de haut.
+   Toute la ligne (libellé compris) est la cible, sur 44 px de haut ; la case grossit à 20 px. */
+.confirm-line,
+.backup-confirm-line { min-height: 44px; }
+.confirm-line input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.backup-details summary { min-height: 44px; justify-content: flex-start; }
+/* Le marqueur ::before comptait comme un 3e élément de space-between : titre centré à 1440 px. */
+.backup-details summary > .muted { margin-left: auto; }
+
+/* ── L19/t4 : règles regex ──
+   .compact-table, déclaré après .regex-rule-table (même spécificité), bornait le tableau à 760 px dans
+   un cadre pleine largeur. */
+.compact-table.regex-rule-table { width: 100%; }
+
+/* Au téléphone, sous 600 px, le tableau défilait en largeur dans son cadre (370 px pour 318
+   visibles) et coupait la colonne Expéditeur : une règle par carte, chaque champ sous son libellé. */
+@media (max-width: 600px) {
+  .regex-rule-scroll { max-height: none; overflow: visible; border: 0; border-radius: 0; counter-reset: regle; }
+  .regex-rule-table, .regex-rule-table tbody, .regex-rule-table tr, .regex-rule-table td { display: block; }
+  .regex-rule-table thead { display: none; }
+  .compact-table.regex-rule-table { background: transparent; border: 0; }
+  .regex-rule-table tr {
+    counter-increment: regle;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+  }
+  .regex-rule-table tr::before {
+    content: "Règle " counter(regle);
+    display: block;
+    margin-bottom: 4px;
+    color: var(--fg);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .regex-rule-table td, .regex-rule-table tr:last-child td { padding: 4px 0; border: 0; }
+  .regex-rule-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: var(--fg-mute);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .regex-rule-table input { min-width: 0; min-height: 44px; }
+}
+
+/* ── L19/t3 : état vide du tableau de bord (base vide ou filtre trop strict) ── */
+.offers-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 32px 16px; text-align: center; }
+.offers-empty p { margin: 0; }
+.offers-empty-title { color: var(--fg); font-size: 0.9375rem; font-weight: 600; }

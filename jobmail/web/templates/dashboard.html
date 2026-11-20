@@ -17,7 +17,7 @@
     </p>
   </div>
   <div class="page-header-actions">
-    <form method="post" action="/refresh" style="display:inline" data-refresh-form>
+    <form id="refresh-form" method="post" action="/refresh" style="display:inline" data-refresh-form>
       <button type="submit" class="btn btn-primary">
         <i class="ti ti-refresh" style="font-size:0.9375rem"></i>
         Nouveaux mails
@@ -155,13 +155,24 @@
       </span>
     </h2>
     <div style="display:flex; align-items:center; gap:10px;">
-      <span class="section-header-meta">triées par score · desc</span>
+      <span class="section-header-meta">triées par score décroissant</span>
     </div>
   </div>
 
-  {% if not offers %}
-    <div style="padding:32px; text-align:center;">
-      <p class="muted">Aucune offre ne matche ce filtre. <a href="/">Tout afficher</a></p>
+  {# L19/t3 : base vide et filtre trop strict ne disent pas la même chose (Nielsen 2 et 9). #}
+  {% if not offers and total_count == 0 %}
+    <div class="offers-empty">
+      <p class="offers-empty-title">Aucune offre pour l'instant.</p>
+      <p class="muted">Lance « Nouveaux mails » : JobMail relève la boîte et range ici les offres trouvées.</p>
+      <button type="submit" form="refresh-form" class="btn btn-primary">
+        <i class="ti ti-refresh" aria-hidden="true" style="font-size:0.9375rem"></i>
+        Nouveaux mails
+      </button>
+      <p class="refresh-status" data-refresh-status role="status"></p>
+    </div>
+  {% elif not offers %}
+    <div class="offers-empty">
+      <p class="muted">Aucune offre ne correspond à ces filtres, sur {{ total_count }} offre{{ 's' if total_count > 1 }} en tout. <a href="/">Tout afficher</a></p>
     </div>
   {% else %}
     {% set current_query = request.url.query %}
@@ -193,7 +204,7 @@
           <td data-label="Lieu">{{ o.extraction.location }}</td>
           <td data-label="Mode" class="col-mode">{{ o.extraction.work_mode.value | mode_fr }}</td>
           <td data-label="Contrat">
-            <span style="font-size:0.6875rem; background:var(--surface-hover); color:var(--fg-mute); padding:2px 7px; border-radius:5px">
+            <span style="font-size: 0.75rem; background:var(--surface-hover); color:var(--fg-mute); padding:2px 7px; border-radius:5px">
               {{ o.extraction.contract_type.value | contract_fr }}
             </span>
           </td>

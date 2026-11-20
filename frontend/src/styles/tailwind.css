@@ -10,7 +10,7 @@
   /* L8 — la racine suit la taille de police du navigateur (16 px par défaut, 14 px avant) :
      les tailles Tailwind en rem sont recomptées pour rendre les mêmes pixels qu'avant. */
   --spacing: 0.21875rem;
-  --text-xs: 0.65625rem;
+  --text-xs: 0.75rem; /* L19/t1 : 12 px au moins (était 10,5 px) */
   --text-sm: 0.765625rem;
   --radius-lg: 0.4375rem;
 
