@@ -200,23 +200,24 @@ lots:
     finished: 2026-11-17
   - id: L19
     title: "Revue UX — bonnes pratiques d'une appli web standard (D-13 du registre parent) : chaque page en vrai navigateur à 390 et 1440 px, au clavier, contre WCAG 2.2 AA, les heuristiques de Nielsen et la skill interface-utilisable (tailles de texte en rem ≥ 12 px, cibles ≥ 24 px, contrastes, focus visible, états vides et d'erreur) ; constats mesurés, sous-lots proposés"
-    status: doing
+    status: done
     estimate: 0.5
     visible: true
     created: 2026-11-18
     started: 2026-11-20
     tasks:
       - { id: t1, title: "33 tailles de texte sous 12 px et boutons du nettoyeur à 10,5 px : revoir la typographie écran par écran (texte ≥ 12 px en rem)", status: done }
-      - { id: t2, title: "Téléphone : la liste des offres commence à 1 129 px sur un écran de 844 px — replier les filtres derrière un bouton (maquette et avis de Sylvain d'abord)", status: todo }
+      - { id: t2, title: "Téléphone : la liste des offres commence à 1 129 px sur un écran de 844 px — replier les filtres derrière un bouton (maquette et avis de Sylvain d'abord)", status: done }
       - { id: t3, title: "État vide : « ne matche ce filtre » même base vide et sans filtre — distinguer les deux cas, renvoi vers « Nouveaux mails »", status: done }
       - { id: t4, title: "Téléphone : le tableau des règles regex défile en largeur et la colonne Expéditeur est coupée", status: done }
       - { id: t5, title: "Nettoyeur : cases « Je confirme » à 13 px et en-tête « Backups Thunderbird » à 17 px de haut — cibles de 44 px visées", status: done }
       - { id: t6, title: "Page 404 : app.py:1090 ignore exc.detail (scan ou déplacement expiré ouvert au navigateur → « lien mal recopié » au lieu de « Scan introuvable. »), avec test ; alt de la capture Nouveautés « Page Page introuvable » ; docs/revues/L19-revue-ux.md:52-56 nomme L19/a-e au lieu de t1-t5", status: done }
-    review: { date: 2026-11-20, verdict: "conforme 20-11 r1 (b47f82e, t1 t3 t4 t5) : conforme, 1 mineur (test_revue_l19_suite.py:113-116 ne prouve pas que le bouton de l'état vide lance la relève) — tmp/revue-L19-r1.md", commit: b47f82e183d77bf8a957b111860efc4a6898482a }
-    ux: { date: 2026-11-20, verdict: "conforme 20-11 r1 (b47f82e) : 0 texte < 12 px, 0 défilement horizontal, 0 violation axe sur 16 couples page × largeur ; mineurs : anneau de focus de la case « Je confirme » 2,22:1 (règle antérieure 983e5e9), lignes vides « Règle 4/5 » affichées au Nettoyeur, lien « Tout afficher » 82×17 px (exception en ligne) — tmp/ux-L19-r1.md" }
+    review: { date: 2026-11-20, verdict: "conforme 20-11 t2 (c5d1992) : conforme, seuils 600/500 px et 44 px suivent la maquette, test de l'état vide prouvé par mutation — tmp/revue-L19-t2.md", commit: c5d1992a212e01a9e27ed30b7b1bbc0ed0823012 }
+    ux: { date: 2026-11-20, verdict: "conforme 20-11 t2 (c5d1992) : conforme à la maquette à 320/390/600/844×390/1440, axe 0 sur 5 états ; mineur : « sans ESN » (résumé) vs « Masquer ESN » (raccourci) ; hors lot : compteurs en paysage repoussent les filtres — tmp/ux-L19-t2.md" }
     notes:
       - { date: 2026-11-20, text: "t6 revue r1 conforme (42c0496) : detail échappé, test qui échoue sans le correctif, JSON Nouveautés à jour" }
       - { date: 2026-11-20, text: "20-11 Sylvain : maquette t2 (docs/maquettes/L19-t2-filtres-replies.html) validée « Oui, la coder » — run t2 lancé" }
+    finished: 2026-11-20
   - id: L20
     title: "Pastille Nouveautés : hauteur fixe de 17 px et interligne en px — le chiffre déborde quand le texte est agrandi à 200 % (WCAG 1.4.4) ; hauteur et interligne en em (suite de la revue de L8)"
     status: done
@@ -238,6 +239,13 @@ lots:
     ux: { date: 2026-11-20, verdict: "conforme (lead, captures 1024 et 1440 à 200 % et 1440 à 100 %) : libellé « Nouveautés » entier, pastille 9+ dessous à droite sans recouvrement (WCAG 1.4.4) ; mineur : à 200 % ce lien passe sur 3 lignes (icône, libellé, pastille) alors que les autres gardent l'icône à côté — irrégularité visuelle, non bloquante" }
     review: { date: 2026-11-20, verdict: "conforme : 0 bloquant, 0 majeur ; test d'intersection échoue sur l'ancien CSS (3 × 53×33 px à 200 %), aucune régression à 100/125 % (4 liens mesurés au pixel), JSON Nouveautés identique à cadence news build ; mineur : commentaire style.css:206-207 dit « à côté de l'icône » alors que le libellé passe dessous à 200 % (revue r1 du 20-11)", commit: baed9af472141e8f748f2be3bcf32d10f01e904f }
     finished: 2026-11-20
+  - id: L22
+    title: "Tableau de bord : le même filtre porte deux noms — « sans ESN » dans le résumé, « Masquer ESN » au raccourci et à l'option (Nielsen 4), relevé par la revue UX de L19/t2"
+    public: "Filtre ESN : un seul nom partout"
+    status: todo
+    estimate: 0.1
+    visible: true
+    created: 2026-11-20
 acknowledged:
   - { sha: 2451f61971a86025ad35b3fc833393a169f87b47, subject: "plan: visible: true sur les lots « Revue UX — » (règle raf check de cadence L271)", date: 2026-10-23, reason: "plan seul : pose visible: true sur les revues UX, cite un lot du dépôt cadence" }
   - { sha: 0e0502c8025fe78d3c5953d7940013fede6a736d, subject: "config: la documentation suit le code (docs.sync) et l'étude de cas du projet est déclarée (docs.articles) — outillage cadence, lead 24-10", date: 2026-10-24, reason: "réglage d'outillage cadence (docs.sync, docs.articles), pas un lot du projet — lead 24-10" }
