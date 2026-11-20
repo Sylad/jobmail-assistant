@@ -212,10 +212,11 @@ lots:
       - { id: t4, title: "Téléphone : le tableau des règles regex défile en largeur et la colonne Expéditeur est coupée", status: done }
       - { id: t5, title: "Nettoyeur : cases « Je confirme » à 13 px et en-tête « Backups Thunderbird » à 17 px de haut — cibles de 44 px visées", status: done }
       - { id: t6, title: "Page 404 : app.py:1090 ignore exc.detail (scan ou déplacement expiré ouvert au navigateur → « lien mal recopié » au lieu de « Scan introuvable. »), avec test ; alt de la capture Nouveautés « Page Page introuvable » ; docs/revues/L19-revue-ux.md:52-56 nomme L19/a-e au lieu de t1-t5", status: done }
-    review: { date: 2026-11-20, verdict: "conforme : t6 (42c0496) revu r1 le 20-11 — detail de la 404 échappé, test qui échoue sans le correctif, alt corrigé, JSON Nouveautés à jour", commit: 42c049671e7b9419905be6dfdaf921cdcc6473cc }
-    ux: { date: 2026-11-20, verdict: "conforme (lead, capture 390 de la page introuvable) : titre et explication en français, navigation présente, bouton de retour principal visible ; écarts plus larges en sous-lots t1-t5" }
+    review: { date: 2026-11-20, verdict: "conforme 20-11 r1 (b47f82e, t1 t3 t4 t5) : conforme, 1 mineur (test_revue_l19_suite.py:113-116 ne prouve pas que le bouton de l'état vide lance la relève) — tmp/revue-L19-r1.md", commit: b47f82e183d77bf8a957b111860efc4a6898482a }
+    ux: { date: 2026-11-20, verdict: "conforme 20-11 r1 (b47f82e) : 0 texte < 12 px, 0 défilement horizontal, 0 violation axe sur 16 couples page × largeur ; mineurs : anneau de focus de la case « Je confirme » 2,22:1 (règle antérieure 983e5e9), lignes vides « Règle 4/5 » affichées au Nettoyeur, lien « Tout afficher » 82×17 px (exception en ligne) — tmp/ux-L19-r1.md" }
     notes:
       - { date: 2026-11-20, text: "t6 revue r1 conforme (42c0496) : detail échappé, test qui échoue sans le correctif, JSON Nouveautés à jour" }
+      - { date: 2026-11-20, text: "20-11 Sylvain : maquette t2 (docs/maquettes/L19-t2-filtres-replies.html) validée « Oui, la coder » — run t2 lancé" }
   - id: L20
     title: "Pastille Nouveautés : hauteur fixe de 17 px et interligne en px — le chiffre déborde quand le texte est agrandi à 200 % (WCAG 1.4.4) ; hauteur et interligne en em (suite de la revue de L8)"
     status: done
