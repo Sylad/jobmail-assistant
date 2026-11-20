@@ -2,14 +2,17 @@
 {#
   L3/t1 — Offre introuvable (Nielsen 9 : aider à reconnaître l'erreur et à en sortir).
   Rendue avec le statut HTTP 404, dans le gabarit, à la place du JSON brut de FastAPI.
+  L19 : sert aussi d'erreur 404 pour toute adresse inconnue (nf_title / nf_text).
 #}
-{% block title %}Offre introuvable — JobMail{% endblock %}
+{% block title %}{{ nf_title | default("Offre introuvable") }} — JobMail{% endblock %}
 {% block content %}
 
 <section class="not-found" aria-labelledby="not-found-title">
-  <h1 id="not-found-title" class="page-header-title">Offre introuvable</h1>
+  <h1 id="not-found-title" class="page-header-title">{{ nf_title | default("Offre introuvable") }}</h1>
   <p class="not-found-text">
+    {%- if nf_text %} {{ nf_text }}{% else %}
     Cette offre n'existe pas ou plus : le lien est peut-être ancien, ou l'offre a été retirée de la base.
+    {%- endif %}
   </p>
   <a href="/" class="btn btn-primary not-found-back">
     <i class="ti ti-arrow-left" aria-hidden="true"></i> Retour au tableau de bord

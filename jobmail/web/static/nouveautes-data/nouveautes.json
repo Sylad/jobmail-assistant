@@ -3,6 +3,21 @@
   "generated": "2026-11-20 10:00",
   "entries": [
     {
+      "slug": "2026-11-20-une-page-claire-pour-une-adresse-inconnue",
+      "title": "Une page claire pour une adresse inconnue, et des textes gris plus lisibles",
+      "date": "2026-11-20",
+      "lots": [
+        "L19"
+      ],
+      "captures": [
+        "captures/L19-page-introuvable-telephone.png"
+      ],
+      "alts": [
+        "Page Page introuvable au téléphone : menu de l'application en haut, titre, phrase d'explication et bouton Retour au tableau de bord"
+      ],
+      "html": "<p>Une adresse qui n'existe pas affiche maintenant une page de JobMail, avec le menu, une phrase qui explique le problème et un bouton pour revenir au tableau de bord, au lieu d'un texte technique en anglais.</p>\n<ul><li>Les petites étiquettes des cartes du tableau de bord, les raccourcis du filtre et le message « Aucune offre » sont plus contrastés.</li><li>Le lien « Tout afficher » est souligné, et le lien « Retour au tableau de bord » de la fiche offre est plus facile à toucher.</li></ul>"
+    },
+    {
       "slug": "2026-11-20-le-libelle-nouveautes-reste-lisible-quand-le-texte-est-agrandi",
       "title": "Le libellé Nouveautés reste lisible quand le texte est agrandi",
       "date": "2026-11-20",

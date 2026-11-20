@@ -14,10 +14,12 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Query, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..cleaner import (
     CleanerError,
@@ -1084,6 +1086,29 @@ def create_app() -> FastAPI:
         name="news-data",
     )
     app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _html_not_found(request: Request, exc: StarletteHTTPException):
+        # L19 : une adresse inconnue ouverte dans le navigateur reçoit la page d'erreur de
+        # l'application (titre, langue, chemin de retour — Nielsen 9) au lieu du JSON brut
+        # {"detail": "Not Found"}. Les API, les fichiers statiques et les clients qui ne
+        # demandent pas de HTML gardent la réponse JSON de FastAPI.
+        wants_html = "text/html" in request.headers.get("accept", "")
+        api_path = request.url.path.startswith(("/api/", "/static/"))
+        if exc.status_code == 404 and request.method == "GET" and wants_html and not api_path:
+            return templates.TemplateResponse(
+                request,
+                "not_found.html",
+                {
+                    "provider": settings.llm_provider,
+                    "imap_enabled": settings.imap_enabled,
+                    "nf_title": "Page introuvable",
+                    "nf_text": "Cette adresse ne correspond à aucune page de JobMail : "
+                    "le lien est peut-être ancien ou mal recopié.",
+                },
+                status_code=404,
+            )
+        return await http_exception_handler(request, exc)
 
     @app.get("/", response_class=HTMLResponse)
     def dashboard(
