@@ -253,3 +253,54 @@ def test_pastille_nouveautes_contient_son_chiffre(page, base_url, width, font):
     )
     # Rendu à 100 % inchangé : la pastille garde ses 17 px ; elle grandit avec le texte.
     assert badge["height"] == pytest.approx(17 * font / 16, abs=0.5)
+
+
+# L21 — barre latérale (ordinateur, 1024 à 1440 px) : la pastille allumée « 9+ » ne recouvre
+# jamais le libellé « Nouveautés ». Le libellé garde sa taille de police (non rétréci) et son
+# texte reste entier dans le lien et dans la barre latérale (non masqué). La boîte du texte
+# (Range) est comparée à celle de la pastille : leur intersection doit être vide.
+SIDEBAR_BADGE = r"""
+(() => {
+  const link = document.querySelector('.sidebar [data-news-link]');
+  const label = link.querySelector('.nav-label');
+  const b = link.querySelector('[data-news-badge]');
+  b.classList.add('is-on');
+  b.textContent = '9+';
+  const range = document.createRange();
+  range.selectNodeContents(label);
+  const t = range.getBoundingClientRect();
+  const p = b.getBoundingClientRect();
+  const l = link.getBoundingClientRect();
+  const s = document.querySelector('.sidebar').getBoundingClientRect();
+  const nav = document.querySelector('.sidebar-nav').getBoundingClientRect();
+  return {
+    visible: !!link.getClientRects().length,
+    overlapX: Math.min(t.right, p.right) - Math.max(t.left, p.left),
+    overlapY: Math.min(t.bottom, p.bottom) - Math.max(t.top, p.top),
+    labelFont: parseFloat(getComputedStyle(label).fontSize),
+    rootFont: parseFloat(getComputedStyle(document.documentElement).fontSize),
+    labelClipped: label.scrollWidth - label.clientWidth,
+    outside: Math.max(t.right - l.right, l.left - t.left, p.right - l.right,
+                      p.bottom - l.bottom, t.right - nav.right, p.right - s.right),
+  };
+})()
+"""
+
+
+@pytest.mark.parametrize("width", [1024, 1280, 1440])
+@pytest.mark.parametrize("font", [16, 32])
+def test_pastille_ne_recouvre_pas_le_libelle_nouveautes(page, base_url, width, font):
+    _open(page, base_url, "/", width, font)
+    m = page.eval(SIDEBAR_BADGE)
+    assert m["visible"], f"barre latérale absente à {width} px"
+    assert m["rootFont"] == font, "la police émulée n'a pas pris"
+    where = f"à {width} px, police {font} px"
+    assert not (m["overlapX"] > 0 and m["overlapY"] > 0), (
+        f"{where} : la pastille recouvre le libellé Nouveautés "
+        f"({m['overlapX']:.0f} × {m['overlapY']:.0f} px)"
+    )
+    # Non rétréci : 13,5 px à 16 px de police (0.84375rem), proportionnel au texte agrandi.
+    assert m["labelFont"] == pytest.approx(13.5 * font / 16), "libellé rétréci"
+    # Non masqué : le texte tient dans sa boîte, dans le lien et dans la barre latérale.
+    assert m["labelClipped"] <= 0, f"{where} : libellé coupé de {m['labelClipped']} px"
+    assert m["outside"] <= 0.5, f"{where} : libellé ou pastille déborde de {m['outside']:.1f} px"

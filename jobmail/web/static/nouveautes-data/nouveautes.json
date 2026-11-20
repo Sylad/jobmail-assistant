@@ -1,7 +1,22 @@
 {
   "project": "jobmail-assistant",
-  "generated": "2026-11-19 12:00",
+  "generated": "2026-11-20 10:00",
   "entries": [
+    {
+      "slug": "2026-11-20-le-libelle-nouveautes-reste-lisible-quand-le-texte-est-agrandi",
+      "title": "Le libellé Nouveautés reste lisible quand le texte est agrandi",
+      "date": "2026-11-20",
+      "lots": [
+        "L21"
+      ],
+      "captures": [
+        "captures/L21-pastille-sous-le-libelle-texte-agrandi.png"
+      ],
+      "alts": [
+        "Barre latérale sur ordinateur avec le texte agrandi à 200 % : le libellé Nouveautés est entier et la pastille « 9+ » est passée à la ligne en dessous, sans le recouvrir"
+      ],
+      "html": "<p>Sur ordinateur, quand tu agrandis le texte à 200 %, la pastille qui compte les nouveautés non lues ne cache plus la fin du mot « Nouveautés ».</p>\n<ul><li>Le libellé garde sa taille ; la pastille passe à la ligne en dessous quand la place manque.</li><li>À la taille normale, la barre latérale ne change pas.</li></ul>"
+    },
     {
       "slug": "2026-11-19-la-pastille-nouveautes-suit-la-taille-du-texte",
       "title": "La pastille des Nouveautés suit la taille du texte",

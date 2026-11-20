@@ -198,6 +198,15 @@ h2 { font-size: 0.875rem; font-weight: 600; margin: 0 0 10px; }
 }
 
 .sidebar-nav-item i { font-size: 1.0625rem; flex-shrink: 0; }
+
+/* L21 : quand le texte est agrandi (200 %), « Nouveautés » et sa pastille ne tiennent plus
+   sur une ligne de la barre latérale (240 px) ; la pastille passe à la ligne, alignée à droite,
+   au lieu de recouvrir la fin du libellé, qui garde sa taille (WCAG 1.4.4). À 100 %, tout
+   tient sur une ligne : rendu inchangé. Le libellé ne se rétrécit pas sous son mot le plus
+   long (min-width: auto), il ne peut donc plus glisser sous la pastille ; sa base nulle le
+   garde à côté de l'icône (il se coupe aux espaces au lieu de passer sous l'icône). */
+.sidebar-nav-item { flex-wrap: wrap; row-gap: 4px; }
+.sidebar-nav-item .nav-label { flex: 1 1 0; min-width: auto; }
 .sidebar-nav-item.active i { color: var(--accent-light); }
 
 .sidebar-divider {
