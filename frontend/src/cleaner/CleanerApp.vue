@@ -868,7 +868,7 @@ function setMoveAllSummaryProgress(title: string): void {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(rule, index) in regexRules" :key="index">
+              <tr v-for="(rule, index) in regexRules" :key="index" :class="{ 'regex-rule-blank': !rule.sender_regex.trim() && !rule.subject_regex.trim() }">
                 <td data-label="Expéditeur"><input v-model="rule.sender_regex" type="text" placeholder="amazon|googleplay" :aria-label="`Regex expéditeur, ligne ${index + 1}`"></td>
                 <td data-label="Objet"><input v-model="rule.subject_regex" type="text" placeholder="promo|soldes|recommande" :aria-label="`Regex objet, ligne ${index + 1}`"></td>
               </tr>

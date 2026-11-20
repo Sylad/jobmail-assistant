@@ -186,8 +186,12 @@ def _open(page: _Page, base_url: str, path: str, width: int, font: int) -> None:
     page.send("Page.navigate", url=base_url + path)
     page.wait_for(f"location.pathname === {json.dumps(path)} && document.readyState === 'complete'")
     page.eval("document.fonts.ready.then(() => true)")
-    # Le panneau des backups est replié par défaut : on l'ouvre pour mesurer son bouton.
-    page.eval("document.querySelectorAll('details.backup-details').forEach(d => d.open = true)")
+    # Le panneau des backups est replié par défaut, comme les filtres du tableau de bord au
+    # téléphone (L19/t2) : on les ouvre pour mesurer leurs boutons et raccourcis.
+    page.eval(
+        "document.querySelectorAll('details.backup-details, details.filters-fold')"
+        ".forEach(d => d.open = true)"
+    )
 
 
 @pytest.mark.parametrize("width,font", CASES)

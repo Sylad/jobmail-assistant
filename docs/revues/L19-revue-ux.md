@@ -87,3 +87,22 @@ occupent encore ~340 px avant la liste : les compacter serait un autre sous-lot.
 Non vérifié ici : lecteur d'écran réel, texte agrandi à 200 % sur les nouveaux écrans (couvert
 seulement pour la barre latérale par `tests/test_texte_agrandi.py`), relève réelle lancée depuis
 le bouton de l'état vide (instance sans MBOX).
+
+## Sous-lot t2 codé, et deux mineurs de la revue r1 (2026-11-20)
+
+Maquette validée par Sylvain le 2026-11-20 (« Oui, la coder ») : repli aussi en paysage, raccourcis
+dans le repli. Mesures dans Chromium, instance de démonstration de 4 offres fictives, filtre
+`?min_score=7`. Tests : `tests/test_filtres_replies.py` (navigateur, 9 tests) et
+`tests/test_revue_l19_suite.py` (rendu et règles CSS).
+
+| Point | Avant | Après |
+|---|---|---|
+| t2 — titre « Offres détectées » | 390 × 844 : ~1 129 px | 664 px (1 266 px filtres ouverts) ; 1440 px : inchangé, en-tête « Filtres » absent |
+| t2 — en-tête « Filtres » | — | 44 px de haut, résumé à 12 px (« 1 actif : score ≥ 7 », « aucun actif »…) ; rendu ouvert puis refermé par script au téléphone (sans JavaScript, rien ne change) ; se rouvre si l'écran s'élargit |
+| t2 — cibles dans le repli ouvert | champs ~32 px, raccourcis ~28 px | 44 px au téléphone (repliés, ils ne repoussent plus la liste) |
+| r1 — Nettoyeur à 390 px | 3 règles sauvegardées montrées « Règle 1 » à « Règle 5 » | « Règle 1 » à « Règle 3 », puis « Ligne libre » pour les lignes vides |
+| r1 — bouton de l'état vide | test : deux chaînes cherchées dans `base.html` | vrai clic dans Chromium : la relève démarre côté serveur, les deux boutons passent « Analyse… », la ligne d'état de l'état vide suit |
+
+Aucun défilement horizontal à 320, 390, 840 et 1440 px ni en paysage 844 × 390, filtres repliés
+ou ouverts ; aucun texte visible sous 12 px. En paysage et à 320 × 700, les cartes de compteurs
+repoussent encore la liste sous le premier écran (compactage des cartes : autre sous-lot).

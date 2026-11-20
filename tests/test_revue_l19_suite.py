@@ -5,7 +5,9 @@ Mesures de départ (Chromium, instances de démonstration aux données fictives,
   après : aucun nœud texte sous 12 px sur les 8 pages, aux deux largeurs ;
 - t3 : base vide et sans filtre, « Aucune offre ne matche ce filtre. » ;
 - t4 : à 390 px, tableau des règles regex de 370 px dans un cadre de 318 (colonne Expéditeur coupée) ;
-- t5 : cases « Je confirme » de 13 × 13 px, en-tête « Backups Thunderbird » de 17 px de haut.
+- t5 : cases « Je confirme » de 13 × 13 px, en-tête « Backups Thunderbird » de 17 px de haut ;
+- t2 : à 390 px, 6 champs, 2 boutons et 7 raccourcis avant la liste (titre à 1 129 px) ; mesures
+  du repli en navigateur dans tests/test_filtres_replies.py.
 """
 from __future__ import annotations
 
@@ -13,6 +15,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from jobmail.db import connect, insert_email, upsert_offer
@@ -97,7 +100,7 @@ def test_t3_base_vide_renvoie_vers_nouveaux_mails(tmp_path):
     assert '<form id="refresh-form" method="post" action="/refresh"' in html
     assert re.search(r'<button type="submit" form="refresh-form" class="btn btn-primary">\s*<i[^>]*></i>\s*Nouveaux mails', html)
     assert "ne correspond à ces filtres" not in html
-    assert "matche" not in html
+    assert not re.search(r"\bmatche\b", html)
 
 
 def test_t3_filtre_trop_strict_propose_de_tout_afficher(tmp_path):
@@ -108,7 +111,7 @@ def test_t3_filtre_trop_strict_propose_de_tout_afficher(tmp_path):
     ) in html
     assert "Aucune offre pour l'instant." not in html
     assert 'form="refresh-form"' not in html
-    assert "matche" not in html
+    assert not re.search(r"\bmatche\b", html)
 
 
 def test_t3_tri_en_francais(tmp_path):
@@ -117,10 +120,8 @@ def test_t3_tri_en_francais(tmp_path):
     assert "· desc" not in html
 
 
-def test_t3_le_suivi_de_la_releve_vise_les_deux_boutons():
-    base = (WEB / "templates" / "base.html").read_text(encoding="utf-8")
-    assert 'document.querySelectorAll("[data-refresh-status]")' in base
-    assert "document.querySelectorAll(`button[form=\"${form.id}\"]`)" in base
+# Le bouton de l'état vide lance bien la relève : vrai clic dans Chromium,
+# tests/test_filtres_replies.py::test_le_bouton_de_l_etat_vide_lance_la_releve.
 
 
 # ── t4 : règles regex au téléphone ────────────────────────────────────────────────
@@ -168,14 +169,47 @@ def test_t5_en_tete_backups_de_44_px(tmp_path):
     assert '<details class="filters backup-panel backup-details">' in html
 
 
-# ── t2 : maquette seulement, rien dans l'application ─────────────────────────────
+# ── t2 : filtres repliés au téléphone (maquette validée par Sylvain le 2026-11-20) ──
 
 
-def test_t2_maquette_statique_sans_code_dans_l_application():
-    maquette = (ROOT / "docs" / "maquettes" / "L19-t2-filtres-replies.html").read_text(encoding="utf-8")
-    assert "non implémentée, pour avis" in maquette
-    assert 'class="filters filters-fold"' in maquette
-    assert "filters-fold" not in (WEB / "templates" / "dashboard.html").read_text(encoding="utf-8")
-    assert "filters-fold" not in CSS
-    # Données fictives seulement : aucune adresse mail dans la maquette.
-    assert not re.search(r"[\w.+-]+@[\w-]+\.[\w.]+", maquette)
+def test_t2_filtres_dans_un_bloc_repliable_rendu_ouvert(tmp_path):
+    html = _client(tmp_path, offers=1).get("/").text
+    # Rendu ouvert : sans JavaScript, rien ne change ; le script le referme au téléphone.
+    assert '<details class="filters filters-fold" open data-filters-fold>' in html
+    fold = html[html.index("<details class=\"filters filters-fold\""):html.index("</details>")]
+    assert '<form method="get" class="filter-form">' in fold
+    assert '<div class="quick-filters">' in fold
+    assert '<span class="filters-fold-active">aucun actif</span>' in fold
+    assert 'matchMedia("(max-width: 600px), (max-height: 500px)")' in html
+
+
+@pytest.mark.parametrize("query,expected", [
+    ("?min_score=7", "1 actif : score ≥ 7"),
+    ("?since_days=7&min_score=5", "2 actifs : 7 derniers jours, score ≥ 5"),
+    ("?status=new&techno=Python&sender=exemple.test&esn=hide",
+     "4 actifs : Nouvelle, Python, exemple.test, sans ESN"),
+    ("?esn=only", "1 actif : ESN seulement"),
+])
+def test_t2_le_resume_dit_quels_filtres_sont_actifs(tmp_path, query, expected):
+    html = _client(tmp_path, offers=1).get("/" + query).text
+    assert f'<span class="filters-fold-active">{expected}</span>' in html
+
+
+def test_t2_resume_affiche_seulement_au_telephone():
+    hors_media = re.sub(r"@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", CSS)
+    assert re.search(r"\.filters-fold > \.filters-fold-summary \{ display: none; \}", hors_media)
+    media = _media("max-width: 600px), (max-height: 500px")
+    summary = _rules(".filters-fold > .filters-fold-summary", media)[0]
+    assert "display: flex" in summary and "min-height: 44px" in summary
+    assert "font-size: 0.75rem" in _rules(".filters-fold-active", media)[0]
+
+
+# ── Revue UX r1 : les lignes vides du Nettoyeur ne sont pas des règles ───────────────
+
+
+def test_r1_ligne_vide_sans_numero_de_regle():
+    assert ":class=\"{ 'regex-rule-blank': !rule.sender_regex.trim() && !rule.subject_regex.trim() }\"" in VUE
+    assert "regex-rule-blank" in BUILT_JS  # build Vite à jour
+    media = _media("max-width: 600px")
+    assert "counter-increment: none" in _rules(".regex-rule-table tr.regex-rule-blank", media)[0]
+    assert 'content: "Ligne libre"' in _rules(".regex-rule-table tr.regex-rule-blank::before", media)[0]

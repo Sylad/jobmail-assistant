@@ -2237,6 +2237,10 @@ main.container:focus { outline: none; }
     border: 1px solid var(--border-soft);
     border-radius: var(--radius);
   }
+  /* L19 r1 : 5 lignes montrées pour 3 règles sauvegardées s'affichaient « Règle 4 », « Règle 5 ».
+     Seule une ligne remplie est une règle et prend un numéro ; une ligne vide est « Ligne libre ». */
+  .regex-rule-table tr.regex-rule-blank { counter-increment: none; }
+  .regex-rule-table tr.regex-rule-blank::before { content: "Ligne libre"; color: var(--fg-mute); }
   .regex-rule-table tr::before {
     content: "Règle " counter(regle);
     display: block;
@@ -2262,3 +2266,28 @@ main.container:focus { outline: none; }
 .offers-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 32px 16px; text-align: center; }
 .offers-empty p { margin: 0; }
 .offers-empty-title { color: var(--fg); font-size: 0.9375rem; font-weight: 600; }
+
+/* ── L19/t2 : filtres du tableau de bord repliés au téléphone (maquette L19-t2-filtres-replies) ──
+   À 390 px, 6 champs, 2 boutons et 7 raccourcis passaient avant la liste (titre à 1 129 px pour un
+   écran de 844) : sous 600 px de large ou 500 px de haut, ils passent derrière « Filtres ». */
+.filters-fold > .filters-fold-summary { display: none; }
+@media (max-width: 600px), (max-height: 500px) {
+  .filters.filters-fold { padding: 0; }
+  .filters-fold > .filters-fold-summary {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    min-height: 44px; padding: 6px 14px; cursor: pointer; list-style: none;
+    color: var(--fg); font-weight: 600;
+  }
+  .filters-fold > .filters-fold-summary::-webkit-details-marker { display: none; }
+  .filters-fold > .filters-fold-summary:focus-visible { outline: 2px solid var(--accent-pale); outline-offset: -2px; border-radius: var(--radius-lg); }
+  .filters-fold-title { flex-shrink: 0; }
+  .filters-fold-title::after { content: " ▸"; color: var(--accent-light); }
+  .filters-fold[open] .filters-fold-title::after { content: " ▾"; }
+  .filters-fold-active { min-width: 0; color: var(--accent-pale); font-size: 0.75rem; font-weight: 500; text-align: right; overflow-wrap: anywhere; }
+  .filters-fold[open] > :not(summary) { margin: 0 14px 14px; }
+  /* Repliés, champs et raccourcis ne repoussent plus la liste : cibles de 44 px au toucher. */
+  .filters-fold .filter-form select,
+  .filters-fold .filter-form input,
+  .filters-fold .filter-form .btn,
+  .filters-fold .chip-link { min-height: 44px; }
+}

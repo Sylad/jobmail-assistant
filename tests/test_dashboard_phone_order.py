@@ -17,7 +17,7 @@ def _stack(html: str) -> str:
 
 def test_le_document_met_la_liste_des_offres_avant_les_panneaux(tmp_path):
     stack = _stack(_client(tmp_path, [(9, "new")]).get("/").text)
-    marqueurs = ["page-header", "kpi-grid", 'class="filters"', "offers-wrap",
+    marqueurs = ["page-header", "kpi-grid", 'class="filters filters-fold"', "offers-wrap",
                  "Pont Thunderbird", "Analyse Ollama"]
     positions = [stack.find(x) for x in marqueurs]
     assert all(p >= 0 for p in positions), positions

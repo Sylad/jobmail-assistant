@@ -74,7 +74,25 @@
 {% endif %}
 
 {# ── Filters ── #}
-<section class="filters">
+{# L19/t2 : au téléphone (≤ 600 px de large, ou ≤ 500 px de haut), formulaire et raccourcis
+   passent derrière « Filtres », replié par défaut ; le résumé dit quels filtres sont actifs.
+   Rendu ouvert (sans JS, rien ne change) ; le script qui suit le referme au téléphone. #}
+{% set active_filters = [
+  current_status and current_status | status_fr,
+  current_techno,
+  current_sender,
+  current_since_days and current_since_days ~ " derniers jours",
+  current_min_score and "score ≥ " ~ current_min_score,
+  {"hide": "sans ESN", "only": "ESN seulement"}.get(current_esn),
+] | select | list %}
+<details class="filters filters-fold" open data-filters-fold>
+  <summary class="filters-fold-summary">
+    <span class="filters-fold-title"><i class="ti ti-filter" aria-hidden="true"></i> Filtres</span>
+    <span class="filters-fold-active">
+      {%- if active_filters %}{{ active_filters | length }} actif{{ 's' if active_filters | length > 1 }} : {{ active_filters | join(", ") }}
+      {%- else %}aucun actif{% endif -%}
+    </span>
+  </summary>
   <form method="get" class="filter-form">
     <label>
       Statut
@@ -142,7 +160,17 @@
     <a class="chip-link {% if current_esn == 'only' %}chip-link-active{% endif %}"
        href="?esn=only">ESN seulement</a>
   </div>
-</section>
+</details>
+<script>
+  (() => {
+    const fold = document.querySelector("[data-filters-fold]");
+    const phone = window.matchMedia("(max-width: 600px), (max-height: 500px)");
+    // Hors téléphone le résumé est masqué : le bloc doit y rester ouvert.
+    const sync = () => { fold.open = !phone.matches; };
+    sync();
+    phone.addEventListener("change", sync);
+  })();
+</script>
 
 {# ── Offers table ── #}
 <div class="offers-wrap">
