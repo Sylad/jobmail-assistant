@@ -217,13 +217,14 @@ lots:
   - id: L21
     title: "Barre latérale à 1024-1440 px, texte à 200 % : la pastille 9+ recouvre la fin du libellé Nouveautés (53 × 33 px, WCAG 1.4.4 ; antérieur à L20, aggravé de 7 px) — libellé non rétréci ou pastille à la ligne, test d'intersection dans test_texte_agrandi.py (revue UX de L20)"
     public: Le libellé Nouveautés reste lisible quand le texte est agrandi
-    status: doing
+    status: done
     estimate: 1
     visible: true
     created: 2026-11-19
     started: 2026-11-20
     ux: { date: 2026-11-20, verdict: "conforme (lead, captures 1024 et 1440 à 200 % et 1440 à 100 %) : libellé « Nouveautés » entier, pastille 9+ dessous à droite sans recouvrement (WCAG 1.4.4) ; mineur : à 200 % ce lien passe sur 3 lignes (icône, libellé, pastille) alors que les autres gardent l'icône à côté — irrégularité visuelle, non bloquante" }
     review: { date: 2026-11-20, verdict: "conforme : 0 bloquant, 0 majeur ; test d'intersection échoue sur l'ancien CSS (3 × 53×33 px à 200 %), aucune régression à 100/125 % (4 liens mesurés au pixel), JSON Nouveautés identique à cadence news build ; mineur : commentaire style.css:206-207 dit « à côté de l'icône » alors que le libellé passe dessous à 200 % (revue r1 du 20-11)", commit: baed9af472141e8f748f2be3bcf32d10f01e904f }
+    finished: 2026-11-20
 acknowledged:
   - { sha: 2451f61971a86025ad35b3fc833393a169f87b47, subject: "plan: visible: true sur les lots « Revue UX — » (règle raf check de cadence L271)", date: 2026-10-23, reason: "plan seul : pose visible: true sur les revues UX, cite un lot du dépôt cadence" }
   - { sha: 0e0502c8025fe78d3c5953d7940013fede6a736d, subject: "config: la documentation suit le code (docs.sync) et l'étude de cas du projet est déclarée (docs.articles) — outillage cadence, lead 24-10", date: 2026-10-24, reason: "réglage d'outillage cadence (docs.sync, docs.articles), pas un lot du projet — lead 24-10" }
