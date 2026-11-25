@@ -1,0 +1,14 @@
+{
+  "jobmail/cleaner/service.py|C901": 1,
+  "jobmail/cleaner/service.py|PLR0912": 3,
+  "jobmail/cleaner/service.py|PLR0913": 10,
+  "jobmail/cleaner/service.py|PLR0915": 1,
+  "jobmail/db.py|PLR0913": 1,
+  "jobmail/web/app.py|C901": 1,
+  "jobmail/web/app.py|PLR0913": 6,
+  "jobmail/web/app.py|PLR0915": 3,
+  "jobmail/web/plan_public.py|directive:noqa": 2,
+  "tests/conftest.py|directive:noqa": 1,
+  "tests/test_cleaner_web.py|PLR0913": 3,
+  "tests/test_texte_agrandi.py|PLR0913": 1
+}

@@ -21,3 +21,9 @@
 - Racine à 100 % : tout grandit avec la police du navigateur. À 300 px police 20, 320 et 390 px police 32 (200 %), aucun libellé n'est rogné ni hors de l'écran et aucune page (/, /cleaner, /nouveautes, /plan-de-travail) ne défile en largeur.
 - Décision : retour à la ligne ciblé, pas global (`.btn` reste `nowrap`) : « Ré-analyser avec Ollama » et « Nettoyer les anciens backups » (`white-space: normal; max-width: 100%`), raccourcis `.chip-link`, « Copier le lien », rangées `flex-wrap` (en-tête des cartes KPI, résumé des backups, en-tête des cartes de phase du nettoyeur, `min-width: 0`). Cartes KPI sur une colonne sous `18em` (seuil en em : 288 px à 16 px, donc rien ne change à la taille par défaut).
 - Test : `tests/test_texte_agrandi.py` lance Chromium (CDP par `websockets`, `Page.setFontSizes` + `Emulation.setDeviceMetricsOverride`) contre l'app de test ; sauté si aucun Chromium ne démarre (ici, celui de Playwright demande `libasound.so.2` : `LD_LIBRARY_PATH` vers une copie extraite du paquet). La CI (ubuntu-latest, google-chrome) le lance.
+
+## Analyse statique (L23, D-31 du registre parent, 2026-11-25)
+- `analyse:` de `cadence.yaml` déclare ruff (`ruff-json`) ; la porte de cadence run le joue après le build. Existant figé dans `.cadence/analyse/ruff.json` (33 : PLR0913 21, PLR0915 4, PLR0912 3, C901 2, `# noqa` 3) ; seules les violations nouvelles échouent.
+- Décision : seuils dans `ruff-analyse.toml` (C901 15, PLR0913 5 arguments, PLR0912/PLR0915 par défaut, plus E4/E7/E9/F), pas dans pyproject.toml : la doc de cadence interdit de mettre un manifeste de dépendances dans `configs:`. Le `ruff check .` ordinaire garde `[tool.ruff]` de pyproject. Changer un seuil = lot `config: true`.
+- Parité : la CI crée `.venv` et joue exactement `orchestrate.test` et le ruff de `orchestrate.build` (gardé par `tests/test_analyse_config.py`).
+- Pas encore couvert : le frontend Vue/TS (ESLint, vue-tsc), à adopter dans un lot à part.

@@ -29,3 +29,13 @@ orchestrate:
 # tests/test_plan_web.py cite l'ancien emplacement du plan à dessein : ce sont des assertions que la page publique n'expose AUCUN chemin (l’ancien dossier du plan), pas des lecteurs du plan. Le vrai chemin y est corrigé à la main (REAL_PLAN).
 migrate:
   keep: [tests/test_plan_web.py]
+
+# Analyse statique (L23, D-31 du registre parent ; cadence analyse, L801 de cadence) : la porte de cadence run la joue
+# après le build, avant les tests ; l'existant est figé dans .cadence/analyse/ruff.json, seules les violations nouvelles
+# échouent. Seuils dans ruff-analyse.toml (pas dans pyproject.toml : un manifeste de dépendances ne va pas dans configs).
+# Le frontend Vue/TS (ESLint, vue-tsc) n'est pas encore déclaré : à adopter dans un lot à part.
+analyse:
+  - name: ruff
+    command: .venv/bin/ruff check --config ruff-analyse.toml --output-format json --exit-zero .
+    format: ruff-json
+    configs: [ruff-analyse.toml]

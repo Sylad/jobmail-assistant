@@ -1,0 +1,19 @@
+# Seuils de l'analyse statique de cadence (`analyse:` de cadence.yaml, L23 / D-31).
+# Fichier à lui seul, nommé dans `configs:` : la doc de cadence interdit d'y mettre pyproject.toml
+# (tout lot qui ajouterait une dépendance serait refusé). Il ne sert qu'à `cadence analyse` :
+# le lint ordinaire (`ruff check .`, porte et CI) garde [tool.ruff] de pyproject.toml.
+# Changer un seuil ici est un lot `config: true` du plan.
+line-length = 100
+target-version = "py312"
+
+[lint]
+# E4, E7, E9, F : les règles du lint ordinaire (pyproject.toml), pour qu'un constat ignoré
+# là-bas par un `# noqa` reste compté ; plus la taille : complexité, branches, arguments, instructions.
+select = ["E4", "E7", "E9", "F", "C901", "PLR0912", "PLR0913", "PLR0915"]
+
+[lint.mccabe]
+max-complexity = 15
+
+[lint.pylint]
+# PLR0913 à 5 arguments ; PLR0912 (12 branches) et PLR0915 (50 instructions) à leur défaut.
+max-args = 5
