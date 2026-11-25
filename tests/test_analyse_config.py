@@ -159,3 +159,10 @@ def test_eslint_thresholds_are_cadence_ones_for_ts_and_vue():
             level = rules[name][0] if isinstance(rules[name], list) else rules[name]
             assert level not in (0, "off"), f"{name} éteint pour {file}"
             assert _max_option(rules[name]) == expected, f"{name} pour {file} : {rules[name]!r}"
+
+
+def test_frontend_baselines_are_frozen():
+    for name in ("eslint", "vue-tsc"):
+        baseline = ROOT / ".cadence" / "analyse" / f"{name}.json"
+        assert baseline.is_file(), baseline
+        json.loads(baseline.read_text(encoding="utf-8"))

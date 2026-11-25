@@ -1,0 +1,22 @@
+{
+  "frontend/src/cleaner.ts|@typescript-eslint/no-unsafe-argument": 1,
+  "frontend/src/cleaner.ts|@typescript-eslint/no-unsafe-argument|total": 1,
+  "frontend/src/cleaner.ts|@typescript-eslint/no-unsafe-assignment": 1,
+  "frontend/src/cleaner.ts|@typescript-eslint/no-unsafe-assignment|total": 1,
+  "frontend/src/cleaner/CleanerApp.vue|@typescript-eslint/no-base-to-string": 1,
+  "frontend/src/cleaner/CleanerApp.vue|@typescript-eslint/no-base-to-string|total": 1,
+  "frontend/src/cleaner/CleanerApp.vue|@typescript-eslint/no-unsafe-argument": 3,
+  "frontend/src/cleaner/CleanerApp.vue|@typescript-eslint/no-unsafe-argument|total": 3,
+  "frontend/src/cleaner/CleanerApp.vue|@typescript-eslint/no-unsafe-assignment": 9,
+  "frontend/src/cleaner/CleanerApp.vue|@typescript-eslint/no-unsafe-assignment|total": 9,
+  "frontend/src/cleaner/CleanerApp.vue|@typescript-eslint/no-unsafe-member-access": 11,
+  "frontend/src/cleaner/CleanerApp.vue|@typescript-eslint/no-unsafe-member-access|total": 11,
+  "frontend/src/cleaner/CleanerApp.vue|max-lines": 1,
+  "frontend/src/cleaner/CleanerApp.vue|max-lines|total": 1111,
+  "frontend/src/cleaner/CleanerApp.vue|sonarjs/cognitive-complexity": 2,
+  "frontend/src/cleaner/CleanerApp.vue|sonarjs/cognitive-complexity|total": 35,
+  "frontend/src/components/ui/button/Button.vue|vue/multi-word-component-names": 1,
+  "frontend/src/components/ui/button/Button.vue|vue/multi-word-component-names|total": 1,
+  "frontend/src/components/ui/progress/Progress.vue|vue/multi-word-component-names": 1,
+  "frontend/src/components/ui/progress/Progress.vue|vue/multi-word-component-names|total": 1
+}
