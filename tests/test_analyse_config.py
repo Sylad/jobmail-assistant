@@ -6,7 +6,9 @@ Ce que le test garde :
   tout ajout de dépendance serait refusé) ;
 - les seuils sont ceux de cadence : C901 à 15, PLR0913 à 5 arguments, PLR0912 / PLR0915 actifs ;
 - la base figée existe (`.cadence/analyse/ruff.json`) ;
-- la CI joue exactement les commandes de la porte (orchestrate.test et le ruff de orchestrate.build).
+- la CI joue exactement les commandes de la porte (orchestrate.test et le ruff de orchestrate.build) ;
+- L24 : ESLint et vue-tsc déclarés pour frontend/ (`dir: frontend`), outils en devDependencies, seuils de
+  taille de cadence effectifs sur un .ts et un .vue (`eslint --print-config`, sauté sans node_modules).
 """
 
 from __future__ import annotations
@@ -79,3 +81,81 @@ def test_ci_plays_the_gate_commands():
     # Plus de commande de test ou de lint que la porte ne jouerait pas.
     assert "pytest -q" not in runs
     assert "ruff check ." not in runs
+
+
+# --- L24 : le frontend Vue/TS (ESLint aux seuils de cadence, vue-tsc), existant figé ---------------
+
+FRONTEND = ROOT / "frontend"
+ESLINT_THRESHOLDS = {
+    "max-lines": 400,
+    "max-lines-per-function": 80,
+    "max-depth": 4,
+    "max-params": 5,
+    "complexity": 15,
+    "sonarjs/cognitive-complexity": 15,
+}
+
+
+def _entry(name: str) -> dict:
+    entries = _cadence().get("analyse") or []
+    assert isinstance(entries, list), "analyse: est une liste directe (pas de sous-clé tools:)"
+    found = [e for e in entries if e.get("name") == name]
+    assert len(found) == 1, f"une entrée {name} attendue dans analyse:, trouvé {entries!r}"
+    return found[0]
+
+
+def test_frontend_tools_declared_in_frontend_dir():
+    eslint = _entry("eslint")
+    assert eslint["dir"] == "frontend"
+    assert eslint["format"] == "eslint-json"
+    assert eslint["configs"] == ["frontend/eslint.config.mjs"]
+    assert "-f json" in eslint["command"]
+    assert (FRONTEND / "eslint.config.mjs").is_file()
+
+    vue_tsc = _entry("vue-tsc")
+    assert vue_tsc["dir"] == "frontend"
+    assert vue_tsc["format"] == "tsc"
+    assert "vue-tsc --noEmit --pretty false" in vue_tsc["command"]
+    for entry in (eslint, vue_tsc):
+        # Un manifeste de dépendances ne va jamais dans configs (doc de cadence, analyse.md).
+        assert not any(c.endswith("package.json") for c in entry.get("configs", [])), entry
+
+
+def test_frontend_lint_dependencies_are_dev_only():
+    pkg = json.loads((FRONTEND / "package.json").read_text(encoding="utf-8"))
+    dev = pkg.get("devDependencies", {})
+    for name in ("eslint", "typescript-eslint", "eslint-plugin-vue", "eslint-plugin-sonarjs"):
+        assert name in dev, name
+        assert name not in pkg.get("dependencies", {}), name
+
+
+def _resolved_rules(file: str) -> dict:
+    """Règles effectives d'ESLint pour un fichier (sauté sans node_modules : la CI n'installe pas le frontend)."""
+    import shutil
+    import subprocess
+
+    import pytest
+
+    eslint = FRONTEND / "node_modules" / ".bin" / "eslint"
+    if not eslint.exists() or shutil.which("node") is None:
+        pytest.skip("frontend/node_modules absent : npm --prefix frontend ci")
+    out = subprocess.run(
+        [str(eslint), "--print-config", file],
+        cwd=FRONTEND, capture_output=True, text=True, check=True,
+    ).stdout
+    return json.loads(out)["rules"]
+
+
+def _max_option(rule) -> object:
+    option = rule[1] if isinstance(rule, list) and len(rule) > 1 else None
+    return option.get("max") if isinstance(option, dict) else option
+
+
+def test_eslint_thresholds_are_cadence_ones_for_ts_and_vue():
+    for file in ("src/cleaner/cleaner-core.ts", "src/cleaner/CleanerApp.vue"):
+        rules = _resolved_rules(file)
+        for name, expected in ESLINT_THRESHOLDS.items():
+            assert name in rules, f"{name} absent pour {file}"
+            level = rules[name][0] if isinstance(rules[name], list) else rules[name]
+            assert level not in (0, "off"), f"{name} éteint pour {file}"
+            assert _max_option(rules[name]) == expected, f"{name} pour {file} : {rules[name]!r}"

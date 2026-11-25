@@ -33,9 +33,20 @@ migrate:
 # Analyse statique (L23, D-31 du registre parent ; cadence analyse, L801 de cadence) : la porte de cadence run la joue
 # après le build, avant les tests ; l'existant est figé dans .cadence/analyse/ruff.json, seules les violations nouvelles
 # échouent. Seuils dans ruff-analyse.toml (pas dans pyproject.toml : un manifeste de dépendances ne va pas dans configs).
-# Le frontend Vue/TS (ESLint, vue-tsc) n'est pas encore déclaré : à adopter dans un lot à part.
+# Frontend Vue/TS (L24) : ESLint (typescript-eslint typé, eslint-plugin-vue essential, sonarjs) aux seuils de cadence dans
+# frontend/eslint.config.mjs, et vue-tsc ; tous deux joués dans frontend/, bases .cadence/analyse/{eslint,vue-tsc}.json.
 analyse:
   - name: ruff
     command: .venv/bin/ruff check --config ruff-analyse.toml --output-format json --exit-zero .
     format: ruff-json
     configs: [ruff-analyse.toml]
+  - name: eslint
+    dir: frontend
+    command: npx eslint -f json .
+    format: eslint-json
+    configs: [frontend/eslint.config.mjs]
+  - name: vue-tsc
+    dir: frontend
+    command: npx vue-tsc --noEmit --pretty false
+    format: tsc
+    configs: [frontend/tsconfig.json]
